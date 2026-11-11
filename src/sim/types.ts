@@ -64,6 +64,8 @@ export interface Enemy {
   work: number;
   /** Per-enemy phase offset for wobble. */
   seed: number;
+  /** True for an enemy called by the noise of work. It drops no scrip. */
+  called: boolean;
 }
 
 /** A player shot. */
@@ -127,6 +129,8 @@ export interface ResNode {
   tickAcc: number;
   /** True once this node has grown back this wave (Seed corn). */
   regrown: boolean;
+  /** Work done since this node last called a pack. */
+  noise: number;
 }
 
 export const HZ_RING = 0, HZ_SHARD = 1;
@@ -192,6 +196,14 @@ export interface Player {
   piercePct: number; bouncePct: number;
   /** Count of each weapon class held: edge, blunt, shot, tool. */
   classCount: Int32Array;
+  /** Copies held of each weapon, indexed like WEAPONS. */
+  copies: Int32Array;
+  /** True while two or more weapons are held and all share a class. */
+  pure: boolean;
+  /** Weapon slots not in use. */
+  emptySlots: number;
+  /** Extra pierces every shot gets from the Shot set. */
+  setPierce: number;
   maxHp: number;
   /** Derived each tick from stat[]. */
   mendPerSec: number;
@@ -225,6 +237,8 @@ export interface Offer {
   sold: boolean;
   /** Set for item offers. */
   item: ItemSpec | null;
+  /** True for the commission: the extra late offer, always tier 3 or 4, that a reroll does not replace. */
+  commission?: boolean;
 }
 
 export interface UpgradeChoice { stat: StatId; tier: number; value: number }
@@ -244,6 +258,10 @@ export interface Bench {
   mule: boolean;
   /** Scrip paid as interest on arriving at this bench. */
   interestPaid: number;
+  /** Fusions left at this bench that cost no raws (Tinker). */
+  freeFuses: number;
+  /** Fusions paid for at this bench so far. Each one makes the next dearer. */
+  fuses: number;
 }
 
 export type EventType =
@@ -267,6 +285,8 @@ export interface RunOptions {
   stations?: Partial<Record<StationId, number>>;
   /** Starting weapon id; defaults to the character's. */
   startWeapon?: string;
+  /** Hazard level 0-5. 0 is the standard game; each level adds one rule (HAZARD_RULES). */
+  hazard?: number;
 }
 
 export interface Grid {
@@ -280,6 +300,10 @@ export interface Grid {
 export interface Run {
   seed: number;
   character: CharacterId;
+  /** Hazard level 0-5. */
+  hazard: number;
+  /** True once Old Tusk has risen again (hazard 5). */
+  bossRose: boolean;
   totalWaves: number;
   /** Standard wave number used for each wave's composition. */
   plan: readonly number[];

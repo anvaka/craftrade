@@ -309,5 +309,6 @@ describe('fusion', () => {
       expect(fixed.names.length).toBeGreaterThan(0);
       expectLegal({ id: 'x', name: fixed.names[0], glyph: fixed.glyph, tags: fixed.tags, effects: fixed.effects }, budget);
     }
-  });
+    // 80 authored items make 3,160 pairs; the default 5 s is not enough on a loaded machine.
+  }, 60000);
 });

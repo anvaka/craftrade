@@ -6,7 +6,7 @@ import { emptyRaws, RAWS, STATS, type RawBag } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import {
   ARENA_H, ARENA_W, DT, GRID_CELL, MAX_ENEMIES, MAX_ESHOTS, MAX_EVENTS, MAX_HAZARDS, MAX_NODES, MAX_PICKUPS,
-  MAX_SHOTS, PLAYER_BASE_HP,
+  MAX_HAZARD, MAX_SHOTS, PLAYER_BASE_HP,
 } from './data/tuning.ts';
 import { WAVE_PLAN, WAVES } from './data/waves.ts';
 import { SOURCE_COUNT, SOURCE_IDS, WEAPON_INDEX } from './data/weapons.ts';
@@ -26,7 +26,7 @@ const fill = <T>(n: number, make: () => T): T[] => Array.from({ length: n }, mak
 const newEnemy = (): Enemy => ({
   alive: false, uid: 0, type: 0, x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0, hp: 0, maxHp: 0, dmg: 0, r: 0, state: 0,
   t: 0, t2: 0, t3: 0, dx: 1, dy: 0, tx: 0, ty: 0, burnDps: 0, burnT: 0, slowT: 0, slowF: 0, flash: 0, n: 0,
-  loot0: 0, loot1: 0, loot2: 0, loot3: 0, work: 0, seed: 0,
+  loot0: 0, loot1: 0, loot2: 0, loot3: 0, work: 0, seed: 0, called: false,
 });
 const newShot = (): Shot => ({
   alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, dmg: 0, src: 0, r: 5, life: 0, pierce: 0, bounce: 0,
@@ -34,7 +34,7 @@ const newShot = (): Shot => ({
 });
 const newEShot = (): EShot => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, dmg: 0, r: 0, life: 0, type: 0, owner: -1, ownerUid: 0 });
 const newPickup = (): Pickup => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, kind: 0, value: 0, pulled: false, claimed: -1 });
-const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, work: 0, need: 1, working: false, tickAcc: 0, regrown: false });
+const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, work: 0, need: 1, working: false, tickAcc: 0, regrown: false, noise: 0 });
 const newHazard = (): Hazard => ({ alive: false, kind: 0, x: 0, y: 0, r0: 0, r1: 0, t: 0, dur: 0, dmg: 0, type: 0, owner: -1, ownerUid: 0 });
 const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0 });
 
@@ -52,7 +52,7 @@ export function createRun(opts: RunOptions): Run {
   let relics = 0;
   const kit = (opts.kit ?? []).slice(0, KIT_SLOTS).filter((k) => k.relic !== true || (Object.hasOwn(RELIC, k.id) && ++relics === 1));
   const run: Run = {
-    seed: opts.seed >>> 0, character: ch.id, totalWaves, plan: WAVE_PLAN[totalWaves],
+    seed: opts.seed >>> 0, character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
     stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1, ...(opts.stations ?? {}) },
     rng: seedStreams(opts.seed), tick: 0, phase: 'wave', wave: 0, waveTime: 0, waveSeconds: 0, wavesCleared: 0, won: false,
     player: {
@@ -60,7 +60,7 @@ export function createRun(opts: RunOptions): Run {
       hp: PLAYER_BASE_HP, shield: 0, iframes: 0, level: 1, xp: 0, xpNext: xpForLevel(1), scrip: 0, bank: 0,
       raws: emptyRaws(), weapons: [makeWeapon(start, 1)], items: kit.slice(), itemKit: kit.map(() => true),
       base, stat: new Float64Array(STATS.length), sp: new Float64Array(SPECIAL_COUNT), flat: new Float64Array(STATS.length),
-      piercePct: 0, bouncePct: 0, classCount: new Int32Array(4),
+      piercePct: 0, bouncePct: 0, classCount: new Int32Array(4), copies: new Int32Array(SOURCE_COUNT), pure: false, emptySlots: 0, setPierce: 0,
       maxHp: PLAYER_BASE_HP, mendPerSec: 0, takenMul: 1, dodge: 0, moveSpeed: 0, dmgMul: 1, rateMul: 1, critChance: 0,
       workRate: 1, magnetR: 0, knockAdd: 0, secondWindUsed: false, secondLifeUsed: false, workingNode: -1,
     },
@@ -69,7 +69,7 @@ export function createRun(opts: RunOptions): Run {
     nodes: fill(MAX_NODES, newNode), hazards: fill(MAX_HAZARDS, newHazard),
     events: { list: fill(MAX_EVENTS, newEvent), n: 0, dropped: 0 },
     grid: { cols, rows, start: new Int32Array(cols * rows + 1), items: new Int16Array(MAX_ENEMIES), fill: new Int32Array(cols * rows) },
-    bench: { index: 0, picks: 0, choices: [], offers: fill(BENCH_OFFERS, newOffer), rerolls: 0, freeReroll: false, mule: false, interestPaid: 0 },
+    bench: { index: 0, picks: 0, choices: [], offers: fill(BENCH_OFFERS, newOffer), rerolls: 0, freeReroll: false, mule: false, interestPaid: 0, freeFuses: 0, fuses: 0 },
     eliteIdx: -1, lanes: new Float64Array(16), laneCount: 0,
     groupNext: new Float64Array(Math.max(...WAVES.map((w) => w.groups.length))),
     eliteSpawned: false, burstQ: new Float64Array(64 * 3), burstN: 0, nextUid: 1, bossDead: false,

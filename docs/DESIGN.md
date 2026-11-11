@@ -70,8 +70,9 @@ Keyboard (WASD / arrows) or a touch stick.
 
 Enemies drop scrip. Scrip is both money and experience, as in Brotato.
 XP to next level = (level + 3)^2. Each level gives +1 Max HP and one
-upgrade pick at the bench. Scrip left on the ground at wave end is banked
-and pays double on later pickups until repaid.
+upgrade pick at the bench. Of the scrip left on the ground at wave end, 60%
+is swept to the purse at once; the rest is banked and pays double on later
+pickups until repaid.
 
 ### 3.3 Nodes and raws
 
@@ -79,9 +80,24 @@ Three node types stand in the clearing: **trees** (timber), **ore seams**
 (ore), **carcasses** (hide). Standing inside a node's work ring works it;
 you keep firing while you work. Work rate = 1 + Harvest/20, doubled if you
 hold the matching tool. A node takes about 3 s at base rate and bursts into
-raw pickups. Nodes are placed toward the edges and near enemy spawn lanes,
-so the good ones cost you position. Richer nodes (more raws, longer work)
-appear from wave 5.
+3 raw pickups. Nodes stand 130-300 px inside a lane mouth. Rich nodes
+(8 raws, 6 s of work) appear from wave 3 and stand in the mouth itself,
+70-160 px in.
+
+Working is a trade of safety for raws, and the first two waves are exempt
+so a new player can learn it in peace. From wave 3:
+
+- **Work is loud.** Every unit of work calls a pack from the nearest lane
+  mouth: 3 + wave/2 gnats, and a burrower with them from wave 5. What work
+  calls up carries no scrip.
+- **Head down.** A hit taken while working lands twice as hard.
+- **A job started is a job to finish.** Work on a node left alone drains at
+  half a unit a second.
+
+Measured (default bot, 200 seeds): damage taken per second is higher at a
+node than away from one, and a build that never works a node still wins,
+because a recipe's missing raws can be bought (3.8). See
+`docs/critique/depth-after.md` for the numbers.
 
 Tools are weapons. They take a weapon slot, fight worse than a pure weapon
 of the same tier, and double work rate on their node: hatchet for trees,
@@ -105,9 +121,9 @@ Thirteen stats. Every one must have a build that wants it.
 | Stat | Effect |
 |---|---|
 | Max HP | Health. |
-| Mend | HP per second: 0.2 for the first point, +0.09 after. |
-| Armor | Damage taken = 1 / (1 + armor/15). |
-| Dodge | Chance to avoid a hit, cap 60%. |
+| Mend | HP per second: 0.25 for the first point, +0.14 after. |
+| Armor | Damage taken = 1 / (1 + armor/20). Thorns and the recoil blast grow by a twelfth per point. |
+| Dodge | Chance to avoid a hit, cap 60%. A dodge gives the same grace as a hit (0.75 s). |
 | Speed | Move speed %. |
 | Damage | All damage %. |
 | Melee | Flat damage for melee weapons, scaled per weapon. |
@@ -116,39 +132,61 @@ Thirteen stats. Every one must have a build that wants it.
 | Crit | Crit chance %, crits deal x2. |
 | Reach | Weapon range. Melee gets half. |
 | Harvest | Work rate, and +1 raw per node for every 10 points. |
-| Luck | Rarity of bench offers and upgrade picks. |
+| Luck | Rarity of bench offers and upgrade picks, and a third of a percent per point that a kill drops double scrip. |
 
-Against a pure-damage meta: enemy threat comes from behaviour (charges,
-spit, theft, burrowing), not from health inflation; several weapons and
-effects scale with Armor, Max HP, Harvest, Speed or raws held.
+Damage taken is not rounded. Base Max HP is 16 and a hit gives 0.75 s of
+grace.
+
+Against a pure-damage meta: several weapons scale with Armor, Max HP, Reach
+or Harvest, and eleven conversion effects turn Armor, Max HP, Speed, Dodge,
+Harvest, Luck, held scrip, a matched set of weapons or empty weapon slots
+into damage or rate (section 4.1). Each has authored items at every tier, so
+a build can be made around any of them.
 
 ### 3.6 Weapons
 
-Six slots. Two of the same weapon and tier combine into the next tier
-(up to 4). Classes give a small set bonus at 2/4/6 held.
+Six slots. Copies of one weapon are held side by side, and each copy adds
+4% damage to every other copy of it. Two of the same weapon and tier can be
+combined into the next tier (up to 4) at the bench, which frees a slot;
+buying a twin with full hands combines at once. A held weapon can also be
+raised a tier for scrip (3.8). Classes give a set bonus at 2/4/6 held.
 
 | Weapon | Class | Notes |
 |---|---|---|
-| Hatchet | Edge, Tool | Sweep. Works trees x2. |
-| Pick | Blunt, Tool | Thrust. Works seams x2. |
-| Skinning knife | Edge, Tool | Fast, high crit. Works carcasses x2. |
+| Hatchet | Edge, Tool | Sweep. Works trees x2. Scales with Harvest. |
+| Pick | Blunt, Tool | Thrust. Works seams x2. Scales with Harvest. |
+| Skinning knife | Edge, Tool | Fast, high crit. Works carcasses x2. Scales with Harvest. |
 | Maul | Blunt | Slow, wide, heavy knockback. Scales with Max HP. |
 | Pike | Edge | Long thrust. Scales with Reach. |
 | Sling | Shot | Cheap, fast, weak. |
 | Bow | Shot | Pierces 1. |
 | Musket | Shot | Slow, heavy, pierces 2. |
-| Throwing axe | Edge, Shot | Bounces 1. Scales with Melee and Ranged. |
-| Firebrand | Blunt | Sweep that sets burn. |
-| Bola | Shot | Low damage, slows. |
-| Buckler | Blunt | Short bash. Scales with Armor. |
+| Throwing axe | Edge, Shot | Bounces 2. Scales with Melee and Ranged. |
+| Firebrand | Blunt | Wide sweep that sets burn. Burn grows with Damage (so does burn from items). |
+| Bola | Shot | Slows, pierces 1. A slowed enemy takes 25% more damage from everything. |
+| Buckler | Blunt | Short bash. Gives Armor. Scales with Armor and Max HP. |
 
-Set bonuses: Edge +crit, Blunt +knockback and Max HP, Shot +reach,
-Tool +harvest.
+Set bonuses at 2 / 4 / 6:
+
+| Class | Bonus |
+|---|---|
+| Edge | +3 / 7 / 12% Crit, +0 / 1 / 3 Melee |
+| Blunt | +3 / 8 / 15 Max HP, +1 / 2 / 4 Armor, +3 / 6 / 10 knockback |
+| Shot | +15 / 35 / 60 Reach, +0 / 1 / 3 Ranged, every shot pierces 1 / 2 / 3 more |
+| Tool | +6 / 12 / 20 Harvest, +0 / 5 / 10% Damage |
+
+The bench leans toward what is held (3.8). Measured: a player who buys only
+one class holds 5.3 to 5.9 of it at the bench after wave 8, and one who buys
+only one weapon holds 5.0 to 5.1 copies.
 
 ### 3.7 Enemies
 
-Health = base + perWave x (wave - 1), linear, as in the genre. Each enemy
-is defined by what it makes you do.
+Health = (base + perWave x (wave - 1)) x a late-wave multiplier that is 1
+through wave 5 and climbs to 2.1 by wave 12 (`WAVE_HP`); damage has its own
+(1 through wave 6, 1.6 by wave 12, `WAVE_DMG`). The early waves are flat so
+that a first run reaches wave 4 or 5; the late ones climb because a build's
+damage grows far faster than linear health. Each enemy is defined by what
+it makes you do.
 
 | Enemy | From wave | Behaviour |
 |---|---|---|
@@ -157,11 +195,11 @@ is defined by what it makes you do.
 | Boar | 3 | Paws the ground (0.7 s tell), then charges in a line. |
 | Spitter | 4 | Keeps distance, lobs slow shots. |
 | Magpie | 4 | Ignores you, grabs scrip and raws off the ground and runs for the treeline. Kill it to get them back. |
-| Burrower | 5 | Surfaces next to a node you are working. |
+| Burrower | 5 | Surfaces next to a node you are working. Work calls one up from wave 5. |
 | Brute | 7 | Slow, tough, ground slam with a visible ring. |
 | Stag (elite, wave 6) | - | Charges, leaves antler shards that linger. |
 | Rotwood (elite, wave 9) | - | A walking tree. Sheds mites. Can be worked like a node while it lives. |
-| Old Tusk (boss, wave 12) | - | Three phases: charge, summon, slam rings. |
+| Old Tusk (boss, wave 12) | - | Three phases: charge, summon, slam rings. About 15,600 health in wave 12. |
 
 Live enemy cap 300. Enemy shots are the only madder-coloured round shapes
 on screen.
@@ -172,17 +210,45 @@ After every wave. No timer.
 
 1. **Upgrades.** One pick of 4 per level gained, each raising one stat, tier I-IV.
 2. **Offers.** Four recipes. Each is a weapon or an item with a price in scrip
-   and usually one or two raws. Price = floor((base + wave + 0.1 x base x wave) x modifiers).
-   Offers are 65% item / 35% weapon; the first two benches show 2 weapons + 2 items.
-   Weapon offers lean toward what you hold (20% same weapon, 15% same class).
-   Rarity: tier 2 from bench 2, tier 3 from bench 4, tier 4 from bench 8; caps 60 / 25 / 8%, scaled by Luck.
-3. **Reroll.** First reroll floor(0.5 x wave) + 1, each further one + max(1, floor(0.4 x wave)). Resets each bench. Buying all four gives one free reroll.
-4. **Lock.** Free. A locked offer stays and its price freezes.
-5. **Scrap.** Sell a weapon or item for 25% of its current price.
-6. **Fuse.** See below.
+   and usually one or two raws. Price = floor((base + wave + 0.1 x base x wave) x modifiers),
+   and a tenth dearer for every bench past 6.
+   The first offer is the rack: always a weapon, and it leans hard toward what you hold
+   (55% a weapon you hold, 35% one of a class you hold). The other three are 65% item / 35% weapon
+   (30% same weapon, 30% same class); the first two benches show 2 weapons + 2 items.
+   The rack at bench 1 is always a weapon the player can pay for.
+   Rarity: tier 2 from bench 2, tier 3 from bench 4, tier 4 from bench 8; caps 60 / 30 / 15%, scaled by Luck.
+3. **Missing raws.** A recipe never locks for want of raws. Each raw the player is short of is
+   charged in scrip at 2 + bench number. Dear early, a sink late. The same holds for fusions and tier-ups.
+4. **The commission.** From bench 5 there is one more offer: always a tier 3 or tier 4 item,
+   at 1.35 times its price. A reroll does not replace it and it cannot be locked.
+5. **Reroll.** First reroll floor(0.5 x wave) + 1; each further one adds max(1, floor(0.4 x wave))
+   and then costs a third more than the last. Resets each bench. Buying all four gives one free reroll.
+6. **Lock.** Free. A locked offer stays and its price freezes.
+7. **Tier up.** Raise a held weapon one tier for 80% of the next tier's price and one set of its raws.
+   A tier opens at the bench where offers can first roll it (2, 4, 8).
+8. **Combine.** Merge two held twins into one weapon of the next tier. Frees a slot.
+9. **Scrap.** Sell a weapon or item for 25% of its current price.
+10. **Fuse.** See below.
 
-Items do not take slots. About 40 authored items at launch, each with a
+Items do not take slots. 80 authored items (25 / 25 / 20 / 10 by tier), each with a
 clear effect in the fixed vocabulary, most with a cost as well as a gain.
+
+### 3.9 Hazard
+
+`createRun({ hazard })` takes a level 0 to 5. Level 0 is the game as described
+and is the default. Each level keeps the rules below it and adds one, and
+trims enemy health and spawn pace so the ladder falls evenly.
+
+| Level | Rule | Enemy health | Default bot, Greenhorn, 200 seeds |
+|---|---|---|---|
+| 0 | The standard game | x1 | HZ0 |
+| 1 | Early elites: the stag also comes in wave 5 and the rotwood in wave 8, and neither early one carries scrip | x1.37 | HZ1 |
+| 2 | Lean nodes: every node holds 1 less | x1.40 | HZ2 |
+| 3 | No rest: a new wave mends only half of what is missing | x1.45 | HZ3 |
+| 4 | Volleys: spitters spit three at a time, each at 70% | x1.45 | HZ4 |
+| 5 | Old Tusk gets up: the boss rises once more at half health | x1.50 | HZ5 |
+
+The pause panel names the level and its rules in one line.
 
 ## 4. Fusion: the one LLM mechanic
 
@@ -198,9 +264,9 @@ rule; different items merge by meaning.
 ### 4.1 Rules
 
 - An item is a name, a tier (1-4), tags, and up to 3 effects plus at most 1 drawback.
-- An effect is a primitive from a fixed vocabulary (37) at a level 1-5.
+- An effect is a primitive from a fixed vocabulary (48: 13 stats, 24 specials, 11 conversions) at a level 1-5.
   A versioned price table in code turns (primitive, level) into points and into numbers.
-- Fusion budget = round((points(A) + points(B)) x 1.12). The result's tier follows from its budget.
+- Fusion budget = round((points(A) + points(B)) x 1.4), at most 110 points. The result's tier follows from its budget. A fused item carries no drawback unless the model gives it one.
 - The model receives the two items and the budget. It returns three candidate
   names and a list of (primitive, level) picks that suits the pair. Nothing a
   player typed reaches the model.
@@ -212,13 +278,34 @@ rule; different items merge by meaning.
 - Recipe key = hash(ruleset version, sorted input item ids). Item id = hash of
   the repaired spec, so different pairs can converge on one item.
 - Tier 4 results are finished: they cannot be fused again.
-- In a run, a fusion costs raws by output tier (for example tier 2: 3 timber, 2 ore, 2 hide) and, for a pair nobody has tried, takes a second or two.
+- In a run, the first fusion at a bench costs raws by output tier (tier 1: 1 timber; tier 2: 1 timber, 1 ore; tier 3: 2, 1, 1; tier 4: 2, 2, 2). Each further fusion at the same bench costs one more set, so a bench is for one or two fusions, not eight. Raws that are missing are charged in scrip. A pair nobody has tried takes a second or two.
 - In town, the workshop does the same from your stash.
 - Each account gets 20 untried pairs a day (raised by the Assay Office). Known pairs are unlimited.
 - If the model is unreachable, known recipes still work. An untried pair is refused and nothing is consumed.
 - With no model configured at all (local development), a deterministic
   procedural generator stands in so the game is fully playable.
 - Multiplicative stacking is held back in combat code with per-stat caps, since a point budget cannot do it.
+
+Measured (Greenhorn, 200 seeds, `docs/critique/depth-after.md`): fusing when
+the result is worth more to the build than both parents wins FUSEGAIN points
+more than never fusing, and fusing every pair that can be paid for wins less
+than fusing with judgement.
+
+The conversions, which the model may pick like any other primitive:
+
+| Primitive | Text |
+|---|---|
+| killHeal | Kills have a {v}% chance to heal 1 HP |
+| armorDamage | +{v}% Damage per 2 Armor |
+| hpDamage | +{v}% Damage per 10 Max HP |
+| dodgeStrike | A dodge blasts nearby enemies for {v} |
+| speedDamage | +{v}% Damage per 10% Speed |
+| scripDamage | +{v}% Damage per 50 scrip held, counted up to 300 |
+| harvestDamage | +{v}% Damage per 10 Harvest |
+| luckCrit | +{v}% Crit per 20 Luck |
+| workHaste | +{v}% Rate while working a node |
+| pureSet | +{v}% Damage while every weapon held shares a class |
+| fewWeapons | +{v}% Rate per empty weapon slot |
 
 ### 4.2 Why it should work
 
@@ -255,11 +342,15 @@ Unlocked by playing, win or lose, one per run for the first runs.
 | Character | Twist |
 |---|---|
 | Greenhorn | No twist. |
-| Sawyer | Hatchets cost half. +1% Damage per 4 timber held. Starts with a hatchet. |
-| Smith | Bench recipes need 1 less ore. +Armor, -Speed. |
-| Trapper | +Dodge, +Ranged. Carcasses appear twice as often. -Max HP. |
-| Tinker | Fusions cost no raws. 4 weapon slots. |
-| Factor's clerk | Earns interest on scrip at wave end. -Damage. |
+| Sawyer | Each tool counts twice toward the Tool set. Every weapon that is not a tool costs half as much again. Starts with a hatchet. -4 Max HP. |
+| Smith | Raises a held weapon one tier for a third less and without raws. +2 Armor, -10% Speed. |
+| Trapper | Elites and brutes leave a carcass. Every node broken heals 2 HP. Carcasses appear twice as often. +6% Dodge, +2 Ranged, -2 Max HP. |
+| Tinker | The first fusion at every bench costs no raws. 5 weapon slots. |
+| Factor's clerk | Earns 8% interest on scrip at wave end, up to 6 per wave number. Rerolls cost half as much again. |
+
+Each twist changes a rule, and each character's best strategy differs
+(`docs/critique/depth-after.md`, target 5). Interest from items shares the
+clerk's cap.
 
 ### 5.4 The daily clearing
 

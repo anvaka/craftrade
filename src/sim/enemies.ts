@@ -2,9 +2,9 @@
 import { AI, ENEMIES, ENEMY_INDEX } from './data/enemies.ts';
 import {
   ARENA_H, ARENA_PAD, ARENA_W, BURN_PERIOD_TICKS, DT, GRID_CELL, LANE_NEAR, MAX_ENEMIES, MAX_ESHOTS, MAX_HAZARDS,
-  MAX_PICKUPS, PLAYER_R, SPAWN_RING,
+  MAX_PICKUPS, PLAYER_R, SPAWN_RING, VOLLEY_DMG,
 } from './data/tuning.ts';
-import { TUSK_SUMMONS, WAVES } from './data/waves.ts';
+import { EARLY_ELITE, TUSK_SUMMONS, WAVES } from './data/waves.ts';
 import { SRC_BURN } from './data/weapons.ts';
 import { clampX, clampY, damageEnemy, emit, hurtPlayer, killEnemy, spawnEnemy } from './core.ts';
 import { rnd, Stream } from './rng.ts';
@@ -57,9 +57,11 @@ export function direct(run: Run): void {
     run.groupNext[gi] = t + g.every * run.pace;
     spawnPack(run, ENEMY_INDEX[g.e], g.pack);
   }
-  if (def.elite && !run.eliteSpawned && t >= 3) {
+  // Hazard 1: the stag and the rotwood also come a wave early.
+  const elite = def.elite ?? (run.hazard >= 1 ? EARLY_ELITE[run.plan[run.wave - 1]] : undefined);
+  if (elite && !run.eliteSpawned && t >= 3) {
     run.eliteSpawned = true;
-    const type = ENEMY_INDEX[def.elite];
+    const type = ENEMY_INDEX[elite];
     spawnPoint(run, Math.floor(rnd(run.rng, Stream.Spawn) * run.laneCount), 0);
     const idx = spawnEnemy(run, type, SX, SY, 1.2);
     if (idx >= 0) {
@@ -67,6 +69,8 @@ export function direct(run: Run): void {
       const e = run.enemies[idx];
       e.n = ENEMIES[type].rank === 2 ? 1 : 0;
       e.t2 = 1; e.t3 = ENEMIES[type].ai === 'rotwood' ? AI.rotSlamEvery : 2;
+      // An elite that comes a wave early (hazard 1) carries no scrip.
+      e.called = !def.elite;
       emit(run, ENEMIES[type].rank === 2 ? 'bossSpawn' : 'eliteSpawn', e.x, e.y, type);
     }
   }
@@ -88,14 +92,20 @@ export function addHazard(
 
 function fireSpit(run: Run, e: Enemy, idx: number): void {
   const p = run.player, ss = run.eshots;
-  for (let i = 0; i < MAX_ESHOTS; i++) {
-    const s = ss[i];
-    if (s.alive) continue;
-    const dx = p.x - e.x, dy = p.y - e.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
-    s.alive = true; s.x = s.px = e.x; s.y = s.py = e.y;
-    s.vx = (dx / d) * AI.spitSpeed; s.vy = (dy / d) * AI.spitSpeed;
-    s.dmg = e.dmg; s.r = AI.spitR; s.life = AI.spitLife; s.type = e.type; s.owner = idx; s.ownerUid = e.uid;
-    return;
+  const dx = p.x - e.x, dy = p.y - e.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+  const ux = dx / d, uy = dy / d;
+  // Hazard 4: volleys. Three shots in a fan instead of one.
+  const shots = run.hazard >= 4 ? 3 : 1;
+  for (let k = 0; k < shots; k++) {
+    const a = (k - (shots - 1) / 2) * AI.spitFan, ca = Math.cos(a), sa = Math.sin(a);
+    for (let i = 0; i < MAX_ESHOTS; i++) {
+      const s = ss[i];
+      if (s.alive) continue;
+      s.alive = true; s.x = s.px = e.x; s.y = s.py = e.y;
+      s.vx = (ux * ca - uy * sa) * AI.spitSpeed; s.vy = (uy * ca + ux * sa) * AI.spitSpeed;
+      s.dmg = shots > 1 ? e.dmg * VOLLEY_DMG : e.dmg; s.r = AI.spitR; s.life = AI.spitLife; s.type = e.type; s.owner = idx; s.ownerUid = e.uid;
+      break;
+    }
   }
 }
 

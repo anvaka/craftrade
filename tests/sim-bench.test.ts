@@ -5,7 +5,10 @@ import { FUSE_RAW_COST, RAWS } from '../src/shared/vocab.ts';
 import {
   addWeapon, applyFusion, buy, buyBlock, fuseCost, itemPrice, pickUpgrade, priceAt, reroll, rerollCost, scrapItem,
   scrapValueWeapon, scrapWeapon, sendMule, toggleLock, weaponPrice,
+  combineWeapons, offerCost, rawPrice, tierUp, tierUpBlock, tierUpCost, twinOf,
 } from '../src/sim/bench.ts';
+import { RAW_PRICE, RAW_PRICE_PER_BENCH, STACK_BONUS } from '../src/sim/data/tuning.ts';
+import { weaponDamage } from '../src/sim/weapons.ts';
 import { standInFusion } from '../src/sim/bot.ts';
 import { gainScrip, rebuild, ST } from '../src/sim/core.ts';
 import { WEAPONS, WEAPON_INDEX } from '../src/sim/data/weapons.ts';
@@ -29,9 +32,11 @@ function benchAt(n: number, seed = 3, character: Parameters<typeof quietRun>[1] 
 const rich = (run: Run) => { run.player.scrip = 100000; run.player.raws = { timber: 500, ore: 500, hide: 500 }; };
 
 describe('prices', () => {
-  it('follow floor((base + wave + 0.1 x base x wave) x modifiers)', () => {
+  it('follow floor((base + wave + 0.1 x base x wave) x modifiers), a tenth dearer per bench past 6', () => {
+    const late = (b: number) => 1 + 0.1 * Math.max(0, b - 6);
     expect(priceAt(70, 1)).toBe(78);
-    expect(priceAt(70, 20)).toBe(230);
+    expect(priceAt(70, 6)).toBe(118);
+    expect(priceAt(70, 10)).toBe(Math.floor(150 * 1.4));
     for (const seed of [1, 2, 3, 4, 5, 6]) {
       const run = quietRun([], 'greenhorn', seed);
       for (let b = 1; b <= 11; b++) {
@@ -40,7 +45,11 @@ describe('prices', () => {
         for (let r = 0; r < 3; r++) {
           for (const o of run.bench.offers) {
             const base = o.kind === 'weapon' ? WEAPONS[WEAPON_INDEX[o.id]].price[o.tier - 1] : basePrice(BASE_ITEM[o.id]);
-            expect(o.price).toBe(Math.floor(base + b + 0.1 * base * b));
+            // The commission is dearer; the first bench's rack is marked down to what is in the purse if need be.
+            const want = Math.floor((base + b + 0.1 * base * b) * late(b));
+            if (o.commission) expect(o.price).toBe(Math.floor(want * 1.35));
+            else if (b === 1 && o === run.bench.offers[0]) expect(o.price).toBeLessThanOrEqual(want);
+            else expect(o.price).toBe(want);
             expect(o.price).toBeGreaterThan(0);
             for (const raw of RAWS) expect(o.raws[raw]).toBeGreaterThanOrEqual(0);
           }
@@ -52,50 +61,60 @@ describe('prices', () => {
     }
   });
 
-  it('Sawyer pays half for hatchets and Smith needs 1 less ore', () => {
+  it('Sawyer pays half as much again for a weapon that is not a tool', () => {
     const saw = benchAt(3, 1, 'sawyer'), green = benchAt(3, 1);
-    expect(weaponPrice(saw, 'hatchet', 2)).toBe(Math.floor((24 + 3 + 0.1 * 24 * 3) * 0.5));
     expect(weaponPrice(green, 'hatchet', 2)).toBe(Math.floor(24 + 3 + 0.1 * 24 * 3));
-    expect(weaponPrice(saw, 'bow', 1)).toBe(weaponPrice(green, 'bow', 1));
-    let seen = 0;
-    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-      const smith = benchAt(2, seed, 'smith'), other = benchAt(2, seed);
-      for (let i = 0; i < 4; i++) {
-        const a = smith.bench.offers[i], b = other.bench.offers[i];
-        if (a.id !== b.id || a.tier !== b.tier) continue;
-        expect(a.raws.ore).toBe(Math.max(0, b.raws.ore - 1));
-        if (b.raws.ore > 0) seen++;
-      }
-    }
-    expect(seen).toBeGreaterThan(0);
+    expect(weaponPrice(saw, 'hatchet', 2)).toBe(weaponPrice(green, 'hatchet', 2));
+    expect(weaponPrice(saw, 'bow', 1)).toBe(Math.floor((15 + 3 + 0.1 * 15 * 3) * 1.5));
+    expect(weaponPrice(green, 'bow', 1)).toBe(Math.floor(15 + 3 + 0.1 * 15 * 3));
   });
 
-  it('reroll starts at floor(0.5 x wave) + 1, rises by max(1, floor(0.4 x wave)), resets each bench', () => {
+  it('a missing raw is charged in scrip at rawPrice, and what is held is spent first', () => {
+    const run = benchAt(3);
+    const i = run.bench.offers.findIndex((o) => o.raws.timber + o.raws.ore + o.raws.hide > 0);
+    expect(i).toBeGreaterThanOrEqual(0);
+    const o = run.bench.offers[i], need = o.raws.timber + o.raws.ore + o.raws.hide;
+    run.player.raws = { timber: 0, ore: 0, hide: 0 };
+    expect(rawPrice(run)).toBe(RAW_PRICE + RAW_PRICE_PER_BENCH * 3);
+    expect(offerCost(run, i)).toBe(o.price + need * rawPrice(run));
+    run.player.scrip = offerCost(run, i) - 1;
+    expect(buyBlock(run, i)).toBe('Not enough scrip.');
+    run.player.scrip = offerCost(run, i);
+    expect(buy(run, i)).toBe(true);
+    expect(run.player.scrip).toBe(0);
+    expect(run.player.raws).toEqual({ timber: 0, ore: 0, hide: 0 });
+  });
+
+
+  it('reroll starts at floor(0.5 x wave) + 1, each further one adds max(1, floor(0.4 x wave)) and a third more, resets each bench', () => {
     const run = benchAt(5);
     run.player.scrip = 1000;
     expect(rerollCost(run)).toBe(3);
     expect(reroll(run)).toBe(true);
     expect(run.player.scrip).toBe(997);
-    expect(rerollCost(run)).toBe(5);
+    expect(rerollCost(run)).toBe(Math.floor(5 * 1.35));
     reroll(run);
-    expect(rerollCost(run)).toBe(7);
+    expect(rerollCost(run)).toBe(Math.floor(7 * 1.35 * 1.35));
     nextWave(run); toBench(run);
     expect(rerollCost(run)).toBe(Math.floor(0.5 * 6) + 1);
     run.player.scrip = 0;
     expect(reroll(run)).toBe(false);
+    // The clerk pays half as much again.
+    expect(rerollCost(benchAt(5, 3, 'clerk'))).toBe(Math.floor(3 * 1.5));
   });
 });
 
 describe('offers', () => {
-  it('first two benches show 2 weapons and 2 items; later ones mix', () => {
+  it('first two benches show 2 weapons and 2 items; later ones always rack one weapon and mix the rest; bench 1 racks one that can be paid for', () => {
     let weapons = 0, total = 0;
     for (let seed = 1; seed <= 30; seed++) {
       const run = quietRun([], 'greenhorn', seed);
       for (let b = 1; b <= 6; b++) {
         toBench(run);
-        const kinds = run.bench.offers.map((o) => o.kind);
+        const kinds = run.bench.offers.slice(0, 4).map((o) => o.kind);
+        if (b === 1) { run.player.scrip = 9 + rerollCost(run); reroll(run); expect(run.player.scrip).toBe(9); expect(buyBlock(run, 0)).toBeNull(); }
         if (b <= 2) expect(kinds).toEqual(['weapon', 'weapon', 'item', 'item']);
-        else { total += 4; weapons += kinds.filter((k) => k === 'weapon').length; }
+        else { expect(kinds[0]).toBe('weapon'); total += 3; weapons += kinds.slice(1).filter((k) => k === 'weapon').length; }
         nextWave(run);
       }
     }
@@ -111,13 +130,14 @@ describe('offers', () => {
       for (let b = 1; b <= 11; b++) {
         toBench(run);
         for (let r = 0; r < 4; r++) {
-          for (const o of run.bench.offers) maxTier[b] = Math.max(maxTier[b], o.tier);
+          for (const o of run.bench.offers) if (!o.commission) maxTier[b] = Math.max(maxTier[b], o.tier);
           run.player.scrip = 9999; reroll(run);
         }
         run.player.scrip = 0;
         nextWave(run);
       }
     }
+    // The commission is tier 3 or 4 whatever the gates say; it is checked on its own below.
     expect(maxTier[1]).toBe(1);
     expect(maxTier[2]).toBe(2);
     expect(maxTier[3]).toBe(2);
@@ -189,23 +209,65 @@ describe('offers', () => {
 });
 
 describe('weapons at the bench', () => {
-  it('two of the same weapon and tier combine, and chains carry on up to tier 4', () => {
+  it('copies of a weapon are held side by side and each adds damage to the others; twins combine on request, up to tier 4', () => {
     const run = benchAt(1, 3);
     const p = run.player;
     p.weapons.length = 0;
     const bow = WEAPON_INDEX.bow;
     addWeapon(run, bow, 1);
+    const one = weaponDamage(p, WEAPONS[bow], 1);
     addWeapon(run, bow, 1);
+    expect(p.weapons.map((w) => `${w.id}${w.tier}`)).toEqual(['bow1', 'bow1']);
+    expect(weaponDamage(p, WEAPONS[bow], 1)).toBeCloseTo(one * (1 + STACK_BONUS), 6);
+    expect(twinOf(run, 0)).toBe(1);
+    expect(combineWeapons(run, 0)).toBe(true);
     expect(p.weapons.map((w) => `${w.id}${w.tier}`)).toEqual(['bow2']);
-    addWeapon(run, bow, 1); addWeapon(run, bow, 1);
-    expect(p.weapons.map((w) => `${w.id}${w.tier}`)).toEqual(['bow3']);
-    addWeapon(run, bow, 3);
+    expect(combineWeapons(run, 0)).toBe(false);
+    addWeapon(run, bow, 2); combineWeapons(run, 0);
+    addWeapon(run, bow, 3); combineWeapons(run, 0);
+    expect(p.weapons.map((w) => w.tier)).toEqual([4]);
     addWeapon(run, bow, 4);
+    expect(twinOf(run, 0)).toBe(-1);
     expect(p.weapons.map((w) => w.tier)).toEqual([4, 4]);
   });
 
-  it('six slots (four for Tinker); a full hand can still take a twin', () => {
-    for (const [ch, slots] of [['greenhorn', 6], ['tinker', 4]] as const) {
+  it('a held weapon can be raised a tier for scrip and one set of its raws, once the bench can work that tier; Smith pays half and no raws', () => {
+    const early = benchAt(1);
+    early.player.scrip = 9999;
+    expect(tierUpBlock(early, 0)).toMatch(/cannot work that tier/);
+    const run = benchAt(2);
+    const p = run.player;
+    p.weapons.length = 0; addWeapon(run, WEAPON_INDEX.bow, 1);
+    p.raws = { timber: 2, ore: 0, hide: 0 };
+    const cost = Math.floor(weaponPrice(run, 'bow', 2, 2) * 0.8);
+    expect(tierUpCost(run, 0)).toBe(cost);
+    p.scrip = cost - 1;
+    expect(tierUp(run, 0)).toBe(false);
+    p.scrip = cost;
+    expect(tierUp(run, 0)).toBe(true);
+    expect([p.weapons[0].tier, p.scrip, p.raws.timber]).toEqual([2, 0, 0]);
+    expect(tierUpBlock(run, 0)).toMatch(/cannot work that tier/);
+    const smith = benchAt(2, 3, 'smith');
+    smith.player.weapons.length = 0; addWeapon(smith, WEAPON_INDEX.bow, 1);
+    expect(tierUpCost(smith, 0)).toBe(Math.floor(weaponPrice(smith, 'bow', 2, 2) * 0.8 * 0.67));
+  });
+
+  it('from bench 5 there is a commission: one more offer, tier 3 or 4, dear, kept through rerolls and not lockable', () => {
+    const run = benchAt(4);
+    expect(run.bench.offers.length).toBe(4);
+    nextWave(run); toBench(run);
+    expect(run.bench.offers.length).toBe(5);
+    const c = run.bench.offers[4];
+    expect(c.commission).toBe(true);
+    expect(c.tier).toBeGreaterThanOrEqual(3);
+    expect(toggleLock(run, 4)).toBe(false);
+    const id = c.id;
+    run.player.scrip = 9999; reroll(run);
+    expect(run.bench.offers[4].id).toBe(id);
+  });
+
+  it('six slots (five for Tinker); a full hand can still take a twin', () => {
+    for (const [ch, slots] of [['greenhorn', 6], ['tinker', 5]] as const) {
       const run = benchAt(1, 3, ch);
       run.player.weapons.length = 0;
       const ids = ['bow', 'maul', 'pike', 'axe', 'brand', 'bola', 'musket'];
@@ -247,9 +309,20 @@ describe('weapons at the bench', () => {
     addWeapon(run, WEAPON_INDEX.bow, 1);
     expect(reach()).toBe(15);
     addWeapon(run, WEAPON_INDEX.musket, 1); addWeapon(run, WEAPON_INDEX.bola, 1);
-    expect(reach()).toBe(30);
+    expect(reach()).toBe(35);
+    expect(p.setPierce).toBe(2);
     addWeapon(run, WEAPON_INDEX.axe, 1); addWeapon(run, WEAPON_INDEX.sling, 2);
-    expect(reach()).toBe(50);
+    expect(reach()).toBe(60);
+    expect(p.stat[ST.ranged]).toBe(3);
+    expect(p.setPierce).toBe(3);
+  });
+
+  it('Sawyer counts each tool twice toward the Tool set', () => {
+    const saw = benchAt(1, 3, 'sawyer'), green = benchAt(1, 3, 'greenhorn');
+    for (const run of [saw, green]) { run.player.weapons.length = 0; addWeapon(run, WEAPON_INDEX.hatchet, 1); addWeapon(run, WEAPON_INDEX.pick, 1); }
+    expect(green.player.stat[ST.harvest]).toBe(6);
+    expect(saw.player.stat[ST.harvest]).toBe(12);
+    expect(saw.player.classCount[3]).toBe(4);
   });
 });
 
@@ -280,14 +353,16 @@ describe('levels and upgrade picks', () => {
 });
 
 describe('scrip left on the ground', () => {
-  it('is banked at wave end and pays double on later pickups until repaid', () => {
+  it('is mostly swept up at wave end; the rest is banked and pays double on later pickups until repaid', () => {
     const run = quietRun();
     const p = run.player;
     const k = run.pickups[0];
-    k.alive = true; k.kind = 0; k.value = 5; k.x = k.px = p.x + 600; k.y = k.py = p.y; k.vx = k.vy = 0; k.pulled = false;
+    k.alive = true; k.kind = 0; k.value = 12.5; k.x = k.px = p.x + 600; k.y = k.py = p.y; k.vx = k.vy = 0; k.pulled = false;
     endWave(run);
-    expect(p.bank).toBe(5);
-    expect(p.scrip).toBe(0);
+    // 60% is swept to the purse at once (rounded), 40% is banked.
+    expect(p.scrip).toBe(8);
+    expect(p.bank).toBe(4.5);
+    p.scrip = 0; p.bank = 5;
     nextWave(run);
     gainScrip(run, 3);
     expect(p.scrip).toBe(6);
@@ -336,7 +411,7 @@ describe('fusion', () => {
     expect(applyFusion(run, 0, 3, { ...ok, effects: [{ p: 'damage', l: 5 }, { p: 'rate', l: 5 }, { p: 'crit', l: 5 }] })).toBe('Over budget.');
     expect(applyFusion(run, 0, 3, { ...ok, effects: [{ p: 'flight', l: 1 }] })).toBe('Bad effect.');
     expect(applyFusion(run, 0, 3, { ...ok, effects: [{ p: 'burn', l: 1, neg: true }, { p: 'crit', l: 1 }] })).toBe('Bad drawback.');
-    run.player.raws = { timber: 0, ore: 0, hide: 0 };
+    run.player.raws = { timber: 0, ore: 0, hide: 0 }; run.player.scrip = 0;
     expect(fuseCost(run, 0, 3).block).toMatch(/Not enough/);
     expect(applyFusion(run, 0, 3, ok)).toMatch(/Not enough/);
     run.player.raws = { timber: 10, ore: 10, hide: 10 };
@@ -345,7 +420,7 @@ describe('fusion', () => {
     expect(applyFusion(run, 0, 3, ok)).not.toBeNull();
   });
 
-  it('Tinker pays no raws', () => {
+  it('Tinker pays no raws for the first fusion at a bench; a raw that is missing can be covered in scrip', () => {
     const run = benchAt(2, 3, 'tinker');
     give(run, 'whetstone', 'saltpork');
     run.player.raws = { timber: 0, ore: 0, hide: 0 };
@@ -354,6 +429,14 @@ describe('fusion', () => {
     expect(q.raws).toEqual({ timber: 0, ore: 0, hide: 0 });
     expect(applyFusion(run, 0, 1, standInFusion(BASE_ITEM.whetstone, BASE_ITEM.saltpork, q.budget))).toBeNull();
     expect(run.player.items.length).toBe(1);
+    give(run, 'pitch');
+    run.player.scrip = 0;
+    const q2 = fuseCost(run, 0, 1);
+    expect(q2.raws.timber).toBeGreaterThan(0);
+    expect(q2.block).toMatch(/Not enough/);
+    run.player.scrip = q2.scrip;
+    expect(q2.scrip).toBe((q2.raws.timber + q2.raws.ore + q2.raws.hide) * rawPrice(run));
+    expect(fuseCost(run, 0, 1).block).toBeNull();
   });
 });
 
@@ -377,8 +460,8 @@ describe('mule, kit and carrying home', () => {
   it('kit items apply from the first tick and cannot be carried home; carry is floor(waves cleared / 4)', () => {
     const run = createRun({ seed: 9, character: 'greenhorn', kit: [BASE_ITEM.saltpork, BASE_ITEM.whetstone, BASE_ITEM.anvil] });
     expect(run.player.items.length).toBe(2);
-    expect(run.player.maxHp).toBe(16);
-    expect(run.player.hp).toBe(16);
+    expect(run.player.maxHp).toBe(22);
+    expect(run.player.hp).toBe(22);
     for (let b = 1; b <= 5; b++) { toBench(run); nextWave(run); }
     run.player.items.push(BASE_ITEM.pitch, BASE_ITEM.burrs); run.player.itemKit.push(false, false);
     expect(setCarry(run, ['pitch'])).toBe(false);

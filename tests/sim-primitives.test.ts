@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PRIMITIVES } from '../src/shared/vocab.ts';
-import { offerOdds, rerollCost } from '../src/sim/bench.ts';
-import { gainScrip, hurtPlayer, killEnemy, rebuild, SP, spawnPickup, ST } from '../src/sim/core.ts';
+import { addWeapon, offerOdds, rerollCost } from '../src/sim/bench.ts';
+import { damageEnemy, gainScrip, hurtPlayer, killEnemy, rebuild, SP, spawnPickup, ST } from '../src/sim/core.ts';
 import { SRC_BURN, SRC_BURST, SRC_RECOIL, SRC_SHARDS, SRC_THORNS, WEAPONS, WEAPON_INDEX } from '../src/sim/data/weapons.ts';
 import { PK_SCRIP, type Run } from '../src/sim/types.ts';
 import { fireShot, weaponCooldown, weaponDamage, weaponRange } from '../src/sim/weapons.ts';
@@ -25,7 +25,7 @@ function shoot(run: Run, dx: number, dy: number): void {
  * One probe per primitive: a number measured in a small scenario. The test
  * asserts that holding an item with that primitive moves the number in the
  * stated direction. A primitive with no probe fails the suite. (The
- * vocabulary holds 37 primitives: 13 stats and 24 specials.)
+ * vocabulary holds 48 primitives: 13 stats and 35 specials.)
  */
 const PROBES: Record<string, { probe: Probe; dir: 1 | -1; weapon?: string }> = {
   maxHp: { dir: 1, probe: (r) => r.player.maxHp },
@@ -73,12 +73,25 @@ const PROBES: Record<string, { probe: Probe; dir: 1 | -1; weapon?: string }> = {
   eliteDamage: { dir: 1, probe: (r) => { const i = dummy(r, 200, 0, 5000, 'stag'); ticks(r, 120); return 5000 - r.enemies[i].hp; } },
   magnet: { dir: 1, probe: (r) => { disarm(r); spawnPickup(r, r.player.x + 115, r.player.y, PK_SCRIP, 7, 0); ticks(r, 60); return r.player.scrip; } },
   xpGain: { dir: 1, probe: (r) => { gainScrip(r, 10); return r.player.xp; } },
+  killHeal: { dir: 1, probe: (r) => { r.player.hp = 2; for (let k = 0; k < 60; k++) { place(r, 'magpie', 40, 0, 1); ticks(r, 40); } return r.player.hp; } },
+  armorDamage: { dir: 1, probe: (r) => { r.player.base[ST.armor] = 10; rebuild(r); ticks(r, 1); return r.player.stat[ST.damage]; } },
+  hpDamage: { dir: 1, probe: (r) => { ticks(r, 1); return r.player.stat[ST.damage]; } },
+  dodgeStrike: { dir: 1, probe: (r) => { disarm(r); r.player.base[ST.dodge] = 60; r.player.base[ST.maxHp] = 9999; rebuild(r); r.player.hp = 9999;
+    const i = dummy(r, 90, 0, 90000); ticks(r, 1);
+    for (let k = 0; k < 40; k++) { r.player.iframes = 0; hurtPlayer(r, 1, 0, -1, 0); } return 90000 - r.enemies[i].hp; } },
+  speedDamage: { dir: 1, probe: (r) => { r.player.base[ST.speed] = 20; rebuild(r); ticks(r, 1); return r.player.stat[ST.damage]; } },
+  scripDamage: { dir: 1, probe: (r) => { r.player.scrip = 300; ticks(r, 1); return r.player.stat[ST.damage]; } },
+  harvestDamage: { dir: 1, probe: (r) => { r.player.base[ST.harvest] = 20; rebuild(r); ticks(r, 1); return r.player.stat[ST.damage]; } },
+  luckCrit: { dir: 1, probe: (r) => { r.player.base[ST.luck] = 40; rebuild(r); ticks(r, 1); return r.player.stat[ST.crit]; } },
+  workHaste: { dir: 1, probe: (r) => { nodeHere(r); r.nodes[0].need = 1e9; ticks(r, 3); return r.player.stat[ST.rate]; } },
+  pureSet: { dir: 1, weapon: 'bow', probe: (r) => { addWeapon(r, WEAPON_INDEX.bow, 1); ticks(r, 1); return r.player.stat[ST.damage]; } },
+  fewWeapons: { dir: 1, probe: (r) => { ticks(r, 1); return r.player.stat[ST.rate]; } },
   secondWind: { dir: 1, probe: (r) => { hurtPlayer(r, 500, 0, -1, 0); return r.phase === 'wave' ? r.player.hp : 0; } },
 };
 
 describe('every effect primitive changes an outcome', () => {
   it('has a probe for each primitive in the vocabulary and nothing else', () => {
-    expect(PRIMITIVES.length).toBe(37);
+    expect(PRIMITIVES.length).toBe(48);
     expect(Object.keys(PROBES).sort()).toEqual(PRIMITIVES.map((p) => p.id).sort());
   });
 
@@ -114,6 +127,40 @@ describe('conditions hold only when they should', () => {
     p.hp = p.maxHp * 0.4;
     ticks(run, 1);
     expect(p.stat[ST.rate]).toBe(28);
+  });
+
+  it('pureSet needs two weapons that share a class; fewWeapons counts empty slots; scripDamage stops counting at 300', () => {
+    const run = quietRun([testItem('pureSet', 3), testItem('fewWeapons', 1)], 'greenhorn', 5, 'bow');
+    const p = run.player;
+    p.items.push(testItem('scripDamage', 1)); p.itemKit.push(false); rebuild(run);
+    ticks(run, 1);
+    expect(p.stat[ST.damage]).toBe(0);
+    expect(p.stat[ST.rate]).toBe(4 * 5);
+    addWeapon(run, WEAPON_INDEX.sling, 1); ticks(run, 1);
+    expect(p.stat[ST.damage]).toBe(15);
+    expect(p.stat[ST.rate]).toBe(4 * 4);
+    addWeapon(run, WEAPON_INDEX.maul, 1); ticks(run, 1);
+    expect(p.stat[ST.damage]).toBe(0);
+    p.scrip = 5000; ticks(run, 1);
+    expect(p.stat[ST.damage]).toBe(2 * 6);
+  });
+
+  it('a slowed enemy takes a quarter more from everything; thorns grow by a twelfth per point of Armor', () => {
+    const run = quietRun();
+    disarm(run);
+    const i = dummy(run, 90, 0, 1000);
+    damageEnemy(run, i, 100, 0, false, 0, 0, 0);
+    expect(run.enemies[i].hp).toBe(900);
+    run.enemies[i].slowT = 2; run.enemies[i].slowF = 0.4;
+    damageEnemy(run, i, 100, 0, false, 0, 0, 0);
+    expect(run.enemies[i].hp).toBe(775);
+    const t = quietRun([testItem('thorns', 3)]);
+    disarm(t);
+    t.player.base[ST.armor] = 12; rebuild(t); ticks(t, 1);
+    const b = place(t, 'boar', 5, 0, 500);
+    ticks(t, 2);
+    expect(t.dmgBy[SRC_THORNS]).toBe(25 * 2);
+    void b;
   });
 
   it('secondWind works once per wave; waveShield breaks with an event', () => {

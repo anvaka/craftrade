@@ -11,7 +11,7 @@ import { bakeAll, capDpr, type Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
 import type { ItemSpec } from '../../shared/item.ts';
 import {
-  DT, ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, clearEvents, createBot, createRun, nextWave,
+  DT, ENEMIES, HAZARD_RULES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, clearEvents, createBot, createRun, nextWave,
   setCarry, step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
 import type { RunHandle, RunHost, RunRecap } from '../seam.ts';
@@ -50,7 +50,7 @@ const PK_NAME = ['scrip', 'timber', 'ore', 'hide'];
 
 export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const t = host.ticket;
-  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations });
+  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: (t as { hazard?: number }).hazard ?? 0 });
   const bot = dev.bot || dev.wave || dev.bench ? createBot((t.seed ^ 0x5bd1e995) >>> 0) : null;
   const botIn = { mx: 0, my: 0 };
 
@@ -154,6 +154,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     pausePanel.replaceChildren(el('div', 'g-panel',
       el('div', 'label', state === 'bench' ? `Bench after wave ${run.bench.index}` : `Wave ${run.wave} of ${run.totalWaves}`),
       el('h2', '', 'Paused'),
+      run.hazard > 0 ? el('p', 'note', `Hazard ${run.hazard}. ${HAZARD_RULES.slice(1, run.hazard + 1).map((r) => r.text).join(' ')}`) : null,
       el('div', 'g-panel-rows', resume, pauseSound.el,
         el('div', 'g-panel-row', el('span', '', 'Screen shake'), shake),
         el('div', 'g-panel-row', el('span', '', quitArmed ? 'The run ends here as a loss' : 'Quit the run'), quit))));

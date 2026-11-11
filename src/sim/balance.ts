@@ -1,9 +1,15 @@
-// Headless balance report.  npx tsx src/sim/balance.ts [seeds=200] [character|all] [waves=12]
+// Headless balance report.  npx tsx src/sim/balance.ts [seeds=200] [character|all|strategies|hazard|stress] [waves=12]
+//   <character> or all   the default bot's report per character
+//   strategies           one row per named way to play (STRATEGIES in bot.ts), Greenhorn: the depth table
+//   hazard               the default bot at every hazard level
+// `all` prints the character reports and then both tables. The bot's stat weights were corrected against
+// measured pick values (see docs/critique/depth-after.md), so the win rate here is a competent player's.
 import { CHARACTERS } from './data/characters.ts';
 import { ENEMIES, ENEMY_INDEX } from './data/enemies.ts';
 import { MAX_ENEMIES } from './data/tuning.ts';
 import { WEAPONS } from './data/weapons.ts';
-import { playRun } from './bot.ts';
+import { playRun, policy, STRATEGIES } from './bot.ts';
+import { HAZARD_RULES, MAX_HAZARD } from './data/tuning.ts';
 import { spawnEnemy } from './core.ts';
 import { clearEvents, createRun, step, summary } from './run.ts';
 import { STATS } from '../shared/vocab.ts';
@@ -107,7 +113,49 @@ function stress(): void {
   console.log(`mean ${(total / n).toFixed(4)} ms per tick, 99th percentile ${times[Math.floor(n * 0.99)].toFixed(3)} ms, worst ${worst.toFixed(3)} ms, ${over} of ${n} ticks over the 2 ms budget`);
 }
 
-const list = who === 'all' ? CHARACTERS.map((c) => c.id) : who === 'stress' ? [] : [who as CharacterId];
+/** 95% Wilson interval, in percent. */
+function wilson(k: number, n: number): string {
+  const z = 1.96, p = k / n, d = 1 + (z * z) / n, c = p + (z * z) / (2 * n), h = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
+  return `${Math.round((100 * (c - h)) / d)}-${Math.round((100 * (c + h)) / d)}`;
+}
+
+function row(label: string, opts: { hazard?: number }, strat: string): void {
+  const pol = policy(strat);
+  let wins = 0, endWave = 0, copies = 0, cls = 0, reached = 0;
+  const dmg = new Map<string, number>();
+  let dmgTotal = 0;
+  for (let s = 1; s <= seeds; s++) {
+    const seed = s * 7919 + 13;
+    let at8 = false;
+    const run = playRun({ seed, character: 'greenhorn', waves, hazard: opts.hazard }, seed ^ 0x5bd1e995, (r) => {
+      // The build as it stands going into wave 9: is the stack or the set there yet?
+      if (!at8 && r.phase === 'bench' && r.bench.index === 8) {
+        at8 = true; reached++;
+        copies += Math.max(...r.player.copies); cls += Math.max(...r.player.classCount);
+      }
+    }, true, pol);
+    const sum = summary(run);
+    endWave += sum.endWave;
+    if (sum.won) { wins++; for (const [k, v] of Object.entries(sum.damageBy)) { dmg.set(k, (dmg.get(k) ?? 0) + v); dmgTotal += v; } }
+  }
+  console.log(`${label.padEnd(14)} win ${pct(wins, seeds).padStart(6)}  (95% ${wilson(wins, seeds)})  mean end wave ${(endWave / seeds).toFixed(1)}  at bench 8: most copies ${reached ? (copies / reached).toFixed(1) : '-'}, largest class ${reached ? (cls / reached).toFixed(1) : '-'}  winners' damage: ${top(dmg, dmgTotal, 4)}`);
+}
+
+function strategies(): void {
+  console.log(`\n== strategies: greenhorn, ${seeds} seeds, ${waves} waves. Target: five or more between 30% and 60%, none above 65% ==`);
+  for (const s of STRATEGIES) row(s, {}, s);
+}
+
+function hazards(): void {
+  console.log(`\n== hazard ladder: default bot, greenhorn, ${seeds} seeds ==`);
+  for (let h = 0; h <= MAX_HAZARD; h++) row(`hazard ${h}`, { hazard: h }, 'default');
+  for (let h = 1; h <= MAX_HAZARD; h++) console.log(`  ${h}. ${HAZARD_RULES[h].name}: ${HAZARD_RULES[h].text}`);
+}
+
+const isChar = CHARACTERS.some((c) => c.id === who);
+const list = who === 'all' ? CHARACTERS.map((c) => c.id) : isChar ? [who as CharacterId] : [];
 for (const c of list) report(c);
-stress();
+if (who === 'all' || who === 'strategies') strategies();
+if (who === 'all' || who === 'hazard') hazards();
+if (who === 'all' || who === 'stress' || isChar) stress();
 void ENEMIES; void STATS;

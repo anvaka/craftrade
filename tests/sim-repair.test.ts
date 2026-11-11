@@ -58,9 +58,9 @@ describe('repairEffects', () => {
 });
 
 describe('authored items', () => {
-  it('about 40 items, legal, across all tiers, using every primitive', () => {
-    expect(BASE_ITEMS.length).toBeGreaterThanOrEqual(38);
-    expect(BASE_ITEMS.length).toBeLessThanOrEqual(46);
+  it('about 80 items, legal, across all tiers, using every primitive', () => {
+    expect(BASE_ITEMS.length).toBeGreaterThanOrEqual(76);
+    expect(BASE_ITEMS.length).toBeLessThanOrEqual(84);
     const used = new Set<string>(), tiers = new Set<number>(), ids = new Set<string>(), names = new Set<string>();
     for (const it of BASE_ITEMS) {
       ids.add(it.id); names.add(it.name); tiers.add(itemTier(it));

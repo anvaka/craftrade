@@ -1,9 +1,9 @@
 // Player attacks: auto-targeting, melee shapes, shots.
 import {
-  BOUNCE_SEEK, BURN_SECONDS, DT, ELITE_FOCUS, SHOT_LEAD, TICK_HZ, MAX_SHOTS, MIN_COOLDOWN, NATIVE_CHAIN, ARENA_H, ARENA_W,
+  STACK_BONUS, BOUNCE_SEEK, BURN_SECONDS, DT, ELITE_FOCUS, SHOT_LEAD, TICK_HZ, MAX_SHOTS, MIN_COOLDOWN, NATIVE_CHAIN, ARENA_H, ARENA_W,
 } from './data/tuning.ts';
 import { ENEMIES } from './data/enemies.ts';
-import { WEAPONS, type WeaponDef } from './data/weapons.ts';
+import { WEAPONS, WEAPON_INDEX, type WeaponDef } from './data/weapons.ts';
 import { damageEnemy, emit, Q, queryGrid, SP, ST, targetable } from './core.ts';
 import { rnd, Stream } from './rng.ts';
 import type { Enemy, Player, Run, Shot, WeaponState } from './types.ts';
@@ -27,6 +27,10 @@ export function weaponDamage(p: Player, def: WeaponDef, tier: number): number {
   if (sc.maxHp) d += sc.maxHp * p.maxHp;
   if (sc.armor) d += sc.armor * Math.max(0, s[ST.armor]);
   if (sc.reach) d += sc.reach * Math.max(0, s[ST.reach]);
+  if (sc.harvest) d += sc.harvest * Math.max(0, s[ST.harvest]);
+  // Every other copy of the same weapon held adds to all of them.
+  const copies = p.copies[WEAPON_INDEX[def.id]];
+  if (copies > 1) d *= 1 + STACK_BONUS * (copies - 1);
   d *= p.dmgMul;
   return d < 1 ? 1 : d;
 }
@@ -82,7 +86,8 @@ export function updateWeapons(run: Run): void {
     w.swingDur = w.cd < 0.22 ? w.cd : 0.22; w.swing = w.swingDur;
     const dmg = weaponDamage(p, def, w.tier);
     const crit = p.critChance + def.crit / 100;
-    const burn = (def.burn ? def.burn[w.tier - 1] : 0) + p.sp[SP.burn];
+    // Burn follows Damage, so fire keeps pace with the rest of a build.
+    const burn = ((def.burn ? def.burn[w.tier - 1] : 0) + p.sp[SP.burn]) * p.dmgMul;
     const knock = def.knock + p.knockAdd;
     emit(run, 'attack', p.x, p.y, w.def, wi);
     if (def.kind === 'shot') {
@@ -126,8 +131,9 @@ export function fireShot(
     s.vx = ax * speed; s.vy = ay * speed;
     s.dmg = crit ? dmg * 2 : dmg; s.crit = crit; s.src = src; s.r = 5;
     s.life = (range / speed) * 1.2 + 0.05;
-    s.np = pierce; s.nb = bounce;
-    s.pierce = pierce + (items ? p.sp[SP.pierce] : 0);
+    // The Shot set's pierces count as the weapon's own and keep the weapon's share of damage.
+    s.np = pierce + (items ? p.setPierce : 0); s.nb = bounce;
+    s.pierce = s.np + (items ? p.sp[SP.pierce] : 0);
     s.bounce = bounce + (items ? p.sp[SP.bounce] : 0);
     s.knock = knock; s.burn = burn; s.slow = slow; s.hits = 0;
     return;

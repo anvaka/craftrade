@@ -3,7 +3,7 @@
 //
 // LIFECYCLE
 //
-//   const run = createRun({ seed, character, waves, kit, stations });   // wave 1 is already running
+//   const run = createRun({ seed, character, waves, kit, stations, hazard });   // wave 1 is already running; hazard 0-5, see HAZARD_RULES
 //   every 1/60 s while run.phase === 'wave':
 //       step(run, { mx, my });            // mx, my: move direction, length 0..1
 //   every frame:
@@ -11,7 +11,10 @@
 //       draw entities at  px + (x - px) * alpha
 //   when run.phase === 'bench'  (after every wave but the last):
 //       pickUpgrade(run, i)               // while run.bench.picks > 0; choices in run.bench.choices
-//       buy(run, i) / buyBlock(run, i)    // run.bench.offers[0..3], and [4] with the Order book
+//       buy(run, i) / buyBlock(run, i)    // run.bench.offers[0..3], [4] with the Order book, then the commission (offer.commission) from bench 5
+//       offerCost(run, i)                 // scrip for offer i now: its price plus rawPrice(run) for each raw the player is short of
+//       tierUp(run, w) / tierUpBlock / tierUpCost   // raise held weapon w one tier for scrip and one set of its raws
+//       combineWeapons(run, w) / twinOf(run, w)     // merge two held twins into the next tier (buying with full hands still does it)
 //       reroll(run) / rerollCost(run)     // free once all four are bought
 //       toggleLock(run, i)
 //       scrapWeapon(run, i) / scrapItem(run, i)
@@ -88,6 +91,7 @@ export type { RunSummary, StepInput } from './run.ts';
 export {
   pickUpgrade, buy, buyBlock, reroll, rerollCost, toggleLock, scrapWeapon, scrapItem, scrapValueWeapon, scrapValueItem,
   fuseCost, applyFusion, fusionResultBlock, sendMule, priceAt, weaponPrice, itemPrice, offerOdds,
+  offerCost, rawPrice, combineWeapons, twinOf, tierUp, tierUpBlock, tierUpCost,
 } from './bench.ts';
 export type { FuseQuote } from './bench.ts';
 export { ST, SP, CLASSES, xpForLevel, weaponSlots } from './core.ts';
@@ -101,7 +105,7 @@ export type {
 } from './types.ts';
 
 // Content tables. Tuning is editing these files.
-export { WEAPONS, WEAPON_INDEX, SET_BONUS, BLUNT_KNOCK, CLASS_LABEL, SOURCE_IDS } from './data/weapons.ts';
+export { WEAPONS, WEAPON_INDEX, SET_BONUS, BLUNT_KNOCK, SHOT_PIERCE, CLASS_LABEL, SOURCE_IDS } from './data/weapons.ts';
 export type { WeaponDef, WeaponClass, WeaponKind, NodeType } from './data/weapons.ts';
 export { ENEMIES, ENEMY_INDEX, AI, enemySpeed } from './data/enemies.ts';
 export type { EnemyDef } from './data/enemies.ts';
@@ -113,8 +117,9 @@ export { UPGRADE_VALUE } from './data/upgrades.ts';
 export {
   TICK_HZ, DT, ARENA_W, ARENA_H, ARENA_PAD, MAX_ENEMIES, MAX_SHOTS, MAX_ESHOTS, MAX_PICKUPS, MAX_NODES, MAX_HAZARDS,
   PLAYER_R, NODE_RING, IFRAMES, SPAWN_TELL, BLAST_RADIUS, HURT_BLAST_RADIUS, STAT_CAP, SPECIAL_CAP,
+  HAZARD_RULES, MAX_HAZARD, STACK_BONUS, SLOW_VULN, WORK_EXPOSED, NOISE_FROM_WAVE, COMMISSION_FROM,
 } from './data/tuning.ts';
 
 // The headless player, for demos, tests and the balance script.
-export { createBot, botInput, botBench, playRun, standInFusion } from './bot.ts';
-export type { BotState } from './bot.ts';
+export { createBot, botInput, botBench, playRun, standInFusion, POLICIES, STRATEGIES, policy } from './bot.ts';
+export type { BotState, Policy, BenchLog } from './bot.ts';

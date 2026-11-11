@@ -18,5 +18,5 @@ for (let s = 1; s <= seeds; s++) {
   if (r.won) wins++;
   lines.push(JSON.stringify(r));
 }
-writeFileSync(join(out, `${polName.replace(':', '-').replace('=', '_')}__${ch}.jsonl`), lines.join('\n') + '\n');
+writeFileSync(join(out, `${polName.replace(/[:=+]/g, '-')}__${ch}.jsonl`), lines.join('\n') + '\n');
 console.log(`${polName} ${ch}: ${wins}/${seeds} = ${((100 * wins) / seeds).toFixed(1)}%`);

@@ -6,13 +6,13 @@ type T4 = readonly [number, number, number, number];
 /** Value of an upgrade pick by tier. */
 export const UPGRADE_VALUE: Record<StatId, T4> = {
   maxHp: [3, 6, 9, 12],
-  mend: [2, 3, 4, 5],
+  mend: [2, 3, 5, 7],
   armor: [1, 2, 3, 4],
-  dodge: [3, 6, 9, 12],
+  dodge: [4, 7, 10, 14],
   speed: [3, 6, 9, 12],
   damage: [5, 8, 12, 16],
-  melee: [2, 4, 6, 8],
-  ranged: [1, 2, 3, 4],
+  melee: [2, 3, 5, 7],
+  ranged: [2, 3, 4, 6],
   rate: [5, 10, 15, 20],
   crit: [3, 5, 7, 9],
   reach: [15, 30, 45, 60],

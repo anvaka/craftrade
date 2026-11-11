@@ -153,9 +153,9 @@ describe('relics: one rule each', () => {
     expect(weaponSlots(held)).toBe(7);
     expect(fill(bare)).toBe(6);
     expect(fill(held)).toBe(7);
-    // An eighth is refused, and the Tinker goes from four to five.
+    // An eighth is refused, and the Tinker goes from five to six.
     expect(addWeapon(held, WEAPON_INDEX.buckler, 3)).toBe(false);
-    expect(weaponSlots(quietRun([relic('saddlescabbard')], 'tinker'))).toBe(5);
+    expect(weaponSlots(quietRun([relic('saddlescabbard')], 'tinker'))).toBe(6);
   });
 
   it('Hide blind: nothing lands while a node is being worked', () => {

@@ -1,3 +1,5 @@
+// NOTE: this reads the records the first critique wrote (before the depth rework). Records written by
+// harness.ts today have a few different fields; use after.ts for those. Kept so the old report can be re-read.
 // Reads tools/exp/depth/out/*.jsonl and prints every table used in docs/critique/depth.md.
 //   npx tsx tools/exp/depth/analyze.ts > tools/exp/depth/out/report.txt
 import { existsSync, readFileSync, readdirSync } from 'node:fs';

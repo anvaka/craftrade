@@ -8,7 +8,7 @@ import { DEATH_RAW_KEEP } from '../../shared/protocol.ts';
 import { PRIM, RAWS, STATS, STAT_LABEL, STAT_PERCENT, type RawBag, type RawId, type StatId } from '../../shared/vocab.ts';
 import {
   BLUNT_KNOCK, CHARACTER, CLASSES, CLASS_LABEL, SET_BONUS, ST, WEAPONS, WEAPON_INDEX, applyFusion, buy, buyBlock, fuseCost,
-  pickUpgrade, reroll, rerollCost, weaponSlots, scrapItem, scrapValueItem, scrapValueWeapon, scrapWeapon, sendMule, toggleLock,
+  pickUpgrade, reroll, rerollCost, weaponSlots, offerCost, combineWeapons, twinOf, tierUp, tierUpBlock, tierUpCost, SHOT_PIERCE, STACK_BONUS, scrapItem, scrapValueItem, scrapValueWeapon, scrapWeapon, sendMule, toggleLock,
   weaponCooldown, weaponDamage, weaponRange, type Run, type WeaponClass,
 } from '../../sim/index.ts';
 import type { FuseOutcome } from '../seam.ts';
@@ -37,14 +37,12 @@ export interface BenchScreen {
 
 type Slim = { def: number; tier: number };
 
-function weaponsAfter(list: Slim[], def: number, t: number): Slim[] {
+/** The weapons held after one more is bought: side by side while a slot is free, combined with a twin when hands are full. */
+function weaponsAfter(list: Slim[], def: number, t: number, slots: number): Slim[] {
   const out = list.map((w) => ({ def: w.def, tier: w.tier }));
-  for (;;) {
-    let twin = -1;
-    if (t < 4) for (let i = 0; i < out.length; i++) if (out[i].def === def && out[i].tier === t) { twin = i; break; }
-    if (twin < 0) break;
-    out.splice(twin, 1);
-    t++;
+  if (out.length >= slots && t < 4) {
+    const twin = out.findIndex((w) => w.def === def && w.tier === t);
+    if (twin >= 0) { out.splice(twin, 1); t++; }
   }
   out.push({ def, tier: t });
   return out;
@@ -138,7 +136,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       }
     } else {
       const before = weaponStats(p.weapons);
-      const after = weaponStats(weaponsAfter(p.weapons, WEAPON_INDEX[o.id], o.tier));
+      const after = weaponStats(weaponsAfter(p.weapons, WEAPON_INDEX[o.id], o.tier, weaponSlots(run)));
       for (let k = 0; k < d.length; k++) d[k] = after[k] - before[k];
     }
     return d;
@@ -215,6 +213,19 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     if (prevArm !== key) { scrapArm = key; say(`Scrap the ${low(WEAPONS[w.def].name)}? Press again.`); return; }
     const v = scrapValueWeapon(run, i);
     if (scrapWeapon(run, i)) { audio.play('buy', { pitch: 0.8 }); say(`${WEAPONS[w.def].name} scrapped for ${v} scrip.`); scrapArm = ''; }
+  }
+  function doTierUp(i: number): void {
+    const w = p.weapons[i];
+    if (!w) return;
+    const block = tierUpBlock(run, i);
+    if (block) { refuse(block); return; }
+    if (tierUp(run, i)) { audio.play('combine'); say(`${WEAPONS[w.def].name} raised to tier ${w.tier}.`); }
+  }
+  function doCombine(i: number): void {
+    const w = p.weapons[i];
+    if (!w || twinOf(run, i) < 0) return;
+    const name = WEAPONS[w.def].name, was = w.tier;
+    if (combineWeapons(run, i)) { combined = Math.min(i, p.weapons.length - 1); audio.play('combine'); say(`Two tier ${was} made one tier ${was + 1} ${low(name)}. A slot is free.`); }
   }
   function doScrapItem(i: number): void {
     const it = p.items[i];
@@ -347,13 +358,16 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
         effects = el('ul', 'effects',
           el('li', '', def.note),
           el('li', '', `${Math.round(weaponDamage(p, def, o.tier))} damage every ${weaponCooldown(p, def, o.tier).toFixed(2)} s, reach ${Math.round(weaponRange(p, def))}`));
+        const copies = p.copies[WEAPON_INDEX[o.id]];
         const twin = o.tier < 4 && p.weapons.some((w) => w.id === o.id && w.tier === o.tier);
-        if (twin && !o.sold) effects.append(el('li', 'g-twin', `You hold one. Two make a tier ${o.tier + 1}.`));
+        if (copies > 0 && !o.sold) effects.append(el('li', 'g-twin', p.weapons.length >= weaponSlots(run) && twin
+          ? `Hands are full. This one combines with its twin into a tier ${o.tier + 1}.`
+          : `You hold ${copies}. Each copy adds ${Math.round(STACK_BONUS * 100)}% damage to the others.`));
       } else {
         const it = o.item!;
         icon = ic(S.icon.glyph[it.glyph], true);
         name = it.name;
-        kind = 'Item';
+        kind = o.commission ? 'Commission, item' : 'Item';
         effects = fx(it);
       }
       const block = o.sold ? 'Sold.' : buyBlock(run, i);
@@ -372,7 +386,9 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
         icon,
         el('div', 'name', key(String(i + 1)), el('span', '', name), tier(o.tier), el('span', 'kind', kind), o.locked ? ic(S.icon.lock) : null),
         effects,
-        el('div', 'buy', priceOf(o.price, o.raws, true, !o.sold), el('div', 'acts', o.sold ? null : lockBtn, buyBtn)),
+        el('div', 'buy', priceOf(o.price, o.raws, true, !o.sold),
+          !o.sold && offerCost(run, i) > o.price ? el('span', 'note', `Short of raws: ${offerCost(run, i) - o.price} scrip more`) : null,
+          el('div', 'acts', o.sold || o.commission ? null : lockBtn, buyBtn)),
       );
       const li = el('li', `offer${o.locked ? ' is-locked' : ''}${o.sold ? ' is-sold' : ''}`, ...lis);
       watch(li, `offer${i}`, () => offerDelta(i));
@@ -448,7 +464,8 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       row.append(
         el('div', '',
           el('div', '', `Budget ${q.budget} points, up to tier ${q.tier}.`),
-          el('div', 'g-anvil-cost', el('span', 'label', 'Costs up to'), free ? el('span', '', 'no raws') : priceOf(0, q.raws, false)),
+          el('div', 'g-anvil-cost', el('span', 'label', 'Costs up to'), free ? el('span', '', 'no raws') : priceOf(0, q.raws, false),
+            q.scrip > 0 ? el('span', 'note', `Short of raws: ${q.scrip} scrip`) : null),
           known ? el('div', 'note', `You made this pair earlier: ${low(known.name)}.`) : el('div', 'g-untried label', 'Untried by you this run')),
       );
       if (q.block) { strikeBtn.setAttribute('aria-disabled', 'true'); row.append(el('div', 'g-block', q.block)); }
@@ -537,12 +554,28 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       sc.setAttribute('aria-label', `Scrap ${def.name} for ${v} scrip`);
       if (p.weapons.length <= 1) sc.setAttribute('aria-disabled', 'true');
       sc.addEventListener('click', (ev) => act(() => doScrapWeapon(i), ev));
+      // Raise a tier for scrip and raws; combine two twins to free a slot.
+      let up: HTMLElement | null = null, comb: HTMLElement | null = null;
+      if (w.tier < 4) {
+        const c = tierUpCost(run, i);
+        up = stamp('Tier up', 'stamp--plain stamp--small', cost(S.icon.scrip, c));
+        up.dataset.fk = `upw${i}`;
+        up.setAttribute('aria-label', `Raise ${def.name} to tier ${w.tier + 1} for ${c} scrip`);
+        if (tierUpBlock(run, i)) up.setAttribute('aria-disabled', 'true');
+        up.addEventListener('click', (ev) => act(() => doTierUp(i), ev));
+      }
+      if (twinOf(run, i) >= 0) {
+        comb = stamp('Combine', 'stamp--plain stamp--small');
+        comb.dataset.fk = `combw${i}`;
+        comb.setAttribute('aria-label', `Combine two tier ${w.tier} ${def.name} into one tier ${w.tier + 1}`);
+        comb.addEventListener('click', (ev) => act(() => doCombine(i), ev));
+      }
       wt.append(el('tr', i === combined ? 'g-combined' : '',
         el('td', '', el('div', 'thing', ic(S.icon.weapon[w.id as keyof typeof S.icon.weapon]),
           el('span', '', def.name, i === combined ? el('span', 'g-tag', 'Combined') : null,
             el('span', 'g-sub', def.classes.map((c) => CLASS_LABEL[c]).join(', '))))),
         el('td', '', tier(w.tier)),
-        el('td', 'act', sc)));
+        el('td', 'act', up, comb, sc)));
     });
     const sets: Kid[] = [];
     for (let c = 0; c < CLASSES.length; c++) {
@@ -551,8 +584,10 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const cls = CLASSES[c] as WeaponClass;
       if (n < 2) { sets.push(el('li', '', `${CLASS_LABEL[cls]} ${n}: no bonus until 2`)); continue; }
       const step = n >= 6 ? 2 : n >= 4 ? 1 : 0;
-      const parts = SET_BONUS[cls].map((sb) => `+${fmtStat(sb.stat, sb.v[step])} ${STAT_LABEL[sb.stat]}`);
+      const parts = SET_BONUS[cls].filter((sb) => sb.v[step] !== 0).map((sb) => `+${fmtStat(sb.stat, sb.v[step])} ${STAT_LABEL[sb.stat]}`);
       if (cls === 'blunt') parts.push(`+${BLUNT_KNOCK[step]} knockback`);
+      if (cls === 'shot' && SHOT_PIERCE[step] > 0) parts.push(`shots pierce ${SHOT_PIERCE[step]} more`);
+      if (n < 6) parts.push(`next at ${n < 4 ? 4 : 6}`);
       sets.push(el('li', 'g-set-on', `${CLASS_LABEL[cls]} ${n}: ${parts.join(', ')}`));
     }
     side.append(el('section', 'section', el('h2', '', `Weapons, ${p.weapons.length} of ${weaponSlots(run)}`), wt, el('ul', 'g-sets', ...sets)));

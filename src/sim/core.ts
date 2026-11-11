@@ -6,14 +6,14 @@ import { CHARACTER } from './data/characters.ts';
 import { ENEMIES } from './data/enemies.ts';
 import {
   ARENA_H, ARENA_PAD, ARENA_W, BASE_MAGNET, BLAST_RADIUS, DODGE_IFRAMES, GRID_CELL, HURT_BLAST_RADIUS, IFRAMES,
-  KILL_BLAST_BASE, KILL_BLAST_HP_FRACTION, MAX_ENEMIES, MAX_EVENTS, MAX_PICKUPS, PLAYER_SPEED, SPAWN_TELL,
-  SPECIAL_CAP, STAT_CAP,
+  HAZARD_HP, WAVE_DMG, WAVE_HP, KILL_BLAST_BASE, MAX_LIVE_NODES, NODE_WORK, NODE_WORK_RICH, KILL_BLAST_HP_FRACTION, MAX_ENEMIES, MAX_EVENTS, MAX_PICKUPS, NOISE_FROM_WAVE, PLAYER_SPEED,
+  SCRIP_DAMAGE_AT, SLOW_VULN, SPAWN_TELL, SPECIAL_CAP, STAT_CAP, WORK_EXPOSED,
 } from './data/tuning.ts';
-import { BLUNT_KNOCK, SET_BONUS, SRC_BURN, SRC_BURST, SRC_RECOIL, SRC_THORNS, WEAPONS, type WeaponClass } from './data/weapons.ts';
+import { BLUNT_KNOCK, SET_BONUS, SHOT_PIERCE, SRC_BURN, SRC_BURST, SRC_RECOIL, SRC_THORNS, WEAPONS, type WeaponClass } from './data/weapons.ts';
 import { rnd, Stream } from './rng.ts';
 import {
-  ES, PK_HIDE, PK_ORE, PK_SCRIP, PK_TIMBER,
-  type Enemy, type EventType, type Pickup, type Run,
+  ES, NODE_CARCASS, PK_HIDE, PK_ORE, PK_SCRIP, PK_TIMBER,
+  type Enemy, type EventType, type Pickup, type ResNode, type Run,
 } from './types.ts';
 
 // ---- indices -------------------------------------------------------------
@@ -126,18 +126,29 @@ export function rebuild(run: Run): void {
   p.piercePct = pierceMax / 100;
   p.bouncePct = bounceMax / 100;
   p.classCount.fill(0);
+  p.copies.fill(0);
+  const ch = CHARACTER[run.character];
+  let shared = 15;
   for (const w of p.weapons) {
     const def = WEAPONS[w.def];
-    for (const c of def.classes) p.classCount[CLASSES.indexOf(c)]++;
+    p.copies[w.def]++;
+    let mask = 0;
+    // Sawyer: a tool counts twice toward the Tool set.
+    for (const c of def.classes) { const k = CLASSES.indexOf(c); mask |= 1 << k; p.classCount[k] += ch.toolDouble && c === 'tool' ? 2 : 1; }
+    shared &= mask;
     if (def.passive) flat[ST[def.passive.stat]] += def.passive.v[w.tier - 1];
   }
+  p.pure = p.weapons.length >= 2 && shared !== 0;
+  p.emptySlots = Math.max(0, weaponSlots(run) - p.weapons.length);
   let setKnock = 0;
+  p.setPierce = 0;
   for (let c = 0; c < CLASSES.length; c++) {
     const n = p.classCount[c];
     if (n < 2) continue;
     const step: 0 | 1 | 2 = n >= 6 ? 2 : n >= 4 ? 1 : 0;
     for (const b of SET_BONUS[CLASSES[c]]) flat[ST[b.stat]] += b.v[step];
     if (CLASSES[c] === 'blunt') setKnock = BLUNT_KNOCK[step];
+    if (CLASSES[c] === 'shot') p.setPierce = SHOT_PIERCE[step];
   }
   p.knockAdd = sp[SP.knockback] + setKnock;
   refresh(run);
@@ -151,7 +162,7 @@ export function refresh(run: Run): void {
   if (sp[SP.hoardHide] > 0) s[ST.maxHp] += Math.min(SPECIAL_CAP.hoardHide, sp[SP.hoardHide] * Math.floor(raws.hide / 5));
   if (sp[SP.hoardTimber] > 0) s[ST.damage] += Math.min(SPECIAL_CAP.hoardTimber, sp[SP.hoardTimber] * Math.floor(raws.timber / 5));
   if (sp[SP.hoardOre] > 0) s[ST.armor] += Math.min(SPECIAL_CAP.hoardOre, Math.floor(raws.ore * sp[SP.hoardOre] + 1e-9));
-  if (ch.timberDamagePer) s[ST.damage] += Math.min(40, Math.floor(raws.timber / ch.timberDamagePer));
+  if (ch.timberDamagePer) s[ST.damage] += Math.min(20, Math.floor(raws.timber / ch.timberDamagePer));
   let mh = s[ST.maxHp];
   if (mh < STAT_MIN[ST.maxHp]) mh = STAT_MIN[ST.maxHp]; else if (mh > STAT_MAX[ST.maxHp]) mh = STAT_MAX[ST.maxHp];
   p.maxHp = mh;
@@ -159,13 +170,23 @@ export function refresh(run: Run): void {
   if (sp[SP.lowHpRate] > 0 && p.hp < mh / 2) s[ST.rate] += sp[SP.lowHpRate];
   if (sp[SP.stillDamage] > 0 && !p.moving) s[ST.damage] += sp[SP.stillDamage];
   if (sp[SP.movingDodge] > 0 && p.moving) s[ST.dodge] += sp[SP.movingDodge];
+  // Conversions. Each reads a stat as it stands before caps, except Max HP which is already final.
+  if (sp[SP.armorDamage] > 0 && s[ST.armor] > 0) s[ST.damage] += sp[SP.armorDamage] * s[ST.armor] / 2;
+  if (sp[SP.hpDamage] > 0) s[ST.damage] += sp[SP.hpDamage] * mh / 10;
+  if (sp[SP.speedDamage] > 0 && s[ST.speed] > 0) s[ST.damage] += sp[SP.speedDamage] * Math.min(s[ST.speed], STAT_MAX[ST.speed]) / 10;
+  if (sp[SP.scripDamage] > 0) s[ST.damage] += sp[SP.scripDamage] * Math.min(p.scrip, SCRIP_DAMAGE_AT) / 50;
+  if (sp[SP.harvestDamage] > 0 && s[ST.harvest] > 0) s[ST.damage] += sp[SP.harvestDamage] * Math.min(s[ST.harvest], STAT_MAX[ST.harvest]) / 10;
+  if (sp[SP.pureSet] > 0 && p.pure) s[ST.damage] += sp[SP.pureSet];
+  if (sp[SP.luckCrit] > 0 && s[ST.luck] > 0) s[ST.crit] += sp[SP.luckCrit] * Math.min(s[ST.luck], STAT_MAX[ST.luck]) / 20;
+  if (sp[SP.fewWeapons] > 0) s[ST.rate] += sp[SP.fewWeapons] * p.emptySlots;
+  if (sp[SP.workHaste] > 0 && p.workingNode !== -1) s[ST.rate] += sp[SP.workHaste];
   for (let i = 0; i < s.length; i++) {
     if (s[i] < STAT_MIN[i]) s[i] = STAT_MIN[i]; else if (s[i] > STAT_MAX[i]) s[i] = STAT_MAX[i];
   }
   const mend = s[ST.mend];
-  p.mendPerSec = mend >= 1 ? 0.2 + 0.09 * (mend - 1) : 0;
+  p.mendPerSec = mend >= 1 ? 0.25 + 0.14 * (mend - 1) : 0;
   const armor = s[ST.armor];
-  p.takenMul = armor >= 0 ? 1 / (1 + armor / 15) : 1 - armor / 15;
+  p.takenMul = armor >= 0 ? 1 / (1 + armor / 20) : 1 - armor / 15;
   p.dodge = s[ST.dodge] / 100;
   p.moveSpeed = PLAYER_SPEED * (1 + s[ST.speed] / 100);
   p.dmgMul = 1 + s[ST.damage] / 100;
@@ -221,6 +242,16 @@ export function spawnPickup(run: Run, x: number, y: number, kind: number, value:
   slot.vx = Math.cos(ang) * sp; slot.vy = Math.sin(ang) * sp;
 }
 
+/** Stand a fresh node at (x, y) if a slot and the live cap allow. Returns false if not. */
+export function spawnNode(run: Run, x: number, y: number, type: number, rich: boolean): boolean {
+  let live = 0, slot: ResNode | null = null;
+  for (const n of run.nodes) { if (n.alive) live++; else if (!slot) slot = n; }
+  if (!slot || live >= MAX_LIVE_NODES) return false;
+  slot.alive = true; slot.x = clampX(x); slot.y = clampY(y); slot.type = type; slot.rich = rich;
+  slot.work = 0; slot.need = rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0; slot.regrown = false; slot.noise = 0;
+  return true;
+}
+
 export function clampX(x: number): number { return x < ARENA_PAD ? ARENA_PAD : x > ARENA_W - ARENA_PAD ? ARENA_W - ARENA_PAD : x; }
 export function clampY(y: number): number { return y < ARENA_PAD ? ARENA_PAD : y > ARENA_H - ARENA_PAD ? ARENA_H - ARENA_PAD : y; }
 
@@ -235,13 +266,13 @@ export function spawnEnemy(run: Run, type: number, x: number, y: number, tell = 
   e.alive = true; e.uid = run.nextUid++; e.type = type;
   e.x = e.px = clampX(x); e.y = e.py = clampY(y);
   e.kx = e.ky = 0;
-  e.hp = e.maxHp = def.hp + def.hpW * w;
-  e.dmg = def.dmg + def.dmgW * w;
+  e.hp = e.maxHp = (def.hp + def.hpW * w) * HAZARD_HP[run.hazard] * (def.rank === 0 ? WAVE_HP[w] ?? 1 : 1);
+  e.dmg = (def.dmg + def.dmgW * w) * (WAVE_DMG[w] ?? 1);
   e.r = def.r;
   e.state = ES.Spawn; e.t = tell; e.t2 = 0; e.t3 = 0;
   e.dx = 1; e.dy = 0; e.tx = e.x; e.ty = e.y;
   e.burnDps = 0; e.burnT = 0; e.slowT = 0; e.slowF = 0; e.flash = 0; e.n = 0;
-  e.loot0 = e.loot1 = e.loot2 = e.loot3 = 0; e.work = 0;
+  e.loot0 = e.loot1 = e.loot2 = e.loot3 = 0; e.work = 0; e.called = false;
   e.seed = rnd(run.rng, Stream.Ai) * 6.283185307179586;
   run.enemyCount++;
   return idx;
@@ -260,13 +291,24 @@ export function damageEnemy(
   if (!e.alive) return false;
   const def = ENEMIES[e.type];
   if (def.rank > 0) dmg *= 1 + run.player.sp[SP.eliteDamage] / 100;
+  if (e.slowT > 0) dmg *= 1 + SLOW_VULN;
   const dealt = dmg < e.hp ? dmg : e.hp;
   e.hp -= dmg;
   run.dmgBy[src] += dealt;
   e.flash = 2;
   if (knock > 0) { const k = knock * 9 / def.mass; e.kx += kdx * k; e.ky += kdy * k; }
   if (src !== SRC_BURN) emit(run, crit ? 'crit' : 'hit', e.x, e.y, dmg, idx);
-  if (e.hp <= 0) { killEnemy(run, idx, true); return true; }
+  if (e.hp <= 0) {
+    // Hazard 5: Old Tusk gets up once, at half health.
+    if (def.rank === 2 && run.hazard >= 5 && !run.bossRose) {
+      run.bossRose = true;
+      e.hp = e.maxHp * 0.5;
+      emit(run, 'bossPhase', e.x, e.y, 3);
+      return false;
+    }
+    killEnemy(run, idx, true);
+    return true;
+  }
   return false;
 }
 
@@ -281,9 +323,11 @@ export function killEnemy(run: Run, idx: number, slain: boolean): void {
   const def = ENEMIES[e.type], p = run.player;
   run.kills++;
   emit(run, 'kill', e.x, e.y, e.type, def.rank);
-  if (def.scrip > 0) {
+  if (def.scrip > 0 && !e.called) {
     let v = def.scrip;
-    if (p.sp[SP.killScrip] > 0 && rnd(run.rng, Stream.Drop) * 100 < p.sp[SP.killScrip]) v *= 2;
+    // Luck finds a second coin: a third of a percent per point, on top of any bounty.
+    const twice = p.sp[SP.killScrip] + Math.max(0, p.stat[ST.luck]) / 3;
+    if (twice > 0 && rnd(run.rng, Stream.Drop) * 100 < twice) v *= 2;
     if (def.rank > 0) { const part = Math.ceil(v / 5); for (let i = 0; i < 5; i++) spawnPickup(run, e.x, e.y, PK_SCRIP, part, 220); }
     else spawnPickup(run, e.x, e.y, PK_SCRIP, v, 60);
   }
@@ -294,6 +338,8 @@ export function killEnemy(run: Run, idx: number, slain: boolean): void {
   if (e.loot3 > 0) spawnPickup(run, e.x, e.y, PK_HIDE, e.loot3, 120);
   if (def.id === 'stag') for (let i = 0; i < 4; i++) spawnPickup(run, e.x, e.y, PK_HIDE, 1, 200);
   if (def.id === 'rotwood') for (let i = 0; i < 6; i++) spawnPickup(run, e.x, e.y, PK_TIMBER, 1, 220);
+  if (p.sp[SP.killHeal] > 0 && p.hp < p.maxHp && rnd(run.rng, Stream.Combat) * 100 < p.sp[SP.killHeal]) p.hp = Math.min(p.maxHp, p.hp + 1);
+  if (CHARACTER[run.character].eliteCarcass && (def.rank === 1 || def.id === 'brute')) spawnNode(run, e.x, e.y, NODE_CARCASS, false);
   if (def.rank === 1) emit(run, 'eliteDeath', e.x, e.y, e.type);
   if (def.rank === 2) { emit(run, 'bossDeath', e.x, e.y, e.type); run.bossDead = true; }
   if (p.sp[SP.killBlast] > 0 && def.rank === 0 && rnd(run.rng, Stream.Combat) * 100 < p.sp[SP.killBlast]) {
@@ -351,9 +397,17 @@ export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, o
   if (p.dodge > 0 && rnd(run.rng, Stream.Combat) < p.dodge) {
     p.iframes = DODGE_IFRAMES;
     emit(run, 'dodge', p.x, p.y);
+    if (p.sp[SP.dodgeStrike] > 0) {
+      emit(run, 'burst', p.x, p.y, HURT_BLAST_RADIUS);
+      blast(run, p.x, p.y, HURT_BLAST_RADIUS, p.sp[SP.dodgeStrike] * p.dmgMul, SRC_RECOIL, 14);
+    }
     return false;
   }
-  let d = Math.max(1, Math.round(dmg * p.takenMul));
+  // No rounding: with 16 HP a rounded hit turns a small change in enemy damage into a cliff.
+  let d = dmg * p.takenMul;
+  // Head down at a node: hits land harder.
+  if (p.workingNode !== -1 && run.wave >= NOISE_FROM_WAVE) d *= WORK_EXPOSED;
+  if (d < 0.25) d = 0.25;
   p.iframes = IFRAMES;
   if (p.shield > 0) {
     const a = Math.min(p.shield, d);
@@ -366,16 +420,18 @@ export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, o
     emit(run, 'hurt', p.x, p.y, d, type);
   }
   const sp = p.sp;
+  // Thorns and the recoil blast both grow with Armor: one twelfth more per point.
+  const plate = 1 + Math.max(0, p.stat[ST.armor]) / 12;
   if (sp[SP.thorns] > 0 && owner >= 0) {
     const e = run.enemies[owner];
     if (e.alive && e.uid === ownerUid) {
       const ddx = e.x - p.x, ddy = e.y - p.y, dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
-      damageEnemy(run, owner, sp[SP.thorns], SRC_THORNS, false, ddx / dd, ddy / dd, 6);
+      damageEnemy(run, owner, sp[SP.thorns] * plate, SRC_THORNS, false, ddx / dd, ddy / dd, 6);
     }
   }
   if (sp[SP.hurtBlast] > 0 && d > 0) {
     emit(run, 'burst', p.x, p.y, HURT_BLAST_RADIUS);
-    blast(run, p.x, p.y, HURT_BLAST_RADIUS, sp[SP.hurtBlast], SRC_RECOIL, 18);
+    blast(run, p.x, p.y, HURT_BLAST_RADIUS, sp[SP.hurtBlast] * plate, SRC_RECOIL, 18);
   }
   if (p.hp <= 0) {
     if (sp[SP.secondWind] > 0 && !p.secondWindUsed) {

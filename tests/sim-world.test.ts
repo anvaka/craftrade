@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { WAVE_DMG, WAVE_HP } from '../src/sim/data/tuning.ts';
 import { BASE_ITEM } from '../src/shared/content/items.ts';
 import { addWeapon } from '../src/sim/bench.ts';
 import { damageEnemy, hurtPlayer, rebuild, spawnPickup, ST } from '../src/sim/core.ts';
@@ -39,14 +40,15 @@ describe('content tables', () => {
     expect(WAVE_PLAN[8][7]).toBe(12);
   });
 
-  it('enemy health and damage are linear in the wave', () => {
+  it('enemy health and damage are linear in the wave, times the late-wave multipliers', () => {
     const run = quietRun();
     for (const wave of [1, 5, 12]) {
       run.wave = wave;
       const i = place(run, 'boar', 300, 0);
       const def = ENEMIES[ENEMY_INDEX.boar];
-      expect(run.enemies[i].maxHp).toBeCloseTo(def.hp + def.hpW * (wave - 1), 9);
-      expect(run.enemies[i].dmg).toBeCloseTo(def.dmg + def.dmgW * (wave - 1), 9);
+      expect(run.enemies[i].maxHp).toBeCloseTo((def.hp + def.hpW * (wave - 1)) * WAVE_HP[wave - 1], 9);
+      expect(run.enemies[i].dmg).toBeCloseTo((def.dmg + def.dmgW * (wave - 1)) * WAVE_DMG[wave - 1], 9);
+      expect(WAVE_HP[0] * WAVE_DMG[0] * WAVE_HP[4] * WAVE_DMG[4]).toBe(1);
     }
   });
 });
@@ -72,17 +74,17 @@ describe('player', () => {
     expect(p.x).toBeGreaterThan(ARENA_W - 60);
   });
 
-  it('gets i-frames after a hit; armor follows 1 / (1 + armor / 15); mend follows 0.2 + 0.09 per extra point', () => {
+  it('gets i-frames after a hit; armor follows 1 / (1 + armor / 20); mend follows 0.25 + 0.14 per extra point; damage is not rounded', () => {
     const run = quietRun([testItem('armor', 5), testItem('mend', 3)]);
     const p = run.player;
     tough(run);
-    expect(p.takenMul).toBeCloseTo(1 / (1 + 7 / 15), 9);
-    expect(p.mendPerSec).toBeCloseTo(0.2 + 0.09 * 2, 9);
+    expect(p.takenMul).toBeCloseTo(1 / (1 + 7 / 20), 9);
+    expect(p.mendPerSec).toBeCloseTo(0.25 + 0.14 * 2, 9);
     expect(hurtPlayer(run, 30, 0, -1, 0)).toBe(true);
-    expect(run.damageTaken).toBe(Math.round(30 / (1 + 7 / 15)));
+    expect(run.damageTaken).toBeCloseTo(30 / (1 + 7 / 20), 9);
     expect(p.iframes).toBeGreaterThan(0.3);
     expect(hurtPlayer(run, 30, 0, -1, 0)).toBe(false);
-    ticks(run, 40);
+    ticks(run, 50);
     expect(p.iframes).toBeLessThanOrEqual(0);
     expect(hurtPlayer(run, 30, 0, -1, 0)).toBe(true);
   });
@@ -148,7 +150,7 @@ describe('weapons', () => {
     const burning = dummy(brand, 70, 0, 500);
     ticks(brand, 20);
     expect(brand.enemies[burning].burnT).toBeGreaterThan(0);
-    expect(brand.enemies[burning].burnDps).toBe(2);
+    expect(brand.enemies[burning].burnDps).toBe(3);
     const bola = quietRun([], 'greenhorn', 5, 'bola');
     const slowed = dummy(bola, 150, 0, 500);
     ticks(bola, 40);
@@ -397,20 +399,21 @@ describe('nodes and raws', () => {
     const h = quietRun([testItem('harvest', 5)]);
     expect(h.player.workRate).toBeCloseTo(1 + 22 / 20, 9);
     expect(nodeYield(h, 0, false)).toBe(5);
-    expect(nodeYield(h, 0, true)).toBe(8);
+    expect(nodeYield(h, 0, true)).toBe(10);
+    expect(nodeYield(createRun({ seed: 1, character: 'greenhorn', hazard: 2 }), 0, false)).toBe(2);
     const town = createRun({ seed: 1, character: 'greenhorn', stations: { sawmill: 3, smelter: 2 } });
     expect(nodeYield(town, 0, false)).toBe(5);
     expect(nodeYield(town, 1, false)).toBe(4);
     expect(nodeYield(town, 2, false)).toBe(3);
   });
 
-  it('rich nodes appear from wave 5 and not before; Trapper sees twice the carcasses', () => {
+  it('rich nodes appear from wave 3 and not before, and stand nearer a lane mouth; Trapper sees twice the carcasses', () => {
     let richEarly = 0, richLate = 0, carcG = 0, carcT = 0;
     for (let seed = 1; seed <= 25; seed++) {
       const run = createRun({ seed, character: 'greenhorn' });
       const trap = createRun({ seed, character: 'trapper' });
       for (let w = 1; w <= 8; w++) {
-        for (const n of run.nodes) if (n.alive && n.rich) { if (w < 5) richEarly++; else richLate++; }
+        for (const n of run.nodes) if (n.alive && n.rich) { if (w < 3) richEarly++; else richLate++; }
         if (w === 2) { carcG += run.nodes.filter((n) => n.alive && n.type === 2).length; carcT += trap.nodes.filter((n) => n.alive && n.type === 2).length; }
         for (const n of run.nodes) n.alive = false;
         hush(run); endWave(run); nextWave(run);
@@ -447,7 +450,8 @@ describe('waves', () => {
     expect(run.phase).toBe('bench');
     expect(ev).toContain('waveEnd');
     expect(run.wavesCleared).toBe(1);
-    expect(run.bench.interestPaid).toBeGreaterThanOrEqual(8);
+    // 8% of 100 or more, capped at 6 per wave number.
+    expect(run.bench.interestPaid).toBe(6);
     expect(run.enemyCount).toBe(0);
     step(run, { mx: 1, my: 0 });
     expect(run.tick).toBe(20 * 60);
@@ -490,5 +494,126 @@ describe('waves', () => {
   it('kit: an authored item packed for the run is in force in wave 1', () => {
     const run = createRun({ seed: 2, character: 'greenhorn', kit: [BASE_ITEM.hobnails] });
     expect(run.player.stat[ST.speed]).toBe(6);
+  });
+});
+
+describe('work under fire', () => {
+  const nodeAt = (run: Run, dx: number) => {
+    const n = run.nodes[0], p = run.player;
+    n.alive = true; n.x = p.x + dx; n.y = p.y; n.type = 0; n.rich = false; n.work = 0; n.need = 3; n.tickAcc = 0; n.noise = 0;
+    return n;
+  };
+
+  it('work is loud from wave 3: every unit of work calls a pack that carries no scrip; before wave 3 it calls nothing', () => {
+    const early = quietRun();
+    disarm(early); nodeAt(early, 20);
+    ticks(early, 90);
+    expect(early.enemyCount).toBe(0);
+    const run = quietRun();
+    run.wave = 3; run.laneCount = 1; run.lanes[0] = 0; run.lanes[1] = 0;
+    disarm(run); tough(run); nodeAt(run, 20);
+    ticks(run, 70);
+    expect(run.enemyCount).toBe(3 + Math.floor(3 / 2));
+    const called = run.enemies.filter((e) => e.alive);
+    expect(called.every((e) => e.called && ENEMIES[e.type].id === 'gnat')).toBe(true);
+    const i = run.enemies.indexOf(called[0]);
+    damageEnemy(run, i, 1e6, 0, false, 0, 0, 0);
+    expect(run.pickups.some((k) => k.alive && k.kind === PK_SCRIP)).toBe(false);
+  });
+
+  it('a hit lands twice as hard on a player at a node from wave 3, and work left alone drains at half a unit a second', () => {
+    const run = quietRun();
+    run.wave = 3;
+    disarm(run); tough(run);
+    hurtPlayer(run, 4, 0, -1, 0);
+    expect(run.damageTaken).toBe(4);
+    const n = nodeAt(run, 20);
+    n.need = 1e9;
+    ticks(run, 60);
+    for (let i = 0; i < run.enemies.length; i++) if (run.enemies[i].alive) { run.enemies[i].alive = false; run.enemyCount--; }
+    run.player.iframes = 0;
+    hurtPlayer(run, 4, 0, -1, 0);
+    expect(run.damageTaken).toBe(4 + 8);
+    const done = n.work;
+    expect(done).toBeGreaterThan(0.9);
+    n.x += 400;
+    ticks(run, 60);
+    expect(n.work).toBeCloseTo(done - 0.5, 6);
+  });
+
+  it('Trapper: elites and brutes leave a carcass, and every node broken heals 2', () => {
+    const run = quietRun([], 'trapper');
+    const i = place(run, 'brute', 200, 0, 5);
+    damageEnemy(run, i, 100, 0, false, 0, 0, 0);
+    expect(run.nodes.filter((n) => n.alive && n.type === 2).length).toBe(1);
+    const green = quietRun();
+    const j = place(green, 'brute', 200, 0, 5);
+    damageEnemy(green, j, 100, 0, false, 0, 0, 0);
+    expect(green.nodes.some((n) => n.alive)).toBe(false);
+    disarm(run);
+    for (const n of run.nodes) n.alive = false;
+    nodeAt(run, 20);
+    run.player.hp = 3;
+    ticks(run, 190);
+    expect(run.player.hp).toBe(5);
+  });
+});
+
+describe('hazard ladder', () => {
+  it('level 0 is the default and changes nothing; levels are clamped to 0-5', () => {
+    expect(createRun({ seed: 3, character: 'greenhorn' }).hazard).toBe(0);
+    expect(createRun({ seed: 3, character: 'greenhorn', hazard: 9 }).hazard).toBe(5);
+    expect(createRun({ seed: 3, character: 'greenhorn', hazard: -2 }).hazard).toBe(0);
+    expect(createRun({ seed: 3, character: 'greenhorn', hazard: Number.NaN }).hazard).toBe(0);
+    const a = createRun({ seed: 3, character: 'greenhorn' }), b = createRun({ seed: 3, character: 'greenhorn', hazard: 0 });
+    for (let t = 0; t < 600; t++) { step(a, { mx: 1, my: 0 }); step(b, { mx: 1, my: 0 }); }
+    expect([a.player.hp, a.kills, a.enemyCount, a.rng[0]]).toEqual([b.player.hp, b.kills, b.enemyCount, b.rng[0]]);
+  });
+
+  it('1: an elite comes a wave early and carries no scrip', () => {
+    const at5 = (hazard: number) => {
+      const run = createRun({ seed: 6, character: 'greenhorn', hazard });
+      for (let w = 1; w < 5; w++) { hush(run); endWave(run); nextWave(run); }
+      tough(run);
+      ticks(run, 240);
+      return run;
+    };
+    expect(at5(0).eliteIdx).toBe(-1);
+    const run = at5(1);
+    expect(run.eliteIdx).toBeGreaterThanOrEqual(0);
+    const e = run.enemies[run.eliteIdx];
+    expect(ENEMIES[e.type].id).toBe('stag');
+    expect(e.called).toBe(true);
+  });
+
+  it('3: a new wave mends half of what is missing; 4: spitters spit three; 5: Old Tusk rises once at half health', () => {
+    const rest = createRun({ seed: 2, character: 'greenhorn', hazard: 3 });
+    hush(rest); endWave(rest);
+    rest.player.hp = 4;
+    nextWave(rest);
+    expect(rest.player.hp).toBe(4 + (rest.player.maxHp - 4) / 2);
+
+    const spits = (hazard: number) => {
+      const run = createRun({ seed: 2, character: 'greenhorn', hazard });
+      hush(run); tough(run); disarm(run);
+      place(run, 'spitter', 300, 0);
+      let most = 0;
+      ticks(run, 300, 0, 0, (r) => { const n = r.eshots.filter((s) => s.alive).length; if (n > most) most = n; });
+      return most;
+    };
+    expect(spits(0)).toBe(1);
+    expect(spits(4)).toBeGreaterThanOrEqual(3);
+
+    const run = createRun({ seed: 2, character: 'greenhorn', hazard: 5 });
+    hush(run);
+    const i = place(run, 'tusk', 300, 0, 100);
+    run.eliteIdx = i;
+    damageEnemy(run, i, 1000, 0, false, 0, 0, 0);
+    expect(run.enemies[i].alive).toBe(true);
+    expect(run.enemies[i].hp).toBe(50);
+    expect(run.bossRose).toBe(true);
+    damageEnemy(run, i, 1000, 0, false, 0, 0, 0);
+    expect(run.enemies[i].alive).toBe(false);
+    expect(run.bossDead).toBe(true);
   });
 });
