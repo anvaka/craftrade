@@ -2,6 +2,7 @@
 // charge pips, item rows, steppers. No framework; a page is rebuilt from
 // state when something changes.
 
+import { itemName } from '../ui/describe.ts';
 import { effectText, isRelic, itemTier, type ItemSpec } from '../../shared/item.ts';
 import { KIT_CHARGES } from '../../shared/protocol.ts';
 import { spriteElement, type Icon, type Sprite, type Sprites } from '../art/index.ts';
@@ -135,7 +136,7 @@ export function itemRow(item: ItemSpec, o: { meta?: Kid[]; actions?: Kid[]; cls?
     'li',
     `offer ${isRelic(item) ? 'is-relic ' : ''}${o.cls ?? ''}`.trim(),
     itemIcon(item, true),
-    el('div', 'name', el('span', '', item.name), tier(itemTier(item)), serial(item), ...(o.meta ?? [])),
+    el('div', 'name', itemName(item), tier(itemTier(item)), serial(item), ...(o.meta ?? [])),
     effectList(item, o.me),
     o.actions?.length ? el('div', 'buy', ...o.actions) : null,
   );

@@ -1,5 +1,6 @@
 // The workshop tab: the anvil for the stash, and the codex.
 
+import { itemName } from '../ui/describe.ts';
 import { BASE_ITEM } from '../../shared/content/items.ts';
 import { RELIC } from '../../shared/content/relics.ts';
 import { effectText, fusionBlock, fusionBudget, isRelic, itemTier, tierOf, type ItemSpec } from '../../shared/item.ts';
@@ -19,7 +20,7 @@ let slotA: string | null = null;
 let slotB: string | null = null;
 let striking = false;
 let struckAt = 0;
-let result: { res: FuseRes; a: string; b: string; charges: number } | null = null;
+let result: { res: FuseRes; a: ItemSpec; b: ItemSpec; charges: number } | null = null;
 let filter = '';
 
 const held = (uid: string | null): StashItem | undefined => (uid ? app.profile.items.find((i) => i.uid === uid) : undefined);
@@ -55,7 +56,7 @@ function slot(which: 'a' | 'b', it: StashItem | undefined): HTMLElement {
     el(
       'div',
       'slot-text',
-      el('div', 'name', el('span', '', it.item.name), tier(itemTier(it.item))),
+      el('div', 'name', itemName(it.item), tier(itemTier(it.item))),
       effectList(it.item),
       striking
         ? null
@@ -89,7 +90,7 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
       el(
         'div',
         'slot-text',
-        el('div', 'name', el('span', '', it.name), tier(itemTier(it))),
+        el('div', 'name', itemName(it), tier(itemTier(it))),
         effectList(it),
         el('div', 'charges', pips(result.charges, KIT_CHARGES, 'charges'), term('Charges, in your stash', 'charges', 'label')),
       ),
@@ -120,9 +121,9 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
   const theirs = before ? undefined : app.codex?.recipes.find((r) => pairKey(r.a, r.b) === pairKey(a.item.id, b.item.id));
   const theirsOut = theirs ? known(theirs.out) : undefined;
   const pairNote: Kid = made
-    ? el('span', '', 'You have made this pair: ', el('strong', '', made.name), '. A ', term('known recipe', 'known'), ', so it does not count against today\u2019s untried pairs.')
+    ? el('span', '', 'You have made this pair: ', el('strong', '', itemName(made)), '. A ', term('known recipe', 'known'), ', so it does not count against today\u2019s untried pairs.')
     : theirsOut
-      ? el('span', '', 'Already found by ', finder(theirs!.by, app.profile.name), ': ', el('strong', '', theirsOut.name), '. A ', term('known recipe', 'known'), ', so it does not count against today\u2019s untried pairs.')
+      ? el('span', '', 'Already found by ', finder(theirs!.by, app.profile.name), ': ', el('strong', '', itemName(theirsOut)), '. A ', term('known recipe', 'known'), ', so it does not count against today\u2019s untried pairs.')
       : app.codex
         ? el(
             'span',
@@ -170,7 +171,7 @@ async function strike(a: StashItem, b: StashItem): Promise<void> {
     const [res] = await Promise.all([api.fuse({ a: a.item.id, b: b.item.id, ctx: 'town', uidA: a.uid, uidB: b.uid }), new Promise((r) => setTimeout(r, 900))]);
     settle();
     if (res.profile) setProfile(res.profile);
-    result = { res, a: a.item.name, b: b.item.name, charges: Math.min(a.charges, b.charges) };
+    result = { res, a: a.item, b: b.item, charges: Math.min(a.charges, b.charges) };
     slotA = slotB = null;
     audio.play(res.first ? 'revealFirst' : 'reveal');
     redraw();
@@ -202,7 +203,7 @@ function anvil(): HTMLElement {
   );
   if (result) {
     sec.append(
-      el('div', 'anvil is-done', el('div', 'anvil-made', el('span', 'label', `${result.a} + ${result.b}`)), outcome(undefined, undefined)),
+      el('div', 'anvil is-done', el('div', 'anvil-made', el('span', 'label', itemName(result.a), ' + ', itemName(result.b))), outcome(undefined, undefined)),
       el(
         'div',
         'stamps',
@@ -251,7 +252,7 @@ function chooser(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
       el(
         'tr',
         on ? 'is-on' : '',
-        el('td', '', thing(itemIcon(it.item), it.item.name)),
+        el('td', '', thing(itemIcon(it.item), itemName(it.item))),
         el('td', '', tier(itemTier(it.item))),
         el('td', 'wide', pips(it.charges, KIT_CHARGES, 'charges')),
         el('td', 'mark', mark),
@@ -343,13 +344,7 @@ function pairs(): HTMLElement {
 // ---- codex -----------------------------------------------------------------
 
 /** An item's name on a recipe line. What it does is in its tooltip, so the line stays one name long. */
-function named(item: ItemSpec): HTMLElement {
-  const fx = item.effects.map(effectText).filter(Boolean).join(', ');
-  const n = el('span', 'term', item.name);
-  if (fx) setTip(n, `${item.name}: ${fx}.`);
-  n.tabIndex = 0;
-  return n;
-}
+const named = (item: ItemSpec): HTMLElement => itemName(item);
 
 function recipeRow(r: CodexRecipe): HTMLElement | null {
   const a = known(r.a);
@@ -458,7 +453,7 @@ function relicRoll(): HTMLElement {
     const spec = k.id ? RELIC[k.id] : undefined;
     kinds.append(
       spec
-        ? el('tr', '', el('td', '', thing(itemIcon(spec), spec.name)), el('td', 'fx', spec.effects.map((e) => effectText(e)).join(', ')), el('td', 'num', fmt(k.found)))
+        ? el('tr', '', el('td', '', thing(itemIcon(spec), itemName(spec))), el('td', 'fx', spec.effects.map((e) => effectText(e)).join(', ')), el('td', 'num', fmt(k.found)))
         : el('tr', 'is-unfound', el('td', '', el('span', 'blank')), el('td', '', el('span', 'blank')), el('td', 'num', '0')),
     );
   }
@@ -474,7 +469,7 @@ function relicRoll(): HTMLElement {
       el(
         'tr',
         '',
-        el('td', '', f.name),
+        el('td', '', RELIC[f.relic as keyof typeof RELIC] ? itemName({ ...RELIC[f.relic as keyof typeof RELIC], serial: f.serial, by: f.finder }) : f.name),
         el('td', 'num', String(f.serial)),
         el('td', '', f.finder === app.profile.name ? el('span', 'own', f.finder) : el('span', 'who', f.finder)),
         el('td', 'num', f.date),

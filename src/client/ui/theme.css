@@ -1054,3 +1054,7 @@ canvas.icon {
 .tipbox[hidden] {
   display: none;
 }
+/* A name used mid-sentence ("Damage by sling"). */
+.term.lower {
+  text-transform: lowercase;
+}

@@ -1,8 +1,10 @@
 // The HUD: DOM over the canvas, built from the ledger kit's pieces. Every
 // write is diffed against the last value so a quiet frame touches nothing.
+import { weaponTip } from '../ui/describe.ts';
+import { setTip } from '../ui/tip.ts';
 import type { Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
-import { ENEMIES, WEAPONS, weaponCooldown, type Run } from '../../sim/index.ts';
+import { ENEMIES, WEAPONS, weaponCooldown, weaponDamage, weaponRange, type Run } from '../../sim/index.ts';
 import { clock, el, icSized, stamp } from './dom.ts';
 
 export interface SoundControls { el: HTMLElement; dispose(): void }
@@ -202,7 +204,8 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
         const cd = el('i');
         const icon = icSized(S.icon.weapon[w.id as keyof typeof S.icon.weapon], 24);
         const s = el('div', 'g-slot', icon, el('span', 'g-slot-tier', String(w.tier)), el('span', 'g-cd', cd));
-        s.title = `${WEAPONS[w.def].name}, tier ${w.tier}`;
+        const def = WEAPONS[w.def];
+        setTip(s, weaponTip(def, w.tier, { damage: weaponDamage(p, def, w.tier), cooldown: weaponCooldown(p, def, w.tier), reach: weaponRange(p, def) }));
         slots.append(s);
         slotCd.push(cd); slotV.push(-1);
       }

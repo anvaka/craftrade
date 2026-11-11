@@ -2,6 +2,7 @@
 // town/homecoming.ts). The game only stops here when there is something to
 // choose: more items that could go home than may. Then it asks that one
 // question and nothing else.
+import { itemName } from '../ui/describe.ts';
 import type { Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
 import { effectText, itemTier, type ItemSpec } from '../../shared/item.ts';
@@ -99,7 +100,7 @@ export function createEndScreen(parent: HTMLElement, S: Sprites, run: Run, quit:
       });
       tbl.append(el('tr', on ? 'g-carrying' : '',
         el('td', '', el('div', 'thing', ic(S.icon.glyph[it.glyph]),
-          el('span', '', el('span', 'g-item-name', it.name, tier(itemTier(it))), el('span', 'g-sub', it.effects.map((e) => effectText(e)).join(', '))))),
+          el('span', '', el('span', 'g-item-name', itemName(it), tier(itemTier(it))), el('span', 'g-sub', it.effects.map((e) => effectText(e)).join(', '))))),
         el('td', 'act', btn)));
     });
     carry.append(tbl);

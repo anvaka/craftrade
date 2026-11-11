@@ -1102,3 +1102,17 @@ p.num,
 .next .bar--hazard .bar-text .note {
   white-space: normal;
 }
+
+/* Account rows with a stamp: the label keeps its width and the figure and stamp wrap under each other if they must,
+   so a long value never runs over the label. */
+.account .stats dt {
+  flex-shrink: 0;
+}
+.account .stats dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}

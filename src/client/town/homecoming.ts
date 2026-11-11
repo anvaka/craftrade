@@ -7,6 +7,8 @@
 // to the next run is one press; what is new; what came home; the run in
 // figures.
 
+import { WEAPONS, WEAPON_INDEX } from '../../sim/data/weapons.ts';
+import { weaponName } from '../ui/describe.ts';
 import { setTip, term } from '../ui/tip.ts';
 import './homecoming.css';
 
@@ -254,7 +256,7 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
 
   // ---- the run in figures --------------------------------------------------
   const figures = el('dl', 'stats');
-  const row = (name: string, value: string): void => void figures.append(el('div', '', el('dt', '', name), el('dd', 'num', value)));
+  const row = (name: Kid, value: string): void => void figures.append(el('div', '', el('dt', '', name), el('dd', 'num', value)));
   row('Waves cleared', `${r.wavesCleared} of ${ticket.waves}`);
   row('Time in the clearing', clock(recap.seconds));
   row('Level', String(r.level));
@@ -263,7 +265,11 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
   if (r.scripHeld > 0) row('Scrip in hand at the end', fmt(r.scripHeld));
   row('Damage taken', fmt(recap.damageTaken));
   const top = [...recap.damageBy].sort((a, b) => b.damage - a.damage).slice(0, 4);
-  for (const d of top) row(`Damage by ${d.name.toLowerCase()}`, fmt(d.damage));
+  for (const d of top) {
+    const def = WEAPONS[WEAPON_INDEX[d.id]];
+    // A weapon named here explains itself like everywhere else; burn, thorns and the like are plain words.
+    row(def && d.tier ? el('span', '', 'Damage by ', weaponName(def, d.tier, undefined, 'lower')) : `Damage by ${d.name.toLowerCase()}`, fmt(d.damage));
+  }
   out.push(el('section', 'section', el('h2', '', 'The run in figures'), figures));
 
   if (h.firstRun && res) {

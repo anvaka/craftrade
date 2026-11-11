@@ -1,6 +1,8 @@
 // The stash tab, which is also home: the next run, who heads out, the
 // stash and kit, and the account in figures.
 
+import { RELIC } from '../../shared/content/relics.ts';
+import { itemName } from '../ui/describe.ts';
 import { TITLE } from '../../shared/almanac.ts';
 import { isRelic, itemPoints } from '../../shared/item.ts';
 import { DAILY_WAVES, KIT_CHARGES, KIT_SLOTS, type CharacterId, type StashItem } from '../../shared/protocol.ts';
@@ -29,16 +31,18 @@ function worldNotice(): HTMLElement | null {
   const n = app.worldNotice;
   if (!n) return null;
   const who = n.finder === app.profile.name ? el('span', 'own', n.finder) : el('span', 'who', n.finder);
-  const line = el('div', 'notice notice--town world-notice', el('span', 'tag', 'Word'), el('span', 'text', who, ' brought home the ', el('strong', '', n.name), `. No. ${n.serial} in the world.`));
+  const spec = RELIC[n.relic as keyof typeof RELIC];
+  const line = el('div', 'notice notice--town world-notice', el('span', 'tag', 'Word'), el('span', 'text', who, ' brought home the ', el('strong', '', spec ? itemName({ ...spec, serial: n.serial, by: n.finder }) : n.name), `. No. ${n.serial} in the world.`));
   line.setAttribute('role', 'status');
   return line;
 }
 
 // ---- next run --------------------------------------------------------------
 
-function kitNames(): string {
-  const names = app.kit.map((uid) => app.profile.items.find((i) => i.uid === uid)?.item.name).filter(Boolean);
-  return names.length ? names.join(' and ') : 'no kit';
+function kitNames(): Kid[] {
+  const items = app.kit.map((uid) => app.profile.items.find((i) => i.uid === uid)?.item).filter((i): i is NonNullable<typeof i> => !!i);
+  if (!items.length) return ['no kit'];
+  return items.flatMap((it, i) => (i ? [' and ', itemName(it)] : [itemName(it)]));
 }
 
 function nextRun(): HTMLElement {
@@ -49,7 +53,7 @@ function nextRun(): HTMLElement {
     el(
       'div',
       'bar',
-      el('div', 'bar-text', el('strong', '', characterName(app.character)), `, ${kitNames()}. `, el('span', 'note', '12 waves, about 13 minutes.')),
+      el('div', 'bar-text', el('strong', '', characterName(app.character)), ', ', ...kitNames(), '. ', el('span', 'note', '12 waves, about 13 minutes.')),
       stamp(app.busy.has('run') ? 'Heading out' : 'Head out', { key: 'headout', sound: 'waveStart', onClick: () => void headOut('run') }),
     ),
   );
@@ -332,7 +336,7 @@ function account(): HTMLElement {
     const solo = isSolo();
     row(
       'World',
-      el('span', '', solo ? 'Solo, on this device' : 'Shared town'),
+      setTip(el('span', 'term', solo ? 'Solo' : 'Shared'), solo ? 'Solo: the whole game kept on this device, with a town of your own. Works with no connection.' : 'The shared town: one world for every player, on the game server.'),
       stamp(solo ? 'Go to the shared town' : 'Play solo', {
         cls: 'stamp--small stamp--plain',
         key: 'world:switch',

@@ -16,7 +16,8 @@ export interface RunRecap {
   killedBy: string | null;
   endWave: number;
   seconds: number;
-  damageBy: { id: string; name: string; damage: number }[];
+  /** `tier`: for a weapon, the highest tier of it held at the end. */
+  damageBy: { id: string; name: string; damage: number; tier?: number }[];
   damageTaken: number;
   rawsGathered: { timber: number; ore: number; hide: number };
   /** Items held at the end, for the recap. */

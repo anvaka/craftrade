@@ -288,7 +288,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       killedBy: killerName(run),
       endWave: s.endWave,
       seconds: s.seconds,
-      damageBy: Object.entries(s.damageBy).sort((a, b) => b[1] - a[1]).map(([id, damage]) => ({ id, name: sourceName(id), damage })),
+      damageBy: Object.entries(s.damageBy).sort((a, b) => b[1] - a[1]).map(([id, damage]) => ({ id, name: sourceName(id), damage, tier: run.player.weapons.filter((w) => w.id === id).reduce((t, w) => Math.max(t, w.tier), 0) || undefined })),
       damageTaken: s.damageTaken,
       rawsGathered: s.rawsGathered,
       items: run.player.items.slice(),

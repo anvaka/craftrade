@@ -1,6 +1,7 @@
 // The bench: upgrade picks, four offers, reroll, lock, scrap, the anvil
 // (fusion), the mule and "Next wave". DOM, ledger style. Every action goes
 // straight to the sim's bench functions; a refusal is shown as one dry line.
+import { itemName, itemTip, weaponName, type WeaponNow } from '../ui/describe.ts';
 import { GLOSS, STAT_MEANING } from '../ui/glossary.ts';
 import { setTip, term } from '../ui/tip.ts';
 import type { Sprites } from '../art/index.ts';
@@ -361,6 +362,10 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     return s;
   }
 
+  /** A weapon's figures at a tier with the player's stats as they stand. */
+  const now = (def: (typeof WEAPONS)[number], t: number): WeaponNow =>
+    ({ damage: weaponDamage(p, def, t), cooldown: weaponCooldown(p, def, t), reach: weaponRange(p, def) });
+
   function offersSection(): HTMLElement {
     const s = el('section', 'section g-first');
     s.append(el('h2', '', 'Offers'));
@@ -368,11 +373,11 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     const list = el('ul', 'offers');
     b.offers.forEach((o, i) => {
       const lis: Kid[] = [];
-      let icon: HTMLCanvasElement, name: string, kind: string, effects: HTMLElement;
+      let icon: HTMLCanvasElement, name: HTMLElement, kind: string, effects: HTMLElement;
       if (o.kind === 'weapon') {
         const def = WEAPONS[WEAPON_INDEX[o.id]];
         icon = ic(S.icon.weapon[o.id as keyof typeof S.icon.weapon], true);
-        name = def.name;
+        name = weaponName(def, o.tier, now(def, o.tier));
         kind = `Weapon, ${def.classes.map((c) => low(CLASS_LABEL[c])).join(', ')}`;
         effects = el('ul', 'effects',
           el('li', '', def.note),
@@ -385,7 +390,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       } else {
         const it = o.item!;
         icon = ic(S.icon.glyph[it.glyph], true);
-        name = it.name;
+        name = itemName(it);
         kind = o.commission ? 'Commission, item' : 'Item';
         effects = fx(it);
       }
@@ -405,7 +410,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       lockBtn.addEventListener('click', (ev) => act(() => doLock(i), ev));
       lis.push(
         icon,
-        el('div', 'name', key(String(i + 1)), el('span', '', name), tier(o.tier), o.commission ? setTip(el('span', 'kind term', kind), 'One extra offer from bench 5: always tier 3 or 4, dear, and a reroll does not replace it.') : el('span', 'kind', kind), o.locked ? ic(S.icon.lock) : null),
+        el('div', 'name', key(String(i + 1)), name, tier(o.tier), o.commission ? setTip(el('span', 'kind term', kind), 'One extra offer from bench 5: always tier 3 or 4, dear, and a reroll does not replace it.') : el('span', 'kind', kind), o.locked ? ic(S.icon.lock) : null),
         effects,
         el('div', 'buy', priceOf(o.price, o.raws, true, !o.sold),
           !o.sold && offerCost(run, i) > o.price ? el('span', 'note', `Short of raws: ${offerCost(run, i) - o.price} scrip more`) : null,
@@ -434,7 +439,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       s.append(el('div', 'g-reveal',
         ic(S.icon.glyph[it.glyph], true),
         el('div', 'g-reveal-body',
-          el('div', 'name', el('span', '', it.name), tier(itemTier(it))),
+          el('div', 'name', itemName(it), tier(itemTier(it))),
           fx(it)),
         el('div', 'g-reveal-side', find, done)));
       return s;
@@ -464,7 +469,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const btn = stamp(null, `stamp--plain stamp--small${on ? ' is-pressed' : ''}`, ic(S.icon.glyph[it.glyph]), it.name, tier(itemTier(it)));
       btn.dataset.fk = `anvil${id}`;
       btn.setAttribute('aria-pressed', String(on));
-      setTip(btn, it.effects.map((e) => effectText(e)).join(', '));
+      setTip(btn, itemTip(it));
       btn.addEventListener('click', (ev) => act(() => doAnvilPick(id), ev));
       picks.append(btn);
     }
@@ -474,7 +479,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       if (i < 0) return el('div', 'g-anvil-slot', el('span', 'label', label), el('span', 'note', 'Empty'));
       const it = p.items[i];
       return el('div', 'g-anvil-slot', el('span', 'label', label),
-        el('span', 'thing', ic(S.icon.glyph[it.glyph]), el('span', '', el('span', 'g-item-name', it.name, tier(itemTier(it))), el('span', 'g-sub', it.effects.map((e) => effectText(e)).join(', ')))));
+        el('span', 'thing', ic(S.icon.glyph[it.glyph]), el('span', '', el('span', 'g-item-name', itemName(it), tier(itemTier(it))), el('span', 'g-sub', it.effects.map((e) => effectText(e)).join(', ')))));
     };
     s.append(slot('First', ai), slot('Second', bi));
     const strikeBtn = stamp('Strike', '');
@@ -490,7 +495,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
           el('div', '', term('Budget', 'budget'), ` ${q.budget} points, up to tier ${q.tier}.`),
           el('div', 'g-anvil-cost', setTip(el('span', 'label term', 'Costs up to'), 'The price is set by the tier that comes off, which is known only once it is struck. This is the most it can be.'), free ? el('span', '', 'no raws') : priceOf(0, q.raws, false),
             q.scrip > 0 ? el('span', 'note', `Short of raws: ${q.scrip} scrip`) : null),
-          known ? el('div', 'note', `You made this pair earlier: ${low(known.name)}.`) : setTip(el('div', 'g-untried label term', 'Not struck by you this run'), `You have not made this pair in this run. If nobody in the world has ever struck it, it is an untried pair: ${GLOSS.untried}`)),
+          known ? el('div', 'note', 'You made this pair earlier: ', itemName(known), '.') : setTip(el('div', 'g-untried label term', 'Not struck by you this run'), `You have not made this pair in this run. If nobody in the world has ever struck it, it is an untried pair: ${GLOSS.untried}`)),
       );
       if (q.block) { strikeBtn.setAttribute('aria-disabled', 'true'); setTip(strikeBtn, q.block); row.append(el('div', 'g-block', q.block)); }
       else setTip(strikeBtn, 'Fuse the two. Both are used up and one new item comes off.');
@@ -620,7 +625,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       }
       wt.append(el('tr', i === combined ? 'g-combined' : '',
         el('td', '', el('div', 'thing', ic(S.icon.weapon[w.id as keyof typeof S.icon.weapon]),
-          el('span', '', def.name, i === combined ? el('span', 'g-tag', 'Combined') : null,
+          el('span', '', weaponName(def, w.tier, now(def, w.tier)), i === combined ? el('span', 'g-tag', 'Combined') : null,
             el('span', 'g-sub', def.classes.map((c) => CLASS_LABEL[c]).join(', '))))),
         el('td', '', tier(w.tier)),
         el('td', 'act', up, comb, sc)));
@@ -661,7 +666,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
         tbl.append(el('tr', '',
           el('td', '', el('div', 'thing', ic(S.icon.glyph[item.glyph]),
             el('span', '',
-              el('span', 'g-item-name', item.name, idxs.length > 1 ? el('span', 'num', ` x${idxs.length}`) : null, tier(itemTier(item)), kit ? setTip(el('span', 'g-tag g-tag--plain', 'Kit'), `Packed from your stash. ${GLOSS.kit}`) : null),
+              el('span', 'g-item-name', itemName(item), idxs.length > 1 ? el('span', 'num', ` x${idxs.length}`) : null, tier(itemTier(item)), kit ? setTip(el('span', 'g-tag g-tag--plain', 'Kit'), `Packed from your stash. ${GLOSS.kit}`) : null),
               el('span', 'g-sub', item.effects.map((e) => effectText(e)).join(', '))))),
           el('td', 'act', item.relic ? el('span', 'note', 'Relic') : sc)));
       }

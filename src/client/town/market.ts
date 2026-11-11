@@ -1,6 +1,7 @@
 // The market tab: the Factor's table for raws, the listings as a price
 // ledger, and selling from the stash (post or salvage).
 
+import { itemName } from '../ui/describe.ts';
 import { isSolo } from './api.ts';
 import { GLOSS } from '../ui/glossary.ts';
 import { setTip, term } from '../ui/tip.ts';
@@ -319,7 +320,7 @@ function listingRow(l: Listing): HTMLElement {
     el(
       'td',
       '',
-      el('div', 'thing', itemIcon(l.item), el('span', 'l-item', el('span', 'l-name', l.item.name, serial(l.item)), el('span', 'fx', fxLine(l.item)), el('span', 'l-seller', 'sold by ', l.mine ? el('span', 'own', 'You') : el('span', 'who', l.seller)))),
+      el('div', 'thing', itemIcon(l.item), el('span', 'l-item', el('span', 'l-name', itemName(l.item), serial(l.item)), el('span', 'fx', fxLine(l.item)), el('span', 'l-seller', 'sold by ', l.mine ? el('span', 'own', 'You') : el('span', 'who', l.seller)))),
     ),
     el('td', '', tier(itemTier(l.item))),
     el('td', 'wide', finder(l.item.by, p.name)),
@@ -449,7 +450,7 @@ function sell(): HTMLElement {
       el(
         'tr',
         `${isPosting ? 'is-on' : ''}${relic ? ' is-relic' : ''}`.trim(),
-        el('td', '', el('div', 'thing', itemIcon(it.item), el('span', 'l-item', el('span', 'l-name', it.item.name, serial(it.item)), el('span', 'fx', fxLine(it.item))))),
+        el('td', '', el('div', 'thing', itemIcon(it.item), el('span', 'l-item', el('span', 'l-name', itemName(it.item), serial(it.item)), el('span', 'fx', fxLine(it.item))))),
         el('td', '', tier(itemTier(it.item))),
         el('td', 'wide', relic ? el('span', 'note', 'Does not wear') : pips(it.charges, KIT_CHARGES, 'charges')),
         el('td', 'num', relic ? '' : fmt(worth)),
