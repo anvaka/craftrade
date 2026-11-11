@@ -232,7 +232,7 @@
 }
 .g-tl .hp .bar {
   flex: 1 1 auto;
-  min-width: 96px;
+  min-width: 150px;
 }
 .g-tl .hp .bar i {
   flex: 1 1 9px;
@@ -281,6 +281,9 @@
   .g-tl {
     justify-self: stretch;
   }
+  .g-tl .hp .bar {
+    min-width: 60px;
+  }
   .g-tr {
     justify-self: start;
     align-items: flex-start;
@@ -299,6 +302,7 @@
     align-items: center;
     font-size: 13px;
     padding: 0 6px;
+    white-space: nowrap;
   }
   .hud.g-hud .wave .time {
     font-size: 22px;

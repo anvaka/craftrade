@@ -8,7 +8,8 @@
 //   ?bot=1           the bot steers during waves      ?auto=1  and plays every bench too
 //   ?god=1           health is topped up every tick
 //   ?stuff=300       keep this many enemies alive (perf test)
-//   ?perf=1          print frame-time percentiles every 5 s
+//   ?perf=1          print frame-time percentiles every 5 s (perf=2 also forces rasterisation into the measured span)
+//   ?slow=8          run time 8 times slower, to look at single frames
 //   ?first=1         first-run teaching lines
 //   ?fuse=first|known|fail|slow   what the fake server answers (default: first, 1.2 s)
 //   ?kit=1           start with two kit items
@@ -102,8 +103,14 @@ function start(): void {
     bot: q.has('bot'),
     autoBench: q.has('auto'),
     perf: q.has('perf'),
+    slow: q.has('slow') ? num('slow', 8) : undefined,
+    flush: q.get('perf') === '2',
     beforeStep: god || stuffN ? (run) => { if (god) run.player.hp = run.player.maxHp; if (stuffN) stuff(run); } : undefined,
-    expose(run) { live = run; (window as unknown as { __run: Run }).__run = run; },
+    expose(run, redraw) {
+      live = run;
+      const w = window as unknown as { __run: Run; __draw: () => void };
+      w.__run = run; w.__draw = redraw;
+    },
   });
   (window as unknown as { __ready: boolean }).__ready = true;
 }

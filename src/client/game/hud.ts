@@ -43,6 +43,7 @@ const SEGMENTS = 16;
 export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPause: () => void): Hud {
   let S = sprites;
   const p = run.player;
+  const narrow = typeof matchMedia === 'function' && matchMedia('(max-width: 620px)').matches;
 
   const bar = el('span', 'bar');
   const hpNum = el('span', 'num');
@@ -159,7 +160,7 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
     const bk = Math.round(p.bank);
     if (bk !== bankV) {
       bank.hidden = bk <= 0;
-      if (bk > 0) bank.textContent = `${bk} banked, pays double`;
+      if (bk > 0) bank.textContent = narrow ? `${bk} banked, x2` : `${bk} banked, pays double`;
       bankV = bk;
     }
 

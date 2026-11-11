@@ -35,10 +35,14 @@ export interface DevOpts {
   autoBench?: boolean;
   /** Log frame-time percentiles. */
   perf?: boolean;
+  /** With perf: force the canvas to rasterise inside the measured span. */
+  flush?: boolean;
+  /** Run time this many times slower, to look at single frames. */
+  slow?: number;
   /** Called before every sim step (god mode, stuffing the enemy pool). */
   beforeStep?(run: Run): void;
-  /** Hand the run to the harness. */
-  expose?(run: Run): void;
+  /** Hand the run, and a way to redraw the current frame, to the harness. */
+  expose?(run: Run, redraw: () => void): void;
 }
 
 const MAX_STEPS = 5;
@@ -67,7 +71,6 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       }
     }
   }
-  dev.expose?.(run);
 
   let sprites: Sprites = host.sprites;
   const root = el('div', 'g-root');
@@ -297,6 +300,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     if (!(dt > 0)) dt = 0;
     if (dev.perf && state === 'wave' && !paused && dt > 0) frameMs.push(dt * 1000);
     if (dt > 0.25) dt = 0.25;
+    if (dev.slow) dt /= dev.slow;
     if (paused || state === 'bench' || state === 'end' || state === 'done') return;
     const t0 = dev.perf ? performance.now() : 0;
 
@@ -348,20 +352,32 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       if (beatT <= 0) { showEnd(); return; }
     }
     renderer.draw(alpha);
-    if (dev.perf) { workMs.push(performance.now() - t0); perfReport(now); }
+    if (dev.perf) {
+      // With flush set, read one pixel back so the time includes rasterising the frame, not just recording it.
+      if (dev.flush) canvas.getContext('2d')!.getImageData(0, 0, 1, 1);
+      workMs.push(performance.now() - t0);
+      perfReport(now);
+    }
   }
 
   // ---- size, pixel ratio, focus --------------------------------------------------------
+  // Two sprite sets may be live: `sprites` at the device pixel ratio for DOM
+  // icons, and `world` at ratio x zoom so the clearing is blitted 1:1 on phones.
+  let world: Sprites = sprites;
   function fit(): void {
     if (!alive) return;
     const ratio = capDpr(window.devicePixelRatio || 1);
     if (ratio !== sprites.dpr) {
       sprites = bakeAll(ratio);
-      renderer.setSprites(sprites);
       hud.rebind(sprites);
     }
     const r = stage.getBoundingClientRect();
     renderer.resize(r.width, r.height, ratio);
+    const want = capDpr(ratio * renderer.zoom());
+    if (want !== world.dpr) {
+      world = want === sprites.dpr ? sprites : bakeAll(want);
+      renderer.setSprites(world);
+    }
     if (state === 'wave' || state === 'beat') renderer.draw(alpha);
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
@@ -387,6 +403,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   document.addEventListener('visibilitychange', onVis);
   window.addEventListener('keydown', onKey);
 
+  dev.expose?.(run, () => renderer.draw(alpha));
   fit();
   if (run.phase === 'bench') { state = 'bench'; bench.open(); }
   raf = requestAnimationFrame(frame);

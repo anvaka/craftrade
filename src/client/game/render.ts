@@ -48,6 +48,8 @@ export interface Renderer {
   screenX(x: number): number;
   screenY(y: number): number;
   viewW(): number;
+  /** World units to css px: 0.75 on phones, 1 on a laptop, more on a big screen. */
+  zoom(): number;
   /** Seconds of hit-stop asked for by events since the last call. */
   takeFreeze(): number;
   shake: boolean;
@@ -68,6 +70,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   let hurtFlash = 0;
   let playerFlip = false;
   let stride = 0;
+  let fontReady = false, fontAsked = false;
 
   // ---- tables that depend on the sprite set ------------------------------
   let enemyWalk: (readonly [Sprite, Sprite])[] = [];
@@ -179,6 +182,44 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     itemKind[i] = kind; itemIdx[i] = idx; itemX[i] = x; itemY[i] = y; next[i] = -1;
     if (head[b] < 0) head[b] = i; else next[tail[b]] = i;
     tail[b] = i;
+  }
+
+  // ---- telegraph cache ----------------------------------------------------------
+  // The kit's charge lane and slam ring are a clip plus a hatch: fine for a
+  // few, slow for twenty. They only vary by kind and by how far they have
+  // filled, so each (shape, fill step) is drawn once to its own canvas.
+  const FILL_STEPS = 8;
+  const TPAD = 6;
+  const laneCache = new Map<number, HTMLCanvasElement>();
+  const ringCache = new Map<number, HTMLCanvasElement>();
+  function bakeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(w * scale); c.height = Math.ceil(h * scale);
+    const g = c.getContext('2d')!;
+    g.setTransform(scale, 0, 0, scale, 0, 0);
+    return [c, g];
+  }
+  function laneSprite(type: number, len: number, hw: number, step: number): HTMLCanvasElement {
+    const key = type * 16 + step;
+    let c = laneCache.get(key);
+    if (!c) {
+      const made = bakeCanvas(len + TPAD * 2, hw * 2 + TPAD * 2);
+      c = made[0];
+      drawChargeLane(made[1], TPAD, hw + TPAD, TPAD + len, hw + TPAD, hw, step / FILL_STEPS);
+      laneCache.set(key, c);
+    }
+    return c;
+  }
+  function ringSprite(r: number, step: number): HTMLCanvasElement {
+    const key = Math.round(r) * 16 + step;
+    let c = ringCache.get(key);
+    if (!c) {
+      const made = bakeCanvas((r + TPAD) * 2, (r + TPAD) * 2);
+      c = made[0];
+      drawSlamRing(made[1], r + TPAD, r + TPAD, r, step / FILL_STEPS);
+      ringCache.set(key, c);
+    }
+    return c;
   }
 
   function trauma_(v: number): void { trauma = Math.min(1, trauma + v); }
@@ -326,6 +367,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     bucketCount = Math.ceil((vh + CULL * 2) / BUCKET_PX) + 2;
     head = new Int32Array(bucketCount); tail = new Int32Array(bucketCount);
     camReady = false;
+    laneCache.clear(); ringCache.clear();
   }
 
   function clampCam(x: number, y: number): void {
@@ -479,6 +521,10 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
           ctx.clip('evenodd');
           drawSlamRing(ctx, h.x, h.y, h.r1, prog * (1 - h.r0 / h.r1));
           ctx.restore();
+        } else if (h.r1 <= 200) {
+          const sp = ringSprite(h.r1, Math.round(prog * FILL_STEPS));
+          const side = (h.r1 + TPAD) * 2;
+          ctx.drawImage(sp, snapPx(h.x - h.r1 - TPAD), snapPx(h.y - h.r1 - TPAD), side, side);
         } else drawSlamRing(ctx, h.x, h.y, h.r1, prog);
       } else if (h.t > 0.9 || (((time * 10) | 0) & 1) === 0) {
         drawSprite(ctx, S.shot.shard, snapPx(h.x), snapPx(h.y), false, 1, i * 1.3);
@@ -505,11 +551,20 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       if (!e.alive || (e.state !== ES.Windup && e.state !== ES.Charge)) continue;
       if (e.type !== T_BOAR && e.type !== T_STAG && e.type !== T_TUSK) continue;
       const charging = e.state === ES.Charge;
-      const len = chargeLen(e.type, e.t, charging);
+      const full = chargeLen(e.type, 0, false);
+      const len = charging ? Math.min(full, chargeLen(e.type, e.t, true)) : full;
       if (len < 24) continue;
       const ex = e.px + (e.x - e.px) * alpha, ey = e.py + (e.y - e.py) * alpha;
       const fill = charging ? 1 : Math.max(0, Math.min(1, 1 - e.t / chargeTell(e.type)));
-      drawChargeLane(ctx, ex, ey, ex + e.dx * len, ey + e.dy * len, e.r + 5, fill);
+      const hw = e.r + 5;
+      const sp = laneSprite(e.type, full, hw, Math.round(fill * FILL_STEPS));
+      // A charge under way shows only what is left of its lane: the far end of the same print.
+      const cut = full - len;
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.rotate(Math.atan2(e.dy, e.dx));
+      ctx.drawImage(sp, cut * scale, 0, sp.width - cut * scale, sp.height, cut > 0 ? 0 : -TPAD, -hw - TPAD, len + (cut > 0 ? TPAD : TPAD * 2), hw * 2 + TPAD * 2);
+      ctx.restore();
     }
 
     // Pickups lie on the ground. Pulled ones lag, then catch up: it reads as acceleration.
@@ -698,6 +753,12 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     }
 
     // Damage numbers, one per target, in the one typeface.
+    if (!fontReady) {
+      // Never draw a figure in a fallback face: wait for the one typeface.
+      const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+      fontReady = !fonts || fonts.check('700 15px "Zilla Slab"');
+      if (!fontReady) { if (!fontAsked) { fontAsked = true; void fonts!.load('700 15px "Zilla Slab"'); } return; }
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
     ctx.lineJoin = 'miter';
@@ -730,6 +791,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     screenX: (x) => (x - camX) * zoom,
     screenY: (y) => (y - camY) * zoom,
     viewW: () => cssW,
+    zoom: () => zoom,
     takeFreeze() { const f = freeze; freeze = 0; return f; },
     shake: true,
     drawn: 0,
