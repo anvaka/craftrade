@@ -23,6 +23,10 @@ export interface RunRecap {
   items: ItemSpec[];
   /** Ids the player chose to carry home (already inside report.carry). */
   carried: ItemSpec[];
+  /** One true line about how close it was ("Old Tusk had 12% of its health left."), or null. */
+  nearMiss?: string | null;
+  /** How this run stands against the best on this device. Full runs only; absent for the daily and for a quit. */
+  best?: { before: number; now: number; wonBefore: boolean; beaten: boolean; runs: number };
 }
 
 export type FuseOutcome =
