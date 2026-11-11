@@ -309,11 +309,11 @@ function pairs(): HTMLElement {
       el(
         'li',
         `recipe${rec ? '' : ' is-untried'}`,
-        el('span', 'r-in', thing(itemIcon(x.item), x.item.name)),
+        el('span', 'r-in', thing(itemIcon(x.item), named(x.item))),
         el('span', 'r-op', '+'),
-        el('span', 'r-in', thing(itemIcon(y.item), y.item.name)),
+        el('span', 'r-in', thing(itemIcon(y.item), named(y.item))),
         el('span', 'r-op', '='),
-        out ? el('span', 'r-out', thing(itemIcon(out), out.name), tier(itemTier(out))) : el('span', 'r-out', thing(el('span', 'unknown'), el('span', 'note', rec ? 'Made' : 'Not tried by you'))),
+        out ? el('span', 'r-out', thing(itemIcon(out), named(out)), tier(itemTier(out))) : el('span', 'r-out', thing(el('span', 'unknown'), el('span', 'note', rec ? 'Made' : 'Not tried by you'))),
         el(
           'span',
           'r-by',
@@ -342,6 +342,12 @@ function pairs(): HTMLElement {
 
 // ---- codex -----------------------------------------------------------------
 
+/** An item's name with what it does under it, for a recipe line. */
+function named(item: ItemSpec): HTMLElement {
+  const fx = item.effects.map(effectText).filter(Boolean).join(', ');
+  return el('span', 'l-item', el('span', 'l-name', item.name), fx ? el('span', 'fx', fx) : null);
+}
+
 function recipeRow(r: CodexRecipe): HTMLElement | null {
   const a = known(r.a);
   const b = known(r.b);
@@ -350,11 +356,11 @@ function recipeRow(r: CodexRecipe): HTMLElement | null {
   return el(
     'li',
     'recipe',
-    el('span', 'r-in', thing(itemIcon(a), a.name)),
+    el('span', 'r-in', thing(itemIcon(a), named(a))),
     el('span', 'r-op', '+'),
-    el('span', 'r-in', thing(itemIcon(b), b.name)),
+    el('span', 'r-in', thing(itemIcon(b), named(b))),
     el('span', 'r-op', '='),
-    el('span', 'r-out', thing(itemIcon(out), out.name), tier(itemTier(out))),
+    el('span', 'r-out', thing(itemIcon(out), named(out)), tier(itemTier(out))),
     el('span', 'r-by', finder(r.by, app.profile.name)),
   );
 }
