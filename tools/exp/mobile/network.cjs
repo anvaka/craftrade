@@ -32,11 +32,13 @@ async function load(browser, name, cond) {
 (async () => {
   const browser = await L.chromium.launch();
   const out = {};
+  if (process.env.ONLY === 'offline') { out.skip = true; } else {
   out.unthrottled = await load(browser, 'unthrottled', null);
   out.fast3g = await load(browser, 'fast 3G', FAST3G);
   out.slow3g = await load(browser, 'slow 3G', SLOW3G);
   for (const k of ['unthrottled', 'fast3g', 'slow3g']) { const r = out[k]; console.log(`${r.name.padEnd(12)} shell ${r.shellVisibleMs} ms | Head out ready ${r.headOutReadyMs} ms | tap to run ${r.tapToRunMs} ms | ${r.requests} requests, ${r.transferKB} KB | notice: "${r.noticeAtBoot}" | errors ${r.errors.length}`); }
   console.log(out.unthrottled.files);
+  }
 
   // ---- server unreachable mid-run ----
   let s = await L.open(browser, 'pixel7', { storageState: process.env.STATE || L.OUT + '/state-pixel7.json' });
@@ -66,12 +68,14 @@ async function load(browser, name, cond) {
   await page.waitForFunction(() => !!document.querySelector('.g-end') || (!document.querySelector('.g-bench').hidden && (document.querySelector('.g-bench [data-fk="next"]')?.click(), false)), null, { timeout: 240000, polling: 1000 });
   await L.tap(page, '[data-fk="go"]');
   await page.waitForSelector('[data-fk="totown"]');
-  await page.waitForTimeout(9000);
-  off.homecomingOffline = await page.evaluate(() => [...document.querySelectorAll('#town .notice')].map((n) => n.textContent).join(' | '));
-  await L.shot(page, 'net-homecoming-offline', true);
+  const sheet = () => page.evaluate(() => { const t = document.querySelector('#town'); return { notices: [...t.querySelectorAll('.notice')].map((n) => n.textContent).join(' | '), firstLines: t.innerText.replace(/\n+/g, ' / ').slice(0, 260) }; });
+  await page.waitForTimeout(1500);
+  off.homecomingAt1s = await sheet();
+  await page.waitForTimeout(2500);
   await ctx.setOffline(false);
-  await page.waitForTimeout(8000);
-  off.afterReconnect = await page.evaluate(() => [...document.querySelectorAll('#town .notice')].map((n) => n.textContent).join(' | '));
+  await page.waitForTimeout(9000);
+  off.reconnectedAt4s = await sheet();
+  await L.shot(page, 'net-homecoming-reconnected', true);
   const retry = page.locator('#town button', { hasText: /again|Send|Try/ });
   off.buttons = await page.evaluate(() => [...document.querySelectorAll('#town button')].map((b) => b.textContent).join(', '));
   off.errors = s.log.errors.filter((e) => !/ERR_INTERNET_DISCONNECTED|Failed to load resource/.test(e));

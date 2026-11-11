@@ -531,6 +531,12 @@
 .g-reason.is-empty {
   visibility: hidden;
 }
+/* A phone on its side has no height to spare for an empty line. */
+@media (max-height: 520px) {
+  .g-reason.is-empty {
+    display: none;
+  }
+}
 @media (max-width: 620px) {
   .g-reason.is-empty {
     display: none;
