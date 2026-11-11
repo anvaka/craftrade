@@ -41,6 +41,61 @@ after, so call it about +10 to +17.
 The player-facing names of three enemies changed after measuring (Spitting
 toad, Badger, Bear); ids are unchanged and the tables use ids.
 
+## Follow-up: shots, the sling, and two relics
+
+Measured after the tables below, same seeds, 200 runs each.
+
+**Relics.** Company draft now halves weapon raws (was: none needed) and
+Brandy flask stands you up at a quarter health (was: half). Against a
+default bot at 53.5%: Company draft 67.5% (**+14.0**), Brandy flask 65.5%
+(**+12.0**). Both are inside the +15 budget; the relic table further down
+shows the numbers before the trim.
+
+**Shots.** Ranged builds died to gnats (75-81% of deaths) because every shot
+weapon fired at the same nearest enemy. Three changes:
+
+1. A shot weapon skips an enemy that shots already in the air will kill,
+   unless nothing else is in range (`src/sim/weapons.ts`).
+2. Sling 4/6/9/13 damage on 0.60-0.46 s (was 5/7/10/14 on 0.55-0.42 s);
+   with rule 1 alone a sling stack won 69.5%.
+3. The Shot set adds 6% Speed at six held. At 2/4/6 it lifted the default
+   bot to 69%, at 4/6 to 67.5%.
+
+| Strategy (Greenhorn, 200 seeds) | Before | After |
+|---|---|---|
+| Default bot | 53.5% | 60.0% |
+| Offence weights | 42.5% | 47.5% |
+| Melee only | 66.0% | 66.0% |
+| Ranged only | 28.5% | **44.0%** |
+| Edge only | 65.5% | 60.5% |
+| Blunt only | 66.5% | 67.0% |
+| Shot only | 18.5% | **33.0%** |
+| One weapon: sling | 38.0% | 59.5% |
+| One weapon: pike | 56.5% | 56.0% |
+| Tools and gathering | 61.5% | 62.0% |
+| Gather everything | 43.5% | 51.0% |
+| Never gather | 48.5% | 53.5% |
+| Tank | 55.5% | 55.5% |
+| Evade | 42.0% | 39.5% |
+| Economy | 33.0% | 42.5% |
+| Luck and crit | 62.0% | 67.5% |
+
+Every strategy now wins between 33% and 67.5% (was 18.5% to 68%). Still
+over 65: melee, blunt, lucky. The default bot sits at the top of its 45-60
+band.
+
+Skill tiers (`tools/exp/depth/skill.sh 200`): novice dead in waves 1-2
+0% -> 0%, reaches wave 4 69.5% -> 82%; average policy wins 10% -> 39%;
+expert bot 250 ms late 14% -> 18%.
+
+Report caps were re-measured (`tools/exp/depth/maxima.sh`, 100 seeds per
+character) and raised where the new maxima passed them: scrip earned at
+waves 9-10, kills at waves 9-12, one raw at waves 5, 7 and 8, scrip paid
+at waves 8, 10 and 12. Nothing was lowered.
+
+Not re-measured after this change: the hazard ladder, the per-character
+table, the bench-by-bench table and boss kill time for the default bot.
+
 ## What changed, by system
 
 1. **Early curve (fun.md 1.5, variant d, then more).** Base Max HP 16,

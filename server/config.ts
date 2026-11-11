@@ -19,13 +19,13 @@ export const WAVE_SECONDS = [20, 25, 30, 35, 40, 45, 50, 55, 60, 60, 60, 90];
 // each entry is the larger of that measurement at 1.5x and the one before it, so no honest run under either is refused.
 export const REPORT_CAPS = {
   /** Scrip earned over the whole run. */
-  scripEarned: [50, 135, 225, 390, 610, 945, 1545, 2575, 4140, 6060, 8400, 9765, 9765],
+  scripEarned: [50, 135, 225, 390, 610, 945, 1545, 2575, 4170, 6290, 8400, 9765, 9765],
   /** Enemies killed. */
-  kills: [45, 125, 285, 515, 815, 1230, 1610, 2350, 3205, 4335, 5485, 7095, 7095],
+  kills: [45, 125, 285, 515, 815, 1230, 1610, 2350, 3210, 4450, 5815, 7635, 7635],
   /** All raws, held plus mule, with every station at tier 1. */
   rawsTotal: [18, 44, 77, 114, 137, 185, 210, 228, 279, 290, 290, 327, 327],
   /** One raw, held plus mule, with its station at tier 1. */
-  rawsEach: [9, 24, 48, 63, 66, 89, 95, 107, 155, 176, 222, 261, 261],
+  rawsEach: [9, 24, 48, 63, 72, 89, 111, 116, 155, 176, 222, 261, 261],
   /** Each station tier above 1 adds this share to the raw caps (measured at tier 5, then spread evenly). */
   rawsPerStationTier: 0.69,
   /** Fusions made in one run. */
@@ -36,7 +36,7 @@ export const REPORT_CAPS = {
  * earned. So the part that pays is clamped, not refused: 1.25 times the most
  * any bot held at that point. An honest hoarder over it loses the excess.
  */
-export const SCRIP_PAID_CAP = [40, 100, 115, 165, 225, 315, 530, 965, 1440, 1785, 2110, 3240, 3240];
+export const SCRIP_PAID_CAP = [40, 100, 115, 165, 225, 315, 530, 1030, 1440, 1855, 2110, 3245, 3245];
 /**
  * What a run that the server has not played again is paid for, at most: the
  * 75th percentile of ordinary bot runs (no kit, tier 1 stations) at that
