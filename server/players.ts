@@ -2,11 +2,14 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { BASE_ITEM } from '../src/shared/content/items.ts';
 import { RELIC } from '../src/shared/content/relics.ts';
 import type { ItemSpec } from '../src/shared/item.ts';
-import { BASE_NOVEL_PER_DAY, type Profile, type StashItem, type StationId } from '../src/shared/protocol.ts';
+import { BASE_NOVEL_PER_DAY, type CharacterId, type Profile, type StashItem, type StationId } from '../src/shared/protocol.ts';
 import { RAWS, type GlyphId, type RawBag } from '../src/shared/vocab.ts';
-import { ACTIVE_WINDOW_MS, NOVEL_PER_ASSAY_TIER, charactersFor, featuresFor } from './config.ts';
+import {
+  ACTIVE_WINDOW_MS, CHARACTERS, MAX_HAZARD, NAME_REROLL_MS, NOVEL_PER_ASSAY_TIER, NOVICE_NOVEL, PERK, charactersFor, featuresFor, stashLimit,
+} from './config.ts';
 import type { DB } from './db.ts';
 import { ApiErr, bad } from './errors.ts';
+import type { PlaybackInput, PlaybackResult } from '../src/shared/replay.ts';
 import type { FusionProvider, Proposal } from './provider.ts';
 
 export interface Ctx {
@@ -23,6 +26,14 @@ export interface Ctx {
   rng: () => number;
   /** Development only: a relic id that every paying report brings home. Null in production. */
   relicForce: string | null;
+  /** 'off': reports are checked against the caps only. 'flag': a replay, when sent, is played again and the run marked. 'enforce': no replay, no pay. */
+  replay: 'off' | 'flag' | 'enforce';
+  /** False in tests that report many runs in a row: the hourly and daily limits on paying runs are not applied. */
+  runRate: boolean;
+  /** Keys the daily seed. From DAILY_SECRET, or made once and kept in the database. */
+  secret: string;
+  /** Plays a run again from its input log. Off the main thread in the real server. */
+  verify: (input: PlaybackInput) => Promise<PlaybackResult>;
 }
 
 export interface Player {
@@ -35,6 +46,10 @@ export interface Player {
   runs: number;
   wins: number;
   standing: number;
+  created: number;
+  name_changed: number;
+  stash_bought: number;
+  title: string;
 }
 
 export const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -82,12 +97,20 @@ export function touch(ctx: Ctx, id: number) {
   ctx.db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').run(ctx.now(), id);
 }
 
+/** A new name, at most once a week. Finder stamps and boards follow the name, so it should not change at will. */
 export function rerollName(ctx: Ctx, id: number) {
-  ctx.db.prepare('UPDATE players SET name = ? WHERE id = ?').run(freeName(ctx.db), id);
+  const p = playerById(ctx, id);
+  if (p.name_changed && ctx.now() - p.name_changed < NAME_REROLL_MS) {
+    throw new ApiErr(429, 'name_wait', 'A name can be changed once a week.');
+  }
+  ctx.db.prepare('UPDATE players SET name = ?, name_changed = ? WHERE id = ?').run(freeName(ctx.db), ctx.now(), id);
 }
 
+/** Players with at least one paid run in the last week. Saying hello does not make a player active. */
 export function activePlayers(ctx: Ctx): number {
-  const row = ctx.db.prepare('SELECT COUNT(*) AS n FROM players WHERE last_seen >= ?').get(ctx.now() - ACTIVE_WINDOW_MS) as { n: number };
+  const row = ctx.db
+    .prepare(`SELECT COUNT(DISTINCT player_id) AS n FROM runs WHERE paid = 1 AND ended >= ?`)
+    .get(ctx.now() - ACTIVE_WINDOW_MS) as { n: number };
   return row.n;
 }
 
@@ -97,8 +120,8 @@ interface ItemRow { id: string; name: string; glyph: string; tags: string; effec
 
 /** An authored item or relic, or a fused one from the database with its finder's name. */
 export function getItem(ctx: Ctx, id: string): ItemSpec | undefined {
-  const base = BASE_ITEM[id];
-  if (base) return base;
+  // Own keys only: an id like "__proto__" must not find Object.prototype.
+  if (Object.hasOwn(BASE_ITEM, id)) return BASE_ITEM[id];
   if (Object.hasOwn(RELIC, id)) return RELIC[id];
   const row = ctx.db
     .prepare('SELECT i.id, i.name, i.glyph, i.tags, i.effects, p.name AS by FROM items i JOIN players p ON p.id = i.finder WHERE i.id = ?')
@@ -129,10 +152,23 @@ export function addStash(ctx: Ctx, playerId: number, itemId: string, charges: nu
   return uid;
 }
 
-export interface StashRow { uid: string; item_id: string; charges: number; relic_ref: number | null }
+export interface StashRow { uid: string; item_id: string; charges: number; relic_ref: number | null; repairs: number }
 
 export function stashRow(ctx: Ctx, playerId: number, uid: string) {
-  return ctx.db.prepare('SELECT uid, item_id, charges, relic_ref FROM stash WHERE uid = ? AND player_id = ?').get(uid, playerId) as StashRow | undefined;
+  return ctx.db.prepare('SELECT uid, item_id, charges, relic_ref, repairs FROM stash WHERE uid = ? AND player_id = ?').get(uid, playerId) as StashRow | undefined;
+}
+
+/** Items in the stash that count toward its limit. A relic takes no room. */
+export function stashUsed(ctx: Ctx, playerId: number): number {
+  return (ctx.db.prepare('SELECT COUNT(*) AS n FROM stash WHERE player_id = ? AND relic_ref IS NULL').get(playerId) as { n: number }).n;
+}
+/** Free places in the stash. */
+export const stashRoom = (ctx: Ctx, playerId: number): number => stashLimit(playerById(ctx, playerId).stash_bought) - stashUsed(ctx, playerId);
+
+/** True while the perk of a finished works is running. */
+export function perkOn(ctx: Ctx, id: string): boolean {
+  const row = ctx.db.prepare('SELECT until FROM perks WHERE id = ?').get(id) as { until: number } | undefined;
+  return !!row && row.until > ctx.now();
 }
 
 // Balances. Every change to marks or raws goes through move(), which writes the ledger row.
@@ -167,7 +203,19 @@ export function stations(ctx: Ctx): Record<StationId, number> {
 
 // Untried pairs.
 
-export const novelAllowance = (ctx: Ctx) => BASE_NOVEL_PER_DAY + NOVEL_PER_ASSAY_TIER * (stations(ctx).assay - 1);
+/** Untried pairs a day. A new account gets a few until it has played; the Assay Office and the beacon add more. */
+export function novelAllowance(ctx: Ctx, playerId?: number): number {
+  if (playerId != null && playerById(ctx, playerId).runs < NOVICE_NOVEL.runs) return NOVICE_NOVEL.perDay;
+  return BASE_NOVEL_PER_DAY + NOVEL_PER_ASSAY_TIER * (stations(ctx).assay - 1) + (perkOn(ctx, 'beacon') ? PERK.beaconNovel : 0);
+}
+
+/** Per character: the highest hazard open and the highest won. Level n + 1 opens with a win at n. */
+export function hazardBook(ctx: Ctx, playerId: number): Record<CharacterId, { open: number; best: number }> {
+  const rows = ctx.db.prepare('SELECT character, MAX(hazard) AS best FROM records WHERE player_id = ? AND wins > 0 GROUP BY character').all(playerId) as { character: CharacterId; best: number }[];
+  const out = Object.fromEntries(CHARACTERS.map((c) => [c, { open: 0, best: -1 }])) as Record<CharacterId, { open: number; best: number }>;
+  for (const r of rows) if (out[r.character]) out[r.character] = { open: Math.min(MAX_HAZARD, r.best + 1), best: r.best };
+  return out;
+}
 
 export function novelUsed(ctx: Ctx, playerId: number): number {
   const row = ctx.db.prepare('SELECT used FROM novel WHERE player_id = ? AND day = ?').get(playerId, dayOf(ctx.now())) as { used: number } | undefined;
@@ -183,11 +231,11 @@ export function spendNovel(ctx: Ctx, playerId: number) {
 export function profile(ctx: Ctx, playerId: number): Profile {
   const p = playerById(ctx, playerId);
   if (!p) throw new ApiErr(401, 'no_device', 'Unknown device.');
-  const rows = ctx.db.prepare('SELECT uid, item_id, charges, relic_ref FROM stash WHERE player_id = ? ORDER BY rowid').all(playerId) as StashRow[];
+  const rows = ctx.db.prepare('SELECT uid, item_id, charges, relic_ref, repairs FROM stash WHERE player_id = ? ORDER BY rowid').all(playerId) as StashRow[];
   const items: StashItem[] = [];
   for (const r of rows) {
     const item = heldItem(ctx, r);
-    if (item) items.push({ uid: r.uid, item, charges: r.charges });
+    if (item) items.push({ uid: r.uid, item, charges: r.charges, repairs: r.repairs });
   }
   const count = (sql: string) => (ctx.db.prepare(sql).get(playerId) as { n: number }).n;
   return {
@@ -200,8 +248,15 @@ export function profile(ctx: Ctx, playerId: number): Profile {
     characters: charactersFor(p.runs),
     features: featuresFor(p.runs),
     standing: p.standing,
-    novelLeft: Math.max(0, novelAllowance(ctx) - novelUsed(ctx, playerId)),
+    novelLeft: Math.max(0, novelAllowance(ctx, playerId) - novelUsed(ctx, playerId)),
     daysPlayed: count('SELECT COUNT(*) AS n FROM daily_results WHERE player_id = ?'),
-    finds: count('SELECT COUNT(*) AS n FROM recipes WHERE finder = ?'),
+    finds: count('SELECT COUNT(*) AS n FROM recipes WHERE finder = ? AND counted = 1'),
+    title: p.title,
+    titles: (ctx.db.prepare('SELECT title FROM titles WHERE player_id = ? ORDER BY ts, title').all(playerId) as { title: string }[]).map((t) => t.title),
+    stashUsed: rows.filter((r) => r.relic_ref == null).length,
+    stashLimit: stashLimit(p.stash_bought),
+    stashBought: p.stash_bought,
+    hazard: hazardBook(ctx, playerId),
+    nameChangeAt: p.name_changed ? p.name_changed + NAME_REROLL_MS : 0,
   };
 }

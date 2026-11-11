@@ -1,13 +1,15 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { BASE_ITEM } from '../src/shared/content/items.ts';
+import { itemPoints, tierOf } from '../src/shared/item.ts';
 import { RAWS } from '../src/shared/vocab.ts';
 import { FACTOR_BASE, STATIONS } from './config.ts';
 
 export type DB = Database.Database;
 
 // Append only. The index of a migration is its version; never edit one that has shipped.
-export const MIGRATIONS: string[] = [
+export const MIGRATIONS: (string | ((db: DB) => void))[] = [
   `
   CREATE TABLE players (
     id INTEGER PRIMARY KEY,
@@ -176,6 +178,135 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE runs ADD COLUMN kit_uids TEXT NOT NULL DEFAULT '[]';
   CREATE INDEX runs_roll ON runs (player_id, relic_roll, ended);
   `,
+  // 2: the trust and depth pass. Paid runs, hazard records, the almanac, per-player
+  // Factor limits, raw lots, buy orders, works, sinks. Works on a database that has been played on.
+  `
+  ALTER TABLE players ADD COLUMN name_changed INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN stash_bought INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN title TEXT NOT NULL DEFAULT '';
+
+  -- paid: the report was paid out. verified: 0 not checked, 1 the replay matched, -1 it did not.
+  ALTER TABLE runs ADD COLUMN hazard INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE runs ADD COLUMN paid INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE runs ADD COLUMN verified INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE runs ADD COLUMN ip TEXT NOT NULL DEFAULT '';
+  ALTER TABLE runs ADD COLUMN waves_cleared INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE runs ADD COLUMN won INTEGER NOT NULL DEFAULT 0;
+  -- Station tiers the ticket was written with, so the run can be played again exactly.
+  ALTER TABLE runs ADD COLUMN stations TEXT NOT NULL DEFAULT '{}';
+  UPDATE runs SET paid = 1 WHERE status = 'ended' AND (mode = 'run' OR scored = 1);
+  CREATE INDEX runs_paid ON runs (paid, ended);
+  CREATE INDEX runs_ip ON runs (ip, paid, ended);
+
+  ALTER TABLE daily_results ADD COLUMN verified INTEGER NOT NULL DEFAULT 1;
+
+  ALTER TABLE stash ADD COLUMN repairs INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE recipes ADD COLUMN counted INTEGER NOT NULL DEFAULT 0;
+
+  -- A raw lot has raw and qty set and no item.
+  ALTER TABLE listings ADD COLUMN raw TEXT;
+  ALTER TABLE listings ADD COLUMN qty INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE listings ADD COLUMN repairs INTEGER NOT NULL DEFAULT 0;
+
+  -- kind 'station' raises a station; kind 'works' is a repeating town works named in station.
+  ALTER TABLE projects ADD COLUMN kind TEXT NOT NULL DEFAULT 'station';
+
+  -- Fusions the server answered for a run, in order. Carried items are checked against these.
+  CREATE TABLE run_fusions (
+    run_id TEXT NOT NULL REFERENCES runs (id),
+    seq INTEGER NOT NULL,
+    a TEXT NOT NULL,
+    b TEXT NOT NULL,
+    out TEXT NOT NULL,
+    PRIMARY KEY (run_id, seq)
+  ) WITHOUT ROWID;
+
+  -- The input log of a run, kept until it has been checked. Flagged ones stay.
+  CREATE TABLE replays (
+    run_id TEXT PRIMARY KEY REFERENCES runs (id),
+    data TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+
+  CREATE TABLE records (
+    player_id INTEGER NOT NULL REFERENCES players (id),
+    character TEXT NOT NULL,
+    hazard INTEGER NOT NULL,
+    wins INTEGER NOT NULL DEFAULT 0,
+    best_seconds INTEGER NOT NULL DEFAULT 0,
+    first INTEGER NOT NULL,
+    PRIMARY KEY (player_id, character, hazard)
+  ) WITHOUT ROWID;
+
+  -- The almanac: one counter per (kind, key). Kinds: item, enemy, relic, gave, works.
+  CREATE TABLE almanac (
+    player_id INTEGER NOT NULL REFERENCES players (id),
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    n INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, kind, key)
+  ) WITHOUT ROWID;
+
+  CREATE TABLE titles (
+    player_id INTEGER NOT NULL REFERENCES players (id),
+    title TEXT NOT NULL,
+    ts INTEGER NOT NULL,
+    PRIMARY KEY (player_id, title)
+  ) WITHOUT ROWID;
+  -- Titles only one player in the world can hold.
+  CREATE TABLE world_firsts (title TEXT PRIMARY KEY, player_id INTEGER NOT NULL REFERENCES players (id), ts INTEGER NOT NULL);
+
+  CREATE TABLE factor_day (
+    player_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    raw TEXT NOT NULL,
+    bought INTEGER NOT NULL DEFAULT 0,
+    sold INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, day, raw)
+  ) WITHOUT ROWID;
+
+  -- Marks a new account has paid to and taken from other players, per day.
+  CREATE TABLE transfers (
+    player_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    paid INTEGER NOT NULL DEFAULT 0,
+    taken INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, day)
+  ) WITHOUT ROWID;
+
+  -- Buy orders. The buyer's marks for the unfilled part are held: they left the
+  -- balance when the order was placed (ledger kind order_hold).
+  CREATE TABLE orders (
+    id TEXT PRIMARY KEY,
+    buyer INTEGER NOT NULL REFERENCES players (id),
+    raw TEXT,
+    item_id TEXT,
+    qty INTEGER NOT NULL CHECK (qty > 0),
+    filled INTEGER NOT NULL DEFAULT 0,
+    price INTEGER NOT NULL CHECK (price > 0),
+    status TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX orders_open ON orders (status, created);
+
+  CREATE TABLE perks (id TEXT PRIMARY KEY, until INTEGER NOT NULL);
+  CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+  -- Idempotency rows now hold a hash of the request and no response.
+  DELETE FROM idem;
+  `,
+  // 3: which finds count. An authored pair counts; any other pair counts only
+  // if it was the first to make a finished (tier 4) item.
+  (db) => {
+    const rows = db.prepare('SELECT r.key, r.a, r.b, r.out, r.finder, i.finder AS item_finder, i.effects, r.created, i.created AS item_created FROM recipes r JOIN items i ON i.id = r.out').all() as
+      { key: string; a: string; b: string; out: string; finder: number; item_finder: number; effects: string; created: number; item_created: number }[];
+    const set = db.prepare('UPDATE recipes SET counted = 1 WHERE key = ?');
+    for (const r of rows) {
+      const authored = Object.hasOwn(BASE_ITEM, r.a) && Object.hasOwn(BASE_ITEM, r.b);
+      const firstFinished = r.finder === r.item_finder && r.created === r.item_created && tierOf(itemPoints(JSON.parse(r.effects))) === 4;
+      if (authored || firstFinished) set.run(r.key);
+    }
+  },
 ];
 
 export function openDb(path: string): DB {
@@ -194,7 +325,9 @@ function migrate(db: DB) {
   const have = db.pragma('user_version', { simple: true }) as number;
   for (let v = have; v < MIGRATIONS.length; v++) {
     db.transaction(() => {
-      db.exec(MIGRATIONS[v]);
+      const m = MIGRATIONS[v];
+      if (typeof m === 'string') db.exec(m);
+      else m(db);
       db.pragma(`user_version = ${v + 1}`);
     }).immediate();
   }

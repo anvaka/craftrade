@@ -15,7 +15,7 @@ const wins = Number(winsArg);
 const dice = Number(diceArg);
 
 let t = Date.UTC(2026, 10, 11, 9);
-const app = createApp({ dbPath, provider: new ProceduralProvider(), now: () => t, rateLimit: false, rng: () => dice });
+const app = createApp({ dbPath, provider: new ProceduralProvider(), now: () => t, rateLimit: false, replay: 'off', runRate: false, rng: () => dice });
 
 async function post<T>(path: string, token: string | undefined, body: unknown): Promise<T> {
   const res = await app.request(path, {

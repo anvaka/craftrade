@@ -7,11 +7,15 @@ import { effectText, itemTier, type ItemSpec } from '../../shared/item.ts';
 import { DEATH_RAW_KEEP } from '../../shared/protocol.ts';
 import { PRIM, RAWS, STATS, STAT_LABEL, STAT_PERCENT, type RawBag, type RawId, type StatId } from '../../shared/vocab.ts';
 import {
-  BLUNT_KNOCK, CHARACTER, CLASSES, CLASS_LABEL, SET_BONUS, ST, WEAPONS, WEAPON_INDEX, applyFusion, buy, buyBlock, fuseCost,
-  pickUpgrade, reroll, rerollCost, weaponSlots, scrapItem, scrapValueItem, scrapValueWeapon, scrapWeapon, sendMule, toggleLock,
+  BLUNT_KNOCK, CHARACTER, CLASSES, CLASS_LABEL, SET_BONUS, ST, WEAPONS, WEAPON_INDEX, buyBlock, fuseCost,
+  rerollCost, weaponSlots, scrapValueItem, scrapValueWeapon,
   weaponCooldown, weaponDamage, weaponRange, type Run, type WeaponClass,
 } from '../../sim/index.ts';
+import { rec } from '../../shared/replay.ts';
 import type { FuseOutcome } from '../seam.ts';
+
+// Every action goes through the recorder, so the town can play the run again (src/shared/replay.ts).
+const { applyFusion, buy, pickUpgrade, reroll, scrapItem, scrapWeapon, sendMule, toggleLock } = rec;
 import { cap, cost, el, ic, rawsText, stamp, tier, type Kid } from './dom.ts';
 import { soundControls, type SoundControls } from './hud.ts';
 

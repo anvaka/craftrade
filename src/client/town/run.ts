@@ -140,7 +140,7 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
   const fuse = async (a: string, b: string): Promise<FuseOutcome> => {
     if (local) return { ok: false, code: 'unreachable', message: 'The town is out of reach. Nothing was used.' };
     try {
-      const res = await api.fuse({ a, b, ctx: 'run' });
+      const res = await api.fuse({ a, b, ctx: 'run', runId: t.runId });
       if (res.profile) setProfile(res.profile);
       return { ok: true, res };
     } catch (e) {

@@ -32,8 +32,8 @@ describe('fusion', () => {
   it('gives the same result for the same pair in any order, in any world', async () => {
     const one = world();
     const two = world();
-    const p1 = await one.player();
-    const p2 = await two.player();
+    const p1 = await one.player(5);
+    const p2 = await two.player(5);
     const r1 = (await one.post<FuseRes>('/api/fuse', p1, { a: A, b: B, ctx: 'run' })).body;
     const r2 = (await two.post<FuseRes>('/api/fuse', p2, { a: B, b: A, ctx: 'run' })).body;
     expect(r1.first).toBe(true);
@@ -44,8 +44,8 @@ describe('fusion', () => {
 
   it('makes a pair a permanent fact with the finder stamped on it', async () => {
     const w = world();
-    const finder = await w.player();
-    const later = await w.player();
+    const finder = await w.player(5);
+    const later = await w.player(5);
     const first = (await w.post<FuseRes>('/api/fuse', finder, { a: A, b: B, ctx: 'run' })).body;
     const again = (await w.post<FuseRes>('/api/fuse', finder, { a: A, b: B, ctx: 'run' })).body;
     const other = (await w.post<FuseRes>('/api/fuse', later, { a: B, b: A, ctx: 'run' })).body;
@@ -66,7 +66,7 @@ describe('fusion', () => {
 
   it('stores levels, not numbers', async () => {
     const w = world();
-    const token = await w.player();
+    const token = await w.player(5);
     await w.post('/api/fuse', token, { a: A, b: B, ctx: 'run' });
     const row = w.db.prepare('SELECT effects FROM items').get() as { effects: string };
     for (const e of JSON.parse(row.effects)) {
@@ -86,7 +86,7 @@ describe('fusion', () => {
       return inner.propose(a, b, budget, key);
     });
     const w = world({ provider: slow });
-    const tokens = await Promise.all([w.player(), w.player(), w.player()]);
+    const tokens = await Promise.all([w.player(5), w.player(5), w.player(5)]);
     const results = await Promise.all(tokens.map((t) => w.post<FuseRes>('/api/fuse', t, { a: A, b: B, ctx: 'run' })));
 
     expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
@@ -111,7 +111,7 @@ describe('fusion', () => {
     for (const answer of junk) {
       let calls = 0;
       const w = world({ provider: fake(async () => { calls++; return answer; }) });
-      const token = await w.player();
+      const token = await w.player(5);
       const res = await w.post<ApiError>('/api/fuse', token, { a: A, b: B, ctx: 'run' });
       expect(res.status).toBe(503);
       expect(res.body.code).toBe('model_down');
@@ -135,7 +135,7 @@ describe('fusion', () => {
       extra: { nested: true },
     };
     const w = world({ provider: fake(async () => answer) });
-    const token = await w.player();
+    const token = await w.player(5);
     const res = await w.post<FuseRes>('/api/fuse', token, { a: A, b: B, ctx: 'run' });
     expect(res.status).toBe(200);
     const item = res.body.item;
@@ -150,7 +150,7 @@ describe('fusion', () => {
     const effects = [[{ p: 'crit', l: 1 }], [{ p: 'burn', l: 1 }], [{ p: 'luck', l: 1 }]];
     let n = 0;
     const w = world({ provider: fake(async () => ({ names: ['Greased hone', BASE_ITEMS[0].name, 'Shadow thing'], glyph: 'stone', tags: [], effects: effects[n++] })) });
-    const token = await w.player();
+    const token = await w.player(5);
     const names: string[] = [];
     for (const [a, b] of [[A, B], [A, C], [B, C]]) {
       const res = await w.post<FuseRes>('/api/fuse', token, { a, b, ctx: 'run' });
@@ -171,8 +171,9 @@ describe('fusion', () => {
     const hang = fake(() => new Promise(() => {}));
     for (const provider of [down, hang]) {
       const w = world({ provider: new ProceduralProvider() });
-      const token = await w.player();
+      const token = await w.player(5);
       const stash = await w.grant(token, [A, B, C]);
+      w.fund(token, 500, 100);
       const known = (await w.post<FuseRes>('/api/fuse', token, { a: A, b: B, ctx: 'run' })).body;
 
       // Same database, model now unreachable.
@@ -195,9 +196,10 @@ describe('fusion', () => {
 
   it('in town, consumes the two stash items and adds the result', async () => {
     const w = world();
-    const token = await w.player();
-    const thief = await w.player();
+    const token = await w.player(5);
+    const thief = await w.player(5);
     const stash = await w.grant(token, [A, B]);
+    w.fund(token, 500, 100);
     const [ua, ub] = [stash.find((s) => s.item.id === A)!.uid, stash.find((s) => s.item.id === B)!.uid];
 
     for (const body of [
@@ -214,7 +216,7 @@ describe('fusion', () => {
 
     const res = await w.post<FuseRes>('/api/fuse', token, { a: A, b: B, ctx: 'town', uidA: ua, uidB: ub });
     expect(res.status).toBe(200);
-    expect(res.body.profile!.items).toEqual([{ uid: expect.any(String), item: res.body.item, charges: 3 }]);
+    expect(res.body.profile!.items).toEqual([{ uid: expect.any(String), item: res.body.item, charges: 3, repairs: 0 }]);
 
     // The result can be fused onward from the stash.
     const more = await w.grant(token, [C]);
@@ -228,7 +230,7 @@ describe('fusion', () => {
 
   it('refuses unknown items, identical items and tier 4 inputs', async () => {
     const w = world();
-    const token = await w.player();
+    const token = await w.player(5);
     const unknown = await w.post<ApiError>('/api/fuse', token, { a: A, b: 'fzzzzzz', ctx: 'run' });
     expect([unknown.status, unknown.body.code]).toEqual([404, 'unknown_item']);
     const same = await w.post<ApiError>('/api/fuse', token, { a: A, b: A, ctx: 'run' });
@@ -244,7 +246,7 @@ describe('fusion', () => {
     const pairs = basePairs();
     expect(pairs.length).toBeGreaterThan(26);
     const w = world();
-    const token = await w.player();
+    const token = await w.player(5);
     for (const [a, b] of pairs.slice(0, 20)) {
       expect((await w.post('/api/fuse', token, { a, b, ctx: 'run' })).status).toBe(200);
     }
@@ -256,7 +258,7 @@ describe('fusion', () => {
 
     // Known pairs are free, for this player and for others.
     expect((await w.post('/api/fuse', token, { a: pairs[3][0], b: pairs[3][1], ctx: 'run' })).status).toBe(200);
-    const other = await w.player();
+    const other = await w.player(5);
     expect((await w.post<FuseRes>('/api/fuse', other, { a, b, ctx: 'run' })).body.first).toBe(true);
     expect((await w.post<FuseRes>('/api/fuse', token, { a, b, ctx: 'run' })).body.first).toBe(false);
 
@@ -278,7 +280,7 @@ describe('fusion', () => {
       return inner.propose(a, b, budget, key);
     });
     const w = world({ provider: slow });
-    const token = await w.player();
+    const token = await w.player(5);
     const results = await Promise.all(basePairs().slice(0, 27).map(([a, b]) => w.post('/api/fuse', token, { a, b, ctx: 'run' })));
     expect(results.filter((r) => r.status === 200).length).toBe(20);
     expect(results.filter((r) => r.body.code === 'novel_limit').length).toBe(7);
@@ -287,8 +289,8 @@ describe('fusion', () => {
 
   it('lists what a player knows in the codex, plus recent world finds', async () => {
     const w = world();
-    const mine = await w.player();
-    const theirs = await w.player();
+    const mine = await w.player(5);
+    const theirs = await w.player(5);
     const r1 = (await w.post<FuseRes>('/api/fuse', mine, { a: A, b: B, ctx: 'run' })).body;
     const r2 = (await w.post<FuseRes>('/api/fuse', theirs, { a: A, b: C, ctx: 'run' })).body;
     const codex = (await w.get<CodexRes>('/api/codex', mine)).body;

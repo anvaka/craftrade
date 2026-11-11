@@ -107,7 +107,7 @@ describe('Bedrock provider', () => {
     for (const reply of replies) {
       const r = recorder(reply);
       const w = world({ provider: r.provider() });
-      const token = await w.player();
+      const token = await w.player(5);
       const res = await w.post<ApiError>('/api/fuse', token, { a: A.id, b: B.id, ctx: 'run' });
       expect([res.status, res.body.code]).toEqual([503, 'model_down']);
       expect(r.calls.length).toBe(2);
@@ -121,7 +121,7 @@ describe('Bedrock provider', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const r = recorder((n) => (n === 1 ? new Promise<Response>(() => {}) : json(message(JSON.stringify(good)))));
     const w = world({ provider: r.provider(50), modelTimeoutMs: 50 });
-    const token = await w.player();
+    const token = await w.player(5);
     const res = await w.post<FuseRes>('/api/fuse', token, { a: A.id, b: B.id, ctx: 'run' });
     expect(res.status).toBe(200);
     expect(res.body.first).toBe(true);
