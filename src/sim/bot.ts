@@ -13,6 +13,7 @@ import { WEAPONS, WEAPON_INDEX } from './data/weapons.ts';
 import {
   applyFusion, buy, buyBlock, fuseCost, pickUpgrade, reroll, rerollCost, scrapWeapon, sendMule, toggleLock,
 } from './bench.ts';
+import { SP, weaponSlots } from './core.ts';
 import { clearEvents, createRun, nextWave, step, type StepInput } from './run.ts';
 import { ES, HZ_RING, PK_SCRIP, type Run, type RunOptions } from './types.ts';
 import { weaponRange } from './weapons.ts';
@@ -63,6 +64,8 @@ function chargeTime(type: number): number {
 export function botInput(run: Run, b: BotState, out: StepInput): void {
   if (run.tick % b.every !== 0) { out.mx = b.mx; out.my = b.my; return; }
   const p = run.player, es = run.enemies;
+  // Under the Hide blind a node being worked is shelter: stay in it until it breaks.
+  if (p.workingNode >= 0 && p.sp[SP.safeWork] > 0) { b.mx = 0; b.my = 0; out.mx = 0; out.my = 0; return; }
   const speed = p.moveSpeed;
 
   // Threats near enough to matter.
@@ -171,6 +174,18 @@ function pickGoal(run: Run, b: BotState, nearest: number, nearestD: number, clos
   const p = run.player, es = run.enemies;
   b.goal = G_NONE;
   const frail = p.hp < p.maxHp * 0.35;
+  // With the Hide blind a node is the safest place in the clearing, crowd or no crowd.
+  const blind = p.sp[SP.safeWork] > 0;
+  if (blind && (frail || close >= 2)) {
+    let near = -1, nearD = 600 * 600;
+    for (let i = 0; i < MAX_NODES; i++) {
+      const nd = run.nodes[i];
+      if (!nd.alive) continue;
+      const dx = nd.x - p.x, dy = nd.y - p.y;
+      if (dx * dx + dy * dy < nearD) { nearD = dx * dx + dy * dy; near = i; }
+    }
+    if (near >= 0) { b.goal = G_NODE; b.gx = run.nodes[near].x; b.gy = run.nodes[near].y; return; }
+  }
   if (frail && close >= 2) {
     const dx = p.x - cx / close, dy = p.y - cy / close, d = Math.sqrt(dx * dx + dy * dy) || 1;
     // Flee along the open side, bending toward the middle so as not to be pinned.
@@ -191,7 +206,7 @@ function pickGoal(run: Run, b: BotState, nearest: number, nearestD: number, clos
   // A node worth the walk: quiet around it and around us.
   let bestN = -1, bestND = 1e12;
   const left = run.waveSeconds - run.waveTime;
-  if (!frail && close <= 3) {
+  if (blind || (!frail && close <= 3)) {
     for (let i = 0; i < MAX_NODES; i++) {
       const nd = run.nodes[i];
       if (!nd.alive) continue;
@@ -205,7 +220,7 @@ function pickGoal(run: Run, b: BotState, nearest: number, nearestD: number, clos
         const ex = e.x - nd.x, ey = e.y - nd.y;
         if (ex * ex + ey * ey < 190 * 190) crowd += ENEMIES[e.type].rank > 0 ? 4 : 1;
       }
-      if (crowd > 3) continue;
+      if (crowd > 3 && !blind) continue;
       if (d < bestND) { bestND = d; bestN = i; }
     }
   }
@@ -269,7 +284,7 @@ function offerUtility(run: Run, b: BotState, i: number): number {
   const def = WEAPONS[WEAPON_INDEX[o.id]];
   let twin = false;
   for (const w of p.weapons) if (w.id === o.id && w.tier === o.tier && o.tier < 4) twin = true;
-  const free = p.weapons.length < CHARACTER[run.character].slots;
+  const free = p.weapons.length < weaponSlots(run);
   if (!twin && !free) return 0;
   return def.price[o.tier - 1] * (1 + run.bench.index * 0.1) * b.weaponTaste[o.id] * (twin ? 1.9 : 1.5) + run.bench.index;
 }
@@ -299,7 +314,7 @@ export function botBench(run: Run, b: BotState): void {
     while (bought) {
       bought = false;
       let best = -1, bestR = 0.75;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < bench.offers.length; i++) {
         const o = bench.offers[i];
         if (o.sold) continue;
         const r = offerUtility(run, b, i) / Math.max(1, o.price);
@@ -310,8 +325,8 @@ export function botBench(run: Run, b: BotState): void {
       if (best >= 0) bought = buy(run, best);
     }
     // Full hands: trade the weakest weapon for a clearly better offer.
-    if (p.weapons.length >= CHARACTER[run.character].slots) {
-      for (let i = 0; i < 4; i++) {
+    if (p.weapons.length >= weaponSlots(run)) {
+      for (let i = 0; i < bench.offers.length; i++) {
         const o = bench.offers[i];
         if (o.sold || o.kind !== 'weapon' || p.scrip < o.price) continue;
         let low = 0;
@@ -321,8 +336,8 @@ export function botBench(run: Run, b: BotState): void {
     }
     // Hold one good offer that only scrip stands in the way of, then reroll while there is scrip to spend.
     let held = false;
-    for (let i = 0; i < 4; i++) if (bench.offers[i].locked) held = true;
-    for (let i = 0; i < 4 && !held; i++) {
+    for (let i = 0; i < bench.offers.length; i++) if (bench.offers[i].locked) held = true;
+    for (let i = 0; i < bench.offers.length && !held; i++) {
       const o = bench.offers[i];
       if (o.sold || o.locked || o.price <= p.scrip || o.price > p.scrip * 2 + 20) continue;
       if (offerUtility(run, b, i) / Math.max(1, o.price) < 1.1 || !RAWS.every((r) => p.raws[r] >= o.raws[r])) continue;
@@ -332,7 +347,10 @@ export function botBench(run: Run, b: BotState): void {
     if (round >= 5 || p.scrip < cost + 14 + 2 * bench.index) break;
     if (!reroll(run)) break;
   }
-  if (b.fuse && p.items.length >= 2 && brnd(b) < 0.5) {
+  // A relic is not an anvil item, so it does not count toward having a pair (nor does it change the bot's dice).
+  let plain = 0;
+  for (const it of p.items) if (!it.relic) plain++;
+  if (b.fuse && plain >= 2 && brnd(b) < 0.5) {
     // Fuse the two cheapest unfinished items if the raws are there.
     let a = -1, c = -1;
     for (let i = 0; i < p.items.length; i++) {

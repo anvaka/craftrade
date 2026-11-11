@@ -1,18 +1,21 @@
 // The market tab: the Factor's table for raws, the listings as a price
 // ledger, and selling from the stash (post or salvage).
 
-import { effectText, itemPoints, itemTier, type ItemSpec } from '../../shared/item.ts';
+import { effectText, isRelic, itemPoints, itemTier, type ItemSpec } from '../../shared/item.ts';
 import { KIT_CHARGES, LISTING_FEE, SALE_TAX, type Listing, type MarketActionRes, type StashItem } from '../../shared/protocol.ts';
 import { RAWS, type RawId } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
-import { el, empty, finder, fmt, icon, itemIcon, pips, plural, sprites, stamp, stepper, tier, type Kid } from './dom.ts';
+import { el, empty, finder, fmt, icon, itemIcon, pips, plural, serial, sprites, stamp, stepper, tier, type Kid } from './dom.ts';
 import { loadTab } from './shell.ts';
 import { act, app, redraw, say, setProfile } from './state.ts';
 import { RAW_NAME } from './words.ts';
 
 // Mirrors of server rules, used only to state numbers before a press.
 const LISTING_MIN_RUNS = 3;
+const PRICE_CAP = 100_000;
+/** A relic has no price cap; this is only the longest figure the price field takes. */
+const RELIC_PRICE_DIGITS = 12;
 const FACTOR_MAX_QTY = 100;
 const feeFor = (price: number): number => Math.max(1, Math.ceil(price * LISTING_FEE));
 const taxFor = (price: number): number => Math.min(price, Math.max(1, Math.ceil(price * SALE_TAX)));
@@ -160,16 +163,16 @@ function listingRow(l: Listing): HTMLElement {
   const seller: Kid = l.mine ? el('span', 'own', 'You') : el('span', 'who', l.seller);
   return el(
     'tr',
-    l.mine ? 'is-mine' : '',
+    `${l.mine ? 'is-mine' : ''}${isRelic(l.item) ? ' is-relic' : ''}`.trim(),
     el(
       'td',
       '',
-      el('div', 'thing', itemIcon(l.item), el('span', 'l-item', el('span', 'l-name', l.item.name), el('span', 'fx', fxLine(l.item)), el('span', 'l-seller', 'sold by ', l.mine ? el('span', 'own', 'You') : el('span', 'who', l.seller)))),
+      el('div', 'thing', itemIcon(l.item), el('span', 'l-item', el('span', 'l-name', l.item.name, serial(l.item)), el('span', 'fx', fxLine(l.item)), el('span', 'l-seller', 'sold by ', l.mine ? el('span', 'own', 'You') : el('span', 'who', l.seller)))),
     ),
     el('td', '', tier(itemTier(l.item))),
     el('td', 'wide', finder(l.item.by, p.name)),
     el('td', 'wide', seller),
-    el('td', 'wide', pips(l.charges, KIT_CHARGES, 'charges')),
+    el('td', 'wide', isRelic(l.item) ? el('span', 'note', 'Does not wear') : pips(l.charges, KIT_CHARGES, 'charges')),
     el('td', 'num', fmt(l.price)),
     el('td', 'act', action),
   );
@@ -183,7 +186,7 @@ function listings(): HTMLElement {
     return sec;
   }
   const t = el('table', 'ledger listings');
-  t.append(el('tr', '', el('th', '', 'Item'), el('th', '', 'Tier'), el('th', 'wide', 'First made by'), el('th', 'wide', 'Seller'), el('th', 'wide', 'Charges'), el('th', 'num', 'Marks'), el('th', '', '')));
+  t.append(el('tr', '', el('th', '', 'Item'), el('th', '', 'Tier'), el('th', 'wide', 'First made or found by'), el('th', 'wide', 'Seller'), el('th', 'wide', 'Charges'), el('th', 'num', 'Marks'), el('th', '', '')));
   for (const l of m.listings) t.append(listingRow(l));
   sec.append(t);
   return sec;
@@ -216,9 +219,10 @@ function postForm(it: StashItem): HTMLElement {
   });
   const sync = (): void => {
     const price = Number(posting!.price);
-    const ok = Number.isInteger(price) && price >= 1 && price <= 100_000;
+    const relic = isRelic(it.item);
+    const ok = Number.isInteger(price) && price >= 1 && (relic || price <= PRICE_CAP);
     if (!ok) {
-      terms.textContent = 'Set a price from 1 to 100,000 marks.';
+      terms.textContent = relic ? 'Set a price of 1 mark or more. A relic has no price cap.' : `Set a price from 1 to ${fmt(PRICE_CAP)} marks.`;
       confirm.textContent = 'Post';
       confirm.disabled = true;
       return;
@@ -232,7 +236,7 @@ function postForm(it: StashItem): HTMLElement {
     confirm.title = short ? `You have ${plural(p.marks, 'mark')}` : '';
   };
   input.addEventListener('input', () => {
-    const digits = input.value.replace(/\D+/g, '').slice(0, 6);
+    const digits = input.value.replace(/\D+/g, '').slice(0, isRelic(it.item) ? RELIC_PRICE_DIGITS : 6);
     if (digits !== input.value) input.value = digits;
     posting!.price = digits;
     sync();
@@ -283,17 +287,18 @@ function sell(): HTMLElement {
   const t = el('table', 'ledger selling');
   t.append(el('tr', '', el('th', '', 'Item'), el('th', '', 'Tier'), el('th', 'wide', 'Charges'), el('th', 'num', 'Salvage'), el('th', '', '')));
   for (const it of p.items) {
+    const relic = isRelic(it.item);
     const worth = salvageFor(it);
     const isPosting = posting?.uid === it.uid;
     const isArmed = armed === it.uid;
     t.append(
       el(
         'tr',
-        isPosting ? 'is-on' : '',
-        el('td', '', el('div', 'thing', itemIcon(it.item), el('span', 'l-item', el('span', 'l-name', it.item.name), el('span', 'fx', fxLine(it.item))))),
+        `${isPosting ? 'is-on' : ''}${relic ? ' is-relic' : ''}`.trim(),
+        el('td', '', el('div', 'thing', itemIcon(it.item), el('span', 'l-item', el('span', 'l-name', it.item.name, serial(it.item)), el('span', 'fx', fxLine(it.item))))),
         el('td', '', tier(itemTier(it.item))),
-        el('td', 'wide', pips(it.charges, KIT_CHARGES, 'charges')),
-        el('td', 'num', fmt(worth)),
+        el('td', 'wide', relic ? el('span', 'note', 'Does not wear') : pips(it.charges, KIT_CHARGES, 'charges')),
+        el('td', 'num', relic ? '' : fmt(worth)),
         el(
           'td',
           'act',
@@ -305,7 +310,7 @@ function sell(): HTMLElement {
                 disabled: locked || !open,
                 title: locked ? `${p.runs} of ${LISTING_MIN_RUNS} runs` : !open ? 'Trading is closed' : undefined,
                 onClick: () => {
-                  posting = { uid: it.uid, price: String(Math.max(5, worth * 5)) };
+                  posting = { uid: it.uid, price: relic ? '' : String(Math.max(5, worth * 5)) };
                   armed = null;
                   redraw();
                   const field = document.querySelector('[data-fk="post:price"]') as HTMLInputElement | null;
@@ -314,7 +319,8 @@ function sell(): HTMLElement {
                 },
               }),
           ' ',
-          stamp(isArmed ? `Destroy for ${fmt(worth)}` : 'Salvage', {
+          // A relic cannot be salvaged, so there is no stamp to press by accident.
+          relic ? el('span', 'note', 'Cannot be salvaged') : stamp(isArmed ? `Destroy for ${fmt(worth)}` : 'Salvage', {
             cls: isArmed ? 'stamp--small is-armed' : 'stamp--small stamp--plain',
             key: `salvage:${it.uid}`,
             onClick: () => {

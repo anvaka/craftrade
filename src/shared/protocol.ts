@@ -12,6 +12,8 @@ export const RUN_WAVES = 12;
 export const DAILY_WAVES = 8;
 export const KIT_SLOTS = 2;
 export const KIT_CHARGES = 3;
+/** Only this many relics may be packed for a run. A relic does not wear, so it has no charges to spend. */
+export const KIT_RELICS = 1;
 export const DEATH_RAW_KEEP = 0.3;
 export const LISTING_FEE = 0.02;
 export const SALE_TAX = 0.05;
@@ -41,8 +43,36 @@ export interface Profile {
 
 export interface ApiError { error: string; code: string }
 
+/** One relic somebody brought home. The current holder is never sent. */
+export interface RelicFind {
+  /** Relic id, see src/shared/content/relics.ts. */
+  relic: string;
+  name: string;
+  /** Its number among relics of its kind, in the order found. */
+  serial: number;
+  finder: string;
+  /** YYYY-MM-DD */
+  date: string;
+  ts: number;
+}
+
+/** The newest find of the last 24 hours, shown to everyone on the home page. */
+export type WorldNotice = RelicFind | null;
+
+// GET /api/relics
+export interface RelicsRes {
+  /** Every find, oldest first. */
+  roll: RelicFind[];
+  /**
+   * One row per relic kind, in a fixed order. A kind nobody has found is sent
+   * with no id and no name, so the page can rule a blank line for it.
+   */
+  kinds: { id: string | null; name: string | null; found: number }[];
+  total: number;
+}
+
 // POST /api/hello  {}  (token in header, or absent for a new device)
-export interface HelloRes { token: string; profile: Profile; stations: Record<StationId, number>; llm: boolean }
+export interface HelloRes { token: string; profile: Profile; stations: Record<StationId, number>; llm: boolean; notice: WorldNotice }
 
 // POST /api/name/reroll {}
 export interface NameRes { profile: Profile }
@@ -67,6 +97,7 @@ export interface FuseRes {
   profile?: Profile;
 }
 // Error codes: 'novel_limit' | 'model_down' | 'blocked' | 'unknown_item' | 'not_owned'
+// A relic on either side is always 'blocked'.
 
 // GET /api/items?ids=a,b,c
 export interface ItemsRes { items: ItemSpec[] }
@@ -91,6 +122,7 @@ export interface RunStartRes {
   kit: ItemSpec[];
   stations: Record<StationId, number>;
   profile: Profile;
+  notice: WorldNotice;
 }
 
 // POST /api/run/end
@@ -110,10 +142,15 @@ export interface RunEndReq {
   kills: number;
   /** Fusions made during the run: [a, b, out]. Used to check carried items. */
   fusions: [string, string, string][];
+  /** True if the player left from the pause menu. A run that was left never rolls for a relic. */
+  quit?: boolean;
 }
 export interface RunEndRes {
   profile: Profile;
   gained: { raws: RawBag; marks: number; items: ItemSpec[] };
+  /** A relic found on this run, already in the stash. Not listed in gained.items. Decided by the server alone. */
+  relic?: ItemSpec;
+  notice: WorldNotice;
   unlockedFeature?: Feature;
   unlockedCharacter?: CharacterId;
   daily?: { rank: number; players: number; scored: boolean };
@@ -126,13 +163,13 @@ export interface MarketRes { open: boolean; factor: Record<RawId, FactorQuote>; 
 
 // POST /api/market/factor
 export interface FactorReq { raw: RawId; side: 'buy' | 'sell'; qty: number; idem: string }
-// POST /api/market/list
+// POST /api/market/list  (the price cap does not apply to a relic)
 export interface ListReq { uid: string; price: number; idem: string }
 // POST /api/market/buy
 export interface BuyReq { listingId: string; idem: string }
 // POST /api/market/cancel
 export interface CancelReq { listingId: string }
-// POST /api/market/salvage  (destroy a stash item for a few marks)
+// POST /api/market/salvage  (destroy a stash item for a few marks; a relic is refused with 'relic_kept')
 export interface SalvageReq { uid: string }
 export interface MarketActionRes { profile: Profile; market: MarketRes }
 

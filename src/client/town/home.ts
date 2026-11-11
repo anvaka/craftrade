@@ -1,16 +1,32 @@
 // The stash tab, which is also home: the next run, who heads out, the
 // stash and kit, and the account in figures.
 
-import { DAILY_WAVES, KIT_CHARGES, KIT_SLOTS, type CharacterId } from '../../shared/protocol.ts';
+import { isRelic } from '../../shared/item.ts';
+import { DAILY_WAVES, KIT_SLOTS, type CharacterId } from '../../shared/protocol.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
-import { el, empty, finder, fmt, itemRow, ordinal, pips, sprite, sprites, stamp, type Kid } from './dom.ts';
+import { charges, el, empty, finder, fmt, itemRow, ordinal, sprite, sprites, stamp, type Kid } from './dom.ts';
 import { headOut } from './run.ts';
 import { act, app, getPrefs, redraw, savePrefs, setProfile } from './state.ts';
 import { CHARACTER_AT, CHARACTER_ORDER, CONTROLS, characterName, characterTwist } from './words.ts';
 
 export function renderHome(root: HTMLElement): void {
+  // The word from the world sits above the grid, across the whole page.
+  const word = worldNotice();
+  if (word) root.append(word);
   root.append(el('div', 'home', nextRun(), who(), stash(), account()));
+}
+
+// ---- word from the world ---------------------------------------------------
+
+/** One line, for a day, when anyone anywhere brings a relic home. */
+function worldNotice(): HTMLElement | null {
+  const n = app.worldNotice;
+  if (!n) return null;
+  const who = n.finder === app.profile.name ? el('span', 'own', n.finder) : el('span', 'who', n.finder);
+  const line = el('div', 'notice notice--town world-notice', el('span', 'tag', 'Word'), el('span', 'text', who, ' brought home the ', el('strong', '', n.name), `. No. ${n.serial} in the world.`));
+  line.setAttribute('role', 'status');
+  return line;
 }
 
 // ---- next run --------------------------------------------------------------
@@ -132,10 +148,12 @@ function stash(): HTMLElement {
       'note',
       `Pack up to ${KIT_SLOTS} for the run. Each run you start spends one charge from every packed item, and an item with no charges left is gone. The daily clearing ignores kits. `,
       el('span', 'num', `${app.kit.length} of ${KIT_SLOTS} packed.`),
+      items.some((i) => isRelic(i.item)) ? ' A relic does not wear, and one relic can be packed for a run.' : null,
     ),
   );
   const list = el('ul', 'offers items');
   const full = app.kit.length >= KIT_SLOTS;
+  const relicPacked = app.kit.some((uid) => isRelic(items.find((i) => i.uid === uid)?.item));
   for (const it of items) {
     const packed = app.kit.includes(it.uid);
     const toggle = stamp(packed ? 'Packed' : 'Pack', {
@@ -152,8 +170,9 @@ function stash(): HTMLElement {
     list.append(
       itemRow(it.item, {
         cls: packed ? 'is-locked' : '',
-        meta: [el('span', 'made', it.item.by ? 'first made by ' : '', finder(it.item.by, app.profile.name))],
-        actions: [el('span', 'charges', pips(it.charges, KIT_CHARGES, 'charges'), el('span', 'label', 'Charges')), packed || !full ? toggle : null],
+        me: app.profile.name,
+        meta: isRelic(it.item) ? [] : [el('span', 'made', it.item.by ? 'first made by ' : '', finder(it.item.by, app.profile.name))],
+        actions: [charges(it.item, it.charges), packed || !(full || (relicPacked && isRelic(it.item))) ? toggle : null],
       }),
     );
   }

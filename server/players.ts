@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { BASE_ITEM } from '../src/shared/content/items.ts';
+import { RELIC } from '../src/shared/content/relics.ts';
 import type { ItemSpec } from '../src/shared/item.ts';
 import { BASE_NOVEL_PER_DAY, type Profile, type StashItem, type StationId } from '../src/shared/protocol.ts';
 import { RAWS, type GlyphId, type RawBag } from '../src/shared/vocab.ts';
@@ -18,6 +19,10 @@ export interface Ctx {
   inflight: Map<string, Promise<Proposal>>;
   /** Untried pairs a player has out with the model right now. */
   reserved: Map<number, number>;
+  /** Uniform in [0, 1). The relic roll's dice; tests pass their own. */
+  rng: () => number;
+  /** Development only: a relic id that every paying report brings home. Null in production. */
+  relicForce: string | null;
 }
 
 export interface Player {
@@ -90,10 +95,11 @@ export function activePlayers(ctx: Ctx): number {
 
 interface ItemRow { id: string; name: string; glyph: string; tags: string; effects: string; by: string }
 
-/** An authored item, or a fused one from the database with its finder's name. */
+/** An authored item or relic, or a fused one from the database with its finder's name. */
 export function getItem(ctx: Ctx, id: string): ItemSpec | undefined {
   const base = BASE_ITEM[id];
   if (base) return base;
+  if (Object.hasOwn(RELIC, id)) return RELIC[id];
   const row = ctx.db
     .prepare('SELECT i.id, i.name, i.glyph, i.tags, i.effects, p.name AS by FROM items i JOIN players p ON p.id = i.finder WHERE i.id = ?')
     .get(id) as ItemRow | undefined;
@@ -101,16 +107,32 @@ export function getItem(ctx: Ctx, id: string): ItemSpec | undefined {
   return { id: row.id, name: row.name, glyph: row.glyph as GlyphId, tags: JSON.parse(row.tags), effects: JSON.parse(row.effects), by: row.by };
 }
 
-export function addStash(ctx: Ctx, playerId: number, itemId: string, charges: number): string {
-  const uid = newId();
-  ctx.db.prepare('INSERT INTO stash (uid, player_id, item_id, charges, created) VALUES (?, ?, ?, ?, ?)').run(uid, playerId, itemId, charges, ctx.now());
+/** One relic in someone's hands: the authored spec with its number, finder and date. */
+export function relicInstance(ctx: Ctx, ref: number): ItemSpec | undefined {
+  const row = ctx.db
+    .prepare('SELECT r.relic, r.serial, r.found, p.name AS by FROM relics r JOIN players p ON p.id = r.finder WHERE r.id = ?')
+    .get(ref) as { relic: string; serial: number; found: number; by: string } | undefined;
+  if (!row || !Object.hasOwn(RELIC, row.relic)) return undefined;
+  return { ...RELIC[row.relic], serial: row.serial, by: row.by, found: dayOf(row.found) };
+}
+
+/** The item a stash row or a listing holds. A relic comes back with its number and finder. */
+export function heldItem(ctx: Ctx, row: { item_id: string; relic_ref: number | null }): ItemSpec | undefined {
+  return row.relic_ref != null ? relicInstance(ctx, row.relic_ref) : getItem(ctx, row.item_id);
+}
+
+/** Put an item in a stash. `relicRef` names the row in relics when the item is one; it moves with the item for good. */
+export function addStash(ctx: Ctx, playerId: number, itemId: string, charges: number, relicRef: number | null = null, uid = newId()): string {
+  ctx.db
+    .prepare('INSERT INTO stash (uid, player_id, item_id, charges, created, relic_ref) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(uid, playerId, itemId, charges, ctx.now(), relicRef);
   return uid;
 }
 
+export interface StashRow { uid: string; item_id: string; charges: number; relic_ref: number | null }
+
 export function stashRow(ctx: Ctx, playerId: number, uid: string) {
-  return ctx.db.prepare('SELECT uid, item_id, charges FROM stash WHERE uid = ? AND player_id = ?').get(uid, playerId) as
-    | { uid: string; item_id: string; charges: number }
-    | undefined;
+  return ctx.db.prepare('SELECT uid, item_id, charges, relic_ref FROM stash WHERE uid = ? AND player_id = ?').get(uid, playerId) as StashRow | undefined;
 }
 
 // Balances. Every change to marks or raws goes through move(), which writes the ledger row.
@@ -161,12 +183,10 @@ export function spendNovel(ctx: Ctx, playerId: number) {
 export function profile(ctx: Ctx, playerId: number): Profile {
   const p = playerById(ctx, playerId);
   if (!p) throw new ApiErr(401, 'no_device', 'Unknown device.');
-  const rows = ctx.db.prepare('SELECT uid, item_id, charges FROM stash WHERE player_id = ? ORDER BY rowid').all(playerId) as {
-    uid: string; item_id: string; charges: number;
-  }[];
+  const rows = ctx.db.prepare('SELECT uid, item_id, charges, relic_ref FROM stash WHERE player_id = ? ORDER BY rowid').all(playerId) as StashRow[];
   const items: StashItem[] = [];
   for (const r of rows) {
-    const item = getItem(ctx, r.item_id);
+    const item = heldItem(ctx, r);
     if (item) items.push({ uid: r.uid, item, charges: r.charges });
   }
   const count = (sql: string) => (ctx.db.prepare(sql).get(playerId) as { n: number }).n;

@@ -32,6 +32,8 @@
     .label .note .who .own      small text helpers
 */
 
+@import './relic.css';
+
 @font-face {
   font-family: 'Zilla Slab';
   font-style: normal;

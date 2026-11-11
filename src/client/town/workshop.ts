@@ -1,7 +1,8 @@
 // The workshop tab: the anvil for the stash, and the codex.
 
 import { BASE_ITEM } from '../../shared/content/items.ts';
-import { fusionBlock, fusionBudget, itemTier, tierOf, type ItemSpec } from '../../shared/item.ts';
+import { RELIC } from '../../shared/content/relics.ts';
+import { effectText, fusionBlock, fusionBudget, isRelic, itemTier, tierOf, type ItemSpec } from '../../shared/item.ts';
 import { KIT_CHARGES, type CodexRecipe, type FuseRes, type StashItem } from '../../shared/protocol.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
@@ -34,7 +35,7 @@ function known(id: string): ItemSpec | undefined {
 export function renderWorkshop(root: HTMLElement): void {
   if (!held(slotA)) slotA = null;
   if (!held(slotB)) slotB = null;
-  root.append(anvil(), pairs(), codex());
+  root.append(anvil(), pairs(), codex(), relicRoll());
 }
 
 // ---- the anvil -------------------------------------------------------------
@@ -199,7 +200,8 @@ function anvil(): HTMLElement {
 
 /** The stash as a short table to put items on the anvil from. */
 function chooser(a: StashItem | undefined, b: StashItem | undefined): HTMLElement {
-  const items = app.profile.items;
+  // A relic never goes on the anvil, so it is not offered.
+  const items = app.profile.items.filter((i) => !isRelic(i.item));
   if (items.length === 0) return empty('The stash is empty. Items you carry home from a run can go on the anvil.');
   if (items.length === 1) {
     return empty(`Only ${items[0]!.item.name} is in the stash. The anvil needs two different items; carry another home or buy one at the market.`);
@@ -391,5 +393,61 @@ function codex(): HTMLElement {
     box,
   );
   fillCodex(box);
+  return sec;
+}
+
+// ---- relics: the world's roll -----------------------------------------------
+
+/**
+ * Every relic kind as one ruled line, found or not, and every find by name.
+ * A kind nobody has found is a blank line: it is there, and nobody has it.
+ */
+function relicRoll(): HTMLElement {
+  const sec = el('section', 'section relic-roll', el('h2', '', 'Relics'));
+  const r = app.relics;
+  if (!r) {
+    sec.append(empty(app.online ? 'Asking after the roll.' : 'The roll of relics is kept in town, which is out of reach.'));
+    return sec;
+  }
+  const unfound = r.kinds.filter((k) => !k.id).length;
+  sec.append(
+    el(
+      'p',
+      'note',
+      `${plural(r.kinds.length, 'relic')}, each of which breaks one rule. They are not made at the anvil and the town does not sell them. Once in a great while one comes home from the clearing, most often after a full win. `,
+      el('span', 'num', `${fmt(r.total)} found in the world so far. ${unfound === 0 ? 'Every kind has been found at least once.' : `${plural(unfound, 'kind')} nobody has found.`}`),
+    ),
+  );
+  const kinds = el('table', 'ledger relic-kinds');
+  kinds.append(el('tr', '', el('th', '', 'Relic'), el('th', '', 'What it does'), el('th', 'num', 'In the world')));
+  for (const k of r.kinds) {
+    const spec = k.id ? RELIC[k.id] : undefined;
+    kinds.append(
+      spec
+        ? el('tr', '', el('td', '', thing(itemIcon(spec), spec.name)), el('td', 'fx', spec.effects.map((e) => effectText(e)).join(', ')), el('td', 'num', fmt(k.found)))
+        : el('tr', 'is-unfound', el('td', '', el('span', 'blank')), el('td', '', el('span', 'blank')), el('td', 'num', '0')),
+    );
+  }
+  sec.append(kinds, el('h3', '', 'The roll'));
+  if (!r.roll.length) {
+    sec.append(empty('Nobody has brought one home yet. The first will be entered here by name.'));
+    return sec;
+  }
+  const roll = el('table', 'ledger relic-finds');
+  roll.append(el('tr', '', el('th', '', 'Relic'), el('th', 'num', 'No.'), el('th', '', 'Found by'), el('th', 'num', 'Date')));
+  for (const f of r.roll) {
+    roll.append(
+      el(
+        'tr',
+        '',
+        el('td', '', f.name),
+        el('td', 'num', String(f.serial)),
+        el('td', '', f.finder === app.profile.name ? el('span', 'own', f.finder) : el('span', 'who', f.finder)),
+        el('td', 'num', f.date),
+      ),
+    );
+  }
+  sec.append(roll);
+  if (r.total > r.roll.length) sec.append(el('p', 'note num', `The newest ${fmt(r.roll.length)} of ${fmt(r.total)} are listed.`));
   return sec;
 }

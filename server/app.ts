@@ -14,6 +14,7 @@ import { buyListing, cancelListing, factorTrade, listItem, marketView, salvage }
 import { createPlayer, findPlayer, profile, rerollName, stations, touch, type Ctx, type Player } from './players.ts';
 import { ProceduralProvider, type FusionProvider } from './provider.ts';
 import { Buckets, LIMITS } from './ratelimit.ts';
+import { devRelicForce, relicsRoll, secureRandom, worldNotice } from './relics.ts';
 import { dailyBoard, endRun, startRun } from './runs.ts';
 import { give, townView } from './town.ts';
 
@@ -31,6 +32,10 @@ export interface AppOptions {
   modelTimeoutMs?: number;
   /** Directory with the built client. Served if it exists. */
   staticDir?: string;
+  /** Uniform in [0, 1) for the relic roll. Default: the system's secure source. Tests force a find with it. */
+  rng?: () => number;
+  /** A relic id every paying report brings home. Default: RELIC_FORCE. Ignored when NODE_ENV is production. */
+  relicForce?: string;
 }
 
 /** CRAFT_PROVIDER=procedural|bedrock forces the choice; otherwise it follows the credentials. */
@@ -64,12 +69,14 @@ const Body = {
     level: count(1000),
     raws: rawBag,
     mule: rawBag,
-    carry: z.array(id).max(3),
+    carry: z.array(id).max(4),
     kills: count(1_000_000),
     fusions: z.array(z.tuple([id, id, id])).max(BOUNDS.fusions),
+    quit: z.boolean().optional(),
   }),
   factor: z.object({ raw: rawId, side: z.enum(['buy', 'sell']), qty: z.number().int().min(1).max(FACTOR.maxQty), idem }),
-  list: z.object({ uid: id, price: z.number().int().min(1).max(LISTING.maxPrice), idem }),
+  // The cap for ordinary items is applied in listItem, where the item is known. A relic has none.
+  list: z.object({ uid: id, price: z.number().int().min(1).max(LISTING.relicBookLimit), idem }),
   buy: z.object({ listingId: id, idem }),
   cancel: z.object({ listingId: id }),
   salvage: z.object({ uid: id }),
@@ -88,7 +95,10 @@ export function createApp(opts: AppOptions = {}) {
     modelTimeoutMs: opts.modelTimeoutMs ?? MODEL_TIMEOUT_MS,
     inflight: new Map(),
     reserved: new Map(),
+    rng: opts.rng ?? secureRandom,
+    relicForce: devRelicForce(process.env, opts.relicForce ?? process.env.RELIC_FORCE),
   };
+  if (ctx.relicForce) console.warn(`[relics] RELIC_FORCE=${ctx.relicForce}: every paying run report brings this relic home. Development only.`);
   // Idempotency records only need to outlive client retries.
   ctx.db.prepare('DELETE FROM idem WHERE created < ?').run(now() - 7 * 24 * 3600 * 1000);
   const buckets = new Buckets(now);
@@ -149,7 +159,7 @@ export function createApp(opts: AppOptions = {}) {
         const made = known ? undefined : createPlayer(ctx);
         const player = known ?? made!.player;
         touch(ctx, player.id);
-        return { token: made?.token ?? sent!, profile: profile(ctx, player.id), stations: stations(ctx), llm: ctx.provider.llm };
+        return { token: made?.token ?? sent!, profile: profile(ctx, player.id), stations: stations(ctx), llm: ctx.provider.llm, notice: worldNotice(ctx) };
       }),
     );
   });
@@ -194,6 +204,8 @@ export function createApp(opts: AppOptions = {}) {
   app.post('/api/town/give', async (c) => c.json(give(ctx, c.var.player, await read(c, Body.give))));
 
   app.get('/api/daily', (c) => c.json(dailyBoard(ctx, c.var.player)));
+
+  app.get('/api/relics', (c) => c.json(relicsRoll(ctx)));
 
   app.all('/api/*', (c) => fail(c, 404, 'not_found', 'No such endpoint.'));
 

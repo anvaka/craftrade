@@ -8,10 +8,13 @@ import { CHARACTER } from './data/characters.ts';
 import { BENCH_ITEM_SHARE, RARITY, SAME_CLASS_BIAS, SAME_WEAPON_BIAS, SCRAP_SHARE } from './data/tuning.ts';
 import { UPGRADE_RARITY, UPGRADE_VALUE } from './data/upgrades.ts';
 import { WEAPONS, WEAPON_INDEX } from './data/weapons.ts';
-import { primOf, rebuild, SP, ST } from './core.ts';
+import { primOf, rebuild, SP, ST, weaponSlots } from './core.ts';
 import { rnd, Stream } from './rng.ts';
 import type { Offer, Run, UpgradeChoice } from './types.ts';
 import { makeWeapon } from './weapons.ts';
+
+/** Offers at a bench. The Order book adds one. */
+export const BENCH_OFFERS = 4;
 
 const ITEMS_BY_TIER: ItemSpec[][] = [[], [], [], [], []];
 for (const it of BASE_ITEMS) ITEMS_BY_TIER[itemTier(it)].push(it);
@@ -88,7 +91,8 @@ function rollWeaponOffer(run: Run, o: Offer): void {
   const w = WEAPONS[def];
   o.kind = 'weapon'; o.id = w.id; o.tier = tier; o.item = null;
   o.price = weaponPrice(run, w.id, tier, b);
-  o.raws = recipeRaws(run, w.raws, w.plainAtOne ? tier - 1 : tier);
+  // Company draft: weapons are had on account. Items still cost their raws.
+  o.raws = run.player.sp[SP.noRawCost] > 0 ? emptyRaws() : recipeRaws(run, w.raws, w.plainAtOne ? tier - 1 : tier);
 }
 
 function rollItemOffer(run: Run, o: Offer, slot: number): void {
@@ -110,7 +114,10 @@ function rollItemOffer(run: Run, o: Offer, slot: number): void {
 
 function rollOffers(run: Run): void {
   const b = run.bench;
-  for (let i = 0; i < 4; i++) {
+  // Four offers. The Order book adds a fifth, which is always an item or a weapon by the usual odds.
+  const want = BENCH_OFFERS + (run.player.sp[SP.extraOffer] > 0 ? 1 : 0);
+  while (b.offers.length < want) b.offers.push(newOffer());
+  for (let i = 0; i < b.offers.length; i++) {
     const o = b.offers[i];
     if (o.locked && !o.sold) continue;
     o.locked = false; o.sold = false;
@@ -185,7 +192,7 @@ export function toggleLock(run: Run, i: number): boolean {
 
 function canHoldWeapon(run: Run, def: number, tier: number): boolean {
   const p = run.player;
-  if (p.weapons.length < CHARACTER[run.character].slots) return true;
+  if (p.weapons.length < weaponSlots(run)) return true;
   if (tier >= 4) return false;
   for (const w of p.weapons) if (w.def === def && w.tier === tier) return true;
   return false;
@@ -261,7 +268,7 @@ export function scrapWeapon(run: Run, i: number): boolean {
 
 export function scrapItem(run: Run, i: number): boolean {
   const p = run.player;
-  if (run.phase !== 'bench' || !p.items[i]) return false;
+  if (run.phase !== 'bench' || !p.items[i] || p.items[i].relic === true) return false;
   const v = scrapValueItem(run, i);
   p.items.splice(i, 1); p.itemKit.splice(i, 1);
   p.scrip += v; run.scripEarned += v;
@@ -300,6 +307,7 @@ export function fuseCost(run: Run, a: number, b: number): FuseQuote {
 
 /** Why a fusion result cannot be accepted, or null. */
 export function fusionResultBlock(result: ItemSpec, budget: number): string | null {
+  if (result?.relic) return 'Bad item.';
   if (!result || typeof result.id !== 'string' || !result.id || typeof result.name !== 'string' || !result.name) return 'Bad item.';
   if (!(GLYPHS as readonly string[]).includes(result.glyph) || !Array.isArray(result.tags)) return 'Bad item.';
   if (!Array.isArray(result.effects) || result.effects.length < 1) return 'Bad item.';

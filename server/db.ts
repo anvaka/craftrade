@@ -7,7 +7,7 @@ import { FACTOR_BASE, STATIONS } from './config.ts';
 export type DB = Database.Database;
 
 // Append only. The index of a migration is its version; never edit one that has shipped.
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   CREATE TABLE players (
     id INTEGER PRIMARY KEY,
@@ -150,6 +150,31 @@ const MIGRATIONS: string[] = [
     reason TEXT NOT NULL DEFAULT ''
   );
   CREATE INDEX ledger_player ON ledger (player_id);
+  `,
+  // 1: relics. Every relic that exists is a row here, numbered within its kind
+  // in the order found. A stash row or a listing that holds one points at it.
+  `
+  CREATE TABLE relics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    relic TEXT NOT NULL,
+    serial INTEGER NOT NULL CHECK (serial > 0),
+    finder INTEGER NOT NULL REFERENCES players (id),
+    run_id TEXT NOT NULL UNIQUE,
+    source TEXT NOT NULL,
+    found INTEGER NOT NULL,
+    UNIQUE (relic, serial)
+  );
+  CREATE INDEX relics_found ON relics (found);
+
+  ALTER TABLE stash ADD COLUMN relic_ref INTEGER REFERENCES relics (id);
+  CREATE UNIQUE INDEX stash_relic ON stash (relic_ref) WHERE relic_ref IS NOT NULL;
+  ALTER TABLE listings ADD COLUMN relic_ref INTEGER REFERENCES relics (id);
+
+  -- 1 if the report of this run was put to the relic roll.
+  ALTER TABLE runs ADD COLUMN relic_roll INTEGER NOT NULL DEFAULT 0;
+  -- What was packed, by stash uid: [{ uid, id, spent }]. spent: its last charge went on this run.
+  ALTER TABLE runs ADD COLUMN kit_uids TEXT NOT NULL DEFAULT '[]';
+  CREATE INDEX runs_roll ON runs (player_id, relic_roll, ended);
   `,
 ];
 

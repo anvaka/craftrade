@@ -32,6 +32,7 @@ export async function boot(): Promise<void> {
   if (first) {
     setProfile(first.profile);
     app.stations = first.stations;
+    app.worldNotice = first.notice ?? null;
     app.online = true;
   } else {
     // Go on without the town. If the answer is only late, take it when it lands.
@@ -40,6 +41,7 @@ export async function boot(): Promise<void> {
       .then((res) => {
         setProfile(res.profile);
         app.stations = res.stations;
+        app.worldNotice = res.notice ?? null;
         app.online = true;
         redraw();
         if (currentView() === 'town') void loadTab(app.tab);

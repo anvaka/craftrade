@@ -125,6 +125,8 @@ export interface ResNode {
   working: boolean;
   /** Counts up with work; used for chop timing. */
   tickAcc: number;
+  /** True once this node has grown back this wave (Seed corn). */
+  regrown: boolean;
 }
 
 export const HZ_RING = 0, HZ_SHARD = 1;
@@ -205,6 +207,8 @@ export interface Player {
   magnetR: number;
   knockAdd: number;
   secondWindUsed: boolean;
+  /** True once the Brandy flask has been drunk. Once a run, not once a wave. */
+  secondLifeUsed: boolean;
   /** Index of the node being worked, -1 if none, -2 for the rotwood. */
   workingNode: number;
 }

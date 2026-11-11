@@ -65,6 +65,7 @@ function localTicket(character: CharacterId): RunStartRes {
     kit: [],
     stations: app.stations,
     profile: app.profile,
+    notice: app.worldNotice,
   };
 }
 
@@ -102,6 +103,7 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
     } else {
       setProfile(ticket.profile);
       app.stations = ticket.stations;
+      app.worldNotice = ticket.notice ?? null;
       if (mode === 'daily' && app.daily) savePrefs({ dailyTaken: app.daily.date });
     }
     mount = await mounting;
@@ -188,6 +190,7 @@ async function sendReport(runId: string, recap: RunRecap): Promise<Report> {
   try {
     const res = await api.runEnd({ ...recap.report, runId });
     setProfile(res.profile);
+    app.worldNotice = res.notice ?? null;
     app.online = true;
     return { state: 'saved', res };
   } catch (e) {

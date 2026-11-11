@@ -65,7 +65,7 @@ function placeNodes(run: Run): void {
       if (!ok) continue;
       slot.alive = true; slot.x = x; slot.y = y; slot.type = type;
       slot.rich = run.wave >= RICH_FROM_WAVE && rnd(run.rng, Stream.Spawn) < RICH_CHANCE;
-      slot.work = 0; slot.need = slot.rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0;
+      slot.work = 0; slot.need = slot.rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0; slot.regrown = false;
       live++;
     }
   }
@@ -106,7 +106,10 @@ export function updateNodes(run: Run): void {
     n.work += rate; n.tickAcc += rate;
     if (n.tickAcc >= WORK_TICK) { n.tickAcc -= WORK_TICK; emit(run, 'work', n.x, n.y, n.type); }
     if (n.work >= n.need) {
-      n.alive = false; n.working = false;
+      // Seed corn: the first break of a node in a wave leaves it standing, unworked.
+      if (p.sp[SP.regrow] > 0 && !n.regrown) { n.regrown = true; n.work = 0; n.tickAcc = 0; }
+      else n.alive = false;
+      n.working = false;
       p.workingNode = -1;
       breakNode(run, n.x, n.y, n.type, n.rich, nodeYield(run, n.type, n.rich));
     }
@@ -202,6 +205,7 @@ export function startWave(run: Run): void {
   p.hp = p.maxHp;
   p.shield = p.sp[SP.waveShield];
   for (let i = 0; i < p.weapons.length; i++) { p.weapons[i].cd = 0.25 + i * 0.07; p.weapons[i].swing = 0; }
+  for (let i = 0; i < MAX_NODES; i++) run.nodes[i].regrown = false;
   placeNodes(run);
   emit(run, 'waveStart', p.x, p.y, run.wave, run.plan[run.wave - 1]);
 }

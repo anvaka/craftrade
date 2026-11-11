@@ -201,6 +201,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       report: {
         wavesCleared: s.wavesCleared, won: s.won, scripEarned: s.scripEarned, scripHeld: s.scripHeld, level: s.level,
         raws: s.raws, mule: s.mule, carry: s.carry, kills: s.kills, fusions: s.fusions,
+        ...(quitting ? { quit: true } : {}),
       },
       killedBy: killerName(run),
       endWave: s.endWave,
