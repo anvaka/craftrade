@@ -51,7 +51,7 @@ describe('daily clearing', () => {
     const token = await w.player(4);
     const first = await attempt(w, token, 'daily', { wavesCleared: 5, scripEarned: 300, scripHeld: 100, raws: { timber: 10, ore: 0, hide: 0 } });
     expect(first.end.daily).toEqual({ rank: 1, players: 1, scored: true });
-    expect(first.end.gained.marks).toBe(10 + 15);
+    expect(first.end.gained.marks).toBe(5 + 15); // 100 scrip held at 20 to the mark, and 3 a wave
     const after = await w.me(token);
     expect(after).toMatchObject({ runs: 5, daysPlayed: 1 });
 

@@ -1,11 +1,11 @@
 import type { GiveReq, GiveRes, StationId, TownPerk, TownProject, TownRes } from '../src/shared/protocol.ts';
 import { RAWS, emptyRaws, type RawBag, type RawId } from '../src/shared/vocab.ts';
 import { awardTitles, note } from './almanac.ts';
-import { FACTOR, MAX_STATION_TIER, PROJECT_UNIT, STATIONS, WORKS, WORKS_PERK_MS, featuresFor, projectScale } from './config.ts';
+import { FACTOR, MAX_STATION_TIER, PROJECT_UNIT, STATIONS, TOWN_FUND_PER_DAY, WORKS, WORKS_PERK_MS, featuresFor, projectScale } from './config.ts';
 import { tx } from './db.ts';
 import { ApiErr, bad } from './errors.ts';
 import { once } from './idem.ts';
-import { activePlayers, logLedger, move, playerById, profile, stations, type Ctx, type Player } from './players.ts';
+import { activePlayers, dayOf, logLedger, move, playerById, profile, stations, type Ctx, type Player } from './players.ts';
 
 interface ProjectRow {
   id: number; station: string; to_tier: number; kind: 'station' | 'works';
@@ -129,9 +129,31 @@ export function give(ctx: Ctx, player: Player, req: GiveReq): GiveRes {
       }
       const p = activeProject(ctx);
       const taken = contribute(ctx, req.raws);
-      const total = taken.timber + taken.ore + taken.hide;
-      if (total === 0) throw bad('not_needed', 'The project does not need those raws.');
+      let total = taken.timber + taken.ore + taken.hide;
       move(ctx, player.id, 'town_give', { timber: -taken.timber, ore: -taken.ore, hide: -taken.hide }, `project ${p.id}`);
+      // Marks: the Factor delivers what the project needs most, at his selling price, a unit at a time.
+      if (req.marks && ctx.db.prepare('SELECT done FROM projects WHERE id = ?').pluck().get(p.id) === 0) {
+        const day = dayOf(ctx.now());
+        const used = (ctx.db.prepare('SELECT units FROM town_fund WHERE player_id = ? AND day = ?').pluck().get(player.id, day) as number | undefined) ?? 0;
+        const now = activeProject(ctx);
+        const left = RAWS.map((raw) => need(now)[raw] - have(now)[raw]);
+        const price = RAWS.map((raw) => factorBuyPrice(ctx, raw));
+        const add = emptyRaws();
+        let spent = 0, units = 0;
+        while (used + units < TOWN_FUND_PER_DAY) {
+          const i = left.indexOf(Math.max(...left));
+          if (left[i] <= 0 || spent + price[i] > req.marks) break;
+          spent += price[i]; left[i]--; add[RAWS[i]]++; units++;
+        }
+        if (units > 0) {
+          move(ctx, player.id, 'town_fund', { marks: -spent }, `project ${p.id}`);
+          const got = contribute(ctx, add);
+          logLedger(ctx, null, 'fund_to_town', got, `project ${p.id}`);
+          ctx.db.prepare('INSERT INTO town_fund (player_id, day, units) VALUES (?, ?, ?) ON CONFLICT (player_id, day) DO UPDATE SET units = units + excluded.units').run(player.id, day, units);
+          total += units;
+        }
+      }
+      if (total === 0) throw bad('not_needed', req.marks ? 'The project needs nothing those marks can buy today.' : 'The project does not need those raws.');
       ctx.db.prepare('UPDATE players SET standing = standing + ? WHERE id = ?').run(total, player.id);
       note(ctx, player.id, p.kind === 'works' ? 'works' : 'gave', p.station, total);
       awardTitles(ctx, player.id);

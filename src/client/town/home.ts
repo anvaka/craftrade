@@ -1,13 +1,15 @@
 // The stash tab, which is also home: the next run, who heads out, the
 // stash and kit, and the account in figures.
 
-import { isRelic } from '../../shared/item.ts';
-import { DAILY_WAVES, KIT_SLOTS, type CharacterId } from '../../shared/protocol.ts';
+import { TITLE } from '../../shared/almanac.ts';
+import { isRelic, itemPoints } from '../../shared/item.ts';
+import { DAILY_WAVES, KIT_CHARGES, KIT_SLOTS, type CharacterId, type StashItem } from '../../shared/protocol.ts';
+import { HAZARD_MARKS, MAX_HAZARD, REPAIR, canPay, kitPointCap, packItem, repairCost, stashNextCost, type Cost } from '../../shared/rules.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
-import { charges, el, empty, finder, fmt, itemRow, ordinal, sprite, sprites, stamp, type Kid } from './dom.ts';
+import { charges, el, empty, finder, fmt, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
 import { headOut } from './run.ts';
-import { act, app, getPrefs, redraw, savePrefs, setProfile } from './state.ts';
+import { act, app, getPrefs, hazardNow, redraw, savePrefs, say, setProfile } from './state.ts';
 import { CHARACTER_AT, CHARACTER_ORDER, CONTROLS, characterName, characterTwist } from './words.ts';
 
 export function renderHome(root: HTMLElement): void {
@@ -49,8 +51,48 @@ function nextRun(): HTMLElement {
     ),
   );
   if (first) sec.append(el('p', 'controls', CONTROLS));
+  else sec.append(hazardRow());
   if (app.profile.features.includes('daily')) sec.append(dailyRow());
   return sec;
+}
+
+/** "40 marks, 5 timber, 5 ore, 5 hide", leaving out what is nil. */
+export function costText(c: Cost): string {
+  return [c.marks ? plural(c.marks, 'mark') : '', c.raws.timber ? `${fmt(c.raws.timber)} timber` : '', c.raws.ore ? `${fmt(c.raws.ore)} ore` : '', c.raws.hide ? `${fmt(c.raws.hide)} hide` : ''].filter(Boolean).join(', ');
+}
+
+/** The hazard ladder for the character who is going: six squares, the open ones can be pressed. */
+function hazardRow(): HTMLElement {
+  const book = app.profile.hazard[app.character] ?? { open: 0, best: -1 };
+  const now = hazardNow();
+  const row = el('div', 'bar bar--hazard');
+  const picks = el('div', 'hazards');
+  picks.setAttribute('role', 'radiogroup');
+  picks.setAttribute('aria-label', 'Hazard');
+  for (let h = 0; h <= MAX_HAZARD; h++) {
+    const shut = h > book.open;
+    const b = el('button', `hazard${h === now ? ' is-on' : ''}${h <= book.best ? ' is-won' : ''}`, String(h));
+    b.type = 'button';
+    b.dataset.fk = `hazard:${h}`;
+    b.disabled = shut;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(h === now));
+    b.setAttribute('aria-label', shut ? `Hazard ${h}, opens with a win at hazard ${h - 1}` : `Hazard ${h}${h <= book.best ? ', won' : ''}`);
+    b.title = shut ? `Opens with a win at hazard ${h - 1}` : `${Math.round(HAZARD_MARKS * h * 100)}% more marks`;
+    b.addEventListener('click', () => {
+      audio.play('lock');
+      app.hazard = h;
+      savePrefs({ hazard: h });
+      redraw();
+    });
+    picks.append(b);
+  }
+  const cap = kitPointCap(now);
+  const terms = now === 0 ? 'The plain clearing.' : `Pays ${Math.round(HAZARD_MARKS * now * 100)}% more marks.`;
+  const kit = now >= MAX_HAZARD ? 'A packed item comes whole.' : `A packed item brings up to ${cap} points.`;
+  const next = book.open < MAX_HAZARD ? ` A win at hazard ${book.open} as ${characterName(app.character)} opens hazard ${book.open + 1}.` : '';
+  row.append(el('div', 'bar-text', el('span', 'label', 'Hazard'), ' ', el('span', 'num', String(now)), '. ', terms, ' ', kit, el('span', 'note', next)), picks);
+  return row;
 }
 
 function dailyRow(): HTMLElement {
@@ -137,7 +179,9 @@ function who(): HTMLElement {
 
 function stash(): HTMLElement {
   const items = app.profile.items;
+  const p = app.profile;
   const sec = el('section', 'section stash', el('h2', '', 'Stash'));
+  if (app.met && (items.length || p.stashBought > 0)) sec.append(shelfRow());
   if (!items.length) {
     sec.append(empty(app.met ? 'Nothing in the stash. One item from your build can come home for every four waves you clear, and it will be listed here.' : 'Your stash is kept in town and will be listed here when the town answers.'));
     return sec;
@@ -154,8 +198,10 @@ function stash(): HTMLElement {
   const list = el('ul', 'offers items');
   const full = app.kit.length >= KIT_SLOTS;
   const relicPacked = app.kit.some((uid) => isRelic(items.find((i) => i.uid === uid)?.item));
+  const hazard = hazardNow();
   for (const it of items) {
     const packed = app.kit.includes(it.uid);
+    const down = packItem(it.item, hazard);
     const toggle = stamp(packed ? 'Packed' : 'Pack', {
       cls: `stamp--small stamp--plain${packed ? ' is-pressed' : ''}`,
       key: `pack:${it.uid}`,
@@ -171,13 +217,68 @@ function stash(): HTMLElement {
       itemRow(it.item, {
         cls: packed ? 'is-locked' : '',
         me: app.profile.name,
-        meta: isRelic(it.item) ? [] : [el('span', 'made', it.item.by ? 'first made by ' : '', finder(it.item.by, app.profile.name))],
-        actions: [charges(it.item, it.charges), packed || !(full || (relicPacked && isRelic(it.item))) ? toggle : null],
+        meta: isRelic(it.item)
+          ? []
+          : [
+              el('span', 'made', it.item.by ? 'first made by ' : '', finder(it.item.by, app.profile.name)),
+              down !== it.item ? el('span', 'made packs', `packs down to ${itemPoints(down.effects)} of ${itemPoints(it.item.effects)} points at hazard ${hazard}`) : null,
+            ],
+        actions: [charges(it.item, it.charges), mendStamp(it), packed || !(full || (relicPacked && isRelic(it.item))) ? toggle : null],
       }),
     );
   }
   sec.append(list);
   return sec;
+}
+
+/** How full the stash is, and the price of another shelf. */
+function shelfRow(): HTMLElement {
+  const p = app.profile;
+  const cost = stashNextCost(p.stashBought);
+  const short = !!cost && !canPay(p, cost);
+  return el(
+    'div',
+    'bar bar--shelf',
+    el(
+      'div',
+      'bar-text',
+      el('span', 'num', `${fmt(p.stashUsed)} of ${fmt(p.stashLimit)} places filled.`),
+      ' ',
+      el('span', 'note', cost ? `What does not fit when you come home is salvaged. Another shelf of 8 costs ${costText(cost)}.` : 'The stash is as large as it gets. What does not fit when you come home is salvaged.'),
+    ),
+    cost
+      ? stamp('Another shelf', {
+          cls: 'stamp--small stamp--plain',
+          key: 'shelf',
+          disabled: short || app.busy.has('shelf'),
+          title: short ? `You have ${plural(p.marks, 'mark')}` : costText(cost),
+          onClick: () =>
+            void act('shelf', 'Stash', async () => {
+              setProfile((await api.expandStash()).profile);
+              say('Stash', `A shelf went up. The stash holds ${fmt(app.profile.stashLimit)}.`, 'town');
+            }),
+        })
+      : null,
+  );
+}
+
+/** One charge back on a worn item, at a price. Nothing for an item that is whole, a relic, or past mending. */
+function mendStamp(it: StashItem): HTMLElement | null {
+  if (isRelic(it.item) || it.charges >= KIT_CHARGES) return null;
+  if ((it.repairs ?? 0) >= REPAIR.perItem) return el('span', 'note', 'Past mending');
+  const cost = repairCost(it.item, app.town?.perks.some((k) => k.id === 'granary') ? 0.75 : 1);
+  const short = !canPay(app.profile, cost);
+  return stamp('Mend', {
+    cls: 'stamp--small stamp--plain',
+    key: `mend:${it.uid}`,
+    disabled: short || app.busy.has(`mend:${it.uid}`),
+    title: `One charge back for ${costText(cost)}`,
+    onClick: () =>
+      void act(`mend:${it.uid}`, 'Stash', async () => {
+        setProfile((await api.repair(it.uid)).profile);
+        say('Stash', `${it.item.name} mended for ${costText(cost)}. An item can be mended ${REPAIR.perItem} times.`, 'town');
+      }),
+  });
 }
 
 // ---- the account in figures -----------------------------------------------
@@ -191,6 +292,7 @@ function account(): HTMLElement {
   }
   const dl = el('dl', 'stats stats--one');
   const row = (name: string, ...value: Kid[]): void => void dl.append(el('div', '', el('dt', '', name), el('dd', 'num', ...value)));
+  const wait = p.nameChangeAt > Date.now();
   row(
     'Name',
     el('span', 'own', p.name),
@@ -198,15 +300,19 @@ function account(): HTMLElement {
       cls: 'stamp--small stamp--plain',
       key: 'reroll',
       sound: 'reroll',
+      disabled: wait,
+      title: wait ? `Once a week. Next on ${new Date(p.nameChangeAt).toISOString().slice(0, 10)}` : 'Once a week',
       onClick: () =>
         void act('reroll', 'Name', async () => {
           setProfile((await api.rerollName()).profile);
         }),
     }),
   );
+  row('Title worn', p.title && TITLE[p.title] ? TITLE[p.title].name : el('span', 'note', 'none'));
   row('Runs', fmt(p.runs));
   row('Wins', fmt(p.wins));
-  row('First finds', fmt(p.finds));
+  row('Finds that count', fmt(p.finds));
+  row('Titles earned', fmt(p.titles.length));
   row('Days played in the daily', fmt(p.daysPlayed));
   if (p.features.includes('town')) row('Given to the town', fmt(p.standing));
   sec.append(dl);

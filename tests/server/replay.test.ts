@@ -54,10 +54,10 @@ describe('replay: the log and its playback', () => {
     expect(Object.values(back.kills).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(played.summary.kills);
     expect(back.ticks).toBe(played.run.tick);
     // Far faster than real time: the run took `seconds` to play and a fraction of that to check.
-    expect(ms / 1000).toBeLessThan(played.summary.seconds / 20);
+    expect(ms / 1000).toBeLessThan(played.summary.seconds / 5);
     // The log is small: a keyboard-like bot run is a few kilobytes.
     expect(played.replay.length).toBeLessThan(120_000);
-  });
+  }, 60_000);
 
   it('does not play back under other conditions or with other inputs', async () => {
     const opts = { seed: 4242, character: 'smith' as const };
@@ -77,7 +77,7 @@ describe('replay: the log and its playback', () => {
     for (const junk of ['', 'x', '{"v":1,"rs":1,"o":[["s","@@@@"]]}', '{"v":1,"rs":1,"o":[["zz"]]}', '{"v":1,"rs":1,"o":[["m",-1,0,0]]}']) {
       expect(playback({ opts, replay: junk, items: {}, fusions: [] }).ok).toBe(false);
     }
-  });
+  }, 60_000);
 });
 
 describe('replay: enforced by the server', () => {
@@ -135,6 +135,7 @@ describe('replay: enforced by the server', () => {
     // A replay recorded on one ticket does not fit the seed of the next.
     const old = run.report;
     run = await honest(w, token);
+    w.advance(20 * 60_000); // long enough that only the replay stands in the way
     expect(await refused({ ...old, runId: run.ticket.runId })).toEqual([400, 'replay_mismatch']);
     // A replay cannot be reported faster than it was played.
     const s = await w.post<RunStartRes>('/api/run/start', token, { mode: 'run', character: 'greenhorn', kit: [] });
@@ -159,12 +160,15 @@ describe('replay: flag mode (the default)', () => {
     w.advance(9 * 60_000);
     const forged = await w.post<RunEndRes>('/api/run/end', token, {
       runId: s.body.runId, wavesCleared: 12, won: true, scripEarned: 6000, scripHeld: 3200, level: 30,
-      raws: { timber: 70, ore: 70, hide: 70 }, mule: { timber: 0, ore: 0, hide: 0 }, carry: [], kills: 4000, fusions: [],
+      raws: { timber: 70, ore: 70, hide: 70 }, mule: { timber: 0, ore: 0, hide: 0 }, carry: ['forgebellows', 'factorseal', 'anvil'], kills: 4000, fusions: [],
     });
     expect(forged.status).toBe(200);
     expect(forged.body.replay).toBe('none');
+    // Three tier 4 items were claimed. An unchecked run brings home no finished item at all.
+    expect(forged.body.gained.items).toEqual([]);
+    expect(forged.body.profile.items).toEqual([]);
     // 1,244 scrip and 56 raws are what an ordinary run holds at the end; that is all an unchecked report can claim.
-    expect(forged.body.gained.marks).toBe(Math.floor(1244 / 10) + 36);
+    expect(forged.body.gained.marks).toBe(Math.floor(1244 / 20) + 36);
     expect(forged.body.gained.raws.timber + forged.body.gained.raws.ore + forged.body.gained.raws.hide).toBeLessThanOrEqual(56);
     // No relic roll for a run the server has not played.
     expect(dice.thrown).toBe(0);

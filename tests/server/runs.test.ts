@@ -24,9 +24,9 @@ describe('runs', () => {
     }));
     expect(end.status).toBe(200);
     expect(end.body.gained.raws).toEqual({ timber: 15, ore: 7, hide: 5 });
-    expect(end.body.gained.marks).toBe(13 + 3 * 12); // 1 per 10 scrip held, plus the per-wave payout
+    expect(end.body.gained.marks).toBe(6 + 3 * 12); // 1 per 20 scrip held, plus the per-wave payout
     expect(end.body.gained.items.map((i) => i.id)).toEqual([A, B, C]);
-    expect(end.body.profile).toMatchObject({ runs: 1, wins: 1, marks: 49, raws: { timber: 15, ore: 7, hide: 5 } });
+    expect(end.body.profile).toMatchObject({ runs: 1, wins: 1, marks: 42, raws: { timber: 15, ore: 7, hide: 5 } });
     expect(end.body.profile.items.every((s) => s.charges === 3)).toBe(true);
     expect(end.body.unlockedFeature).toBe('workshop');
     expect(end.body.daily).toBeUndefined();

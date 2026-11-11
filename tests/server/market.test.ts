@@ -17,7 +17,7 @@ const totals = (w: W) =>
 async function trader(w: W, runs = 10) {
   const token = await w.player(runs);
   await w.run(token, { wavesCleared: 12, won: true, scripEarned: 3000, scripHeld: 1000, raws: { timber: 50, ore: 50, hide: 50 } });
-  w.fund(token, 200, 100);
+  w.fund(token, 500, 100);
   return token;
 }
 
@@ -221,7 +221,7 @@ describe('market', () => {
   });
 
   it('conserves marks and raws across a random sequence of trades, per the ledger', async () => {
-    const w = world();
+    const w = world({ rng: () => 0.9 }); // no relic turns up among the wins that stock the stashes
     const rnd = mulberry32(20261111);
     const pick = <T>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)];
     const tokens: string[] = [];

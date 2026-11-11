@@ -15,7 +15,7 @@ export const HAZARD_MARKS = 0.1;
 
 /** Town fusion costs the run's raw price for the result's tier, times this, plus marks by tier (index 1-4). */
 export const TOWN_FUSE_RAW_MUL = 3;
-export const TOWN_FUSE_MARKS: readonly number[] = [0, 10, 25, 60, 150];
+export const TOWN_FUSE_MARKS: readonly number[] = [0, 15, 40, 90, 200];
 export interface Cost { marks: number; raws: RawBag }
 export function townFuseCost(tier: number): Cost {
   const base = FUSE_RAW_COST[tier] ?? FUSE_RAW_COST[1];
@@ -26,12 +26,12 @@ export function townFuseCost(tier: number): Cost {
 }
 
 /** One charge back on a worn item: marks and each raw per point of the item. Twice per item at most. */
-export const REPAIR = { marksPerPoint: 1, rawsPerPoint: 0.125, perItem: 2 };
+export const REPAIR = { marksPerPoint: 2, minMarks: 15, rawsPerPoint: 0.125, perItem: 2 };
 /** `discount` is the granary perk: 0.75 while it lasts, else 1. */
 export function repairCost(item: Pick<ItemSpec, 'effects'>, discount = 1): Cost {
   const points = itemPoints(item.effects);
   const each = Math.max(1, Math.ceil(points * REPAIR.rawsPerPoint * discount));
-  return { marks: Math.max(1, Math.ceil(points * REPAIR.marksPerPoint * discount)), raws: { timber: each, ore: each, hide: each } };
+  return { marks: Math.ceil(Math.max(REPAIR.minMarks, points * REPAIR.marksPerPoint) * discount), raws: { timber: each, ore: each, hide: each } };
 }
 
 /** The stash holds this many items (relics are not counted). More room is bought, a shelf at a time. */
@@ -60,6 +60,12 @@ export function priceCeiling(item: Pick<ItemSpec, 'effects'>, charges: number): 
 export const RELIC_TRADE = { runs: 30, ageMs: 3 * 24 * 3600 * 1000 };
 /** Most units in one raw lot or one raw order. */
 export const MAX_LOT = 500;
+
+/**
+ * Marks given to the town are spent for it at the Factor's selling price on
+ * whatever the project needs most. One player can fund this many units a day.
+ */
+export const TOWN_FUND_PER_DAY = 300;
 
 /** A name may be changed once in this long. */
 export const NAME_REROLL_MS = 7 * 24 * 3600 * 1000;

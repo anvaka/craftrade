@@ -213,8 +213,10 @@ rule; different items merge by meaning.
   the repaired spec, so different pairs can converge on one item.
 - Tier 4 results are finished: they cannot be fused again.
 - In a run, a fusion costs raws by output tier (for example tier 2: 3 timber, 2 ore, 2 hide) and, for a pair nobody has tried, takes a second or two.
-- In town, the workshop does the same from your stash.
-- Each account gets 20 untried pairs a day (raised by the Assay Office). Known pairs are unlimited.
+- In town, the workshop does the same from your stash, for a price: three times the run's raws for the result's tier, plus 15, 40, 90 or 200 marks (tier 1 to 4). The result has the fewer of the two inputs' charges, so fusing does not undo wear.
+- An in-run fusion belongs to an open run. The server records it and only answers for items the run could be holding: an authored item the bench could have sold by then, or the output of an earlier fusion in the same run. A packed item stays off the anvil.
+- Each account gets 20 untried pairs a day (raised by the Assay Office, and by the beacon while it burns). An account with fewer than 5 paid runs gets 3. Known pairs are unlimited.
+- A find counts, on the profile and for titles, only if both inputs are authored items (741 such pairs) or if it is the first making of a finished (tier 4) item. Every other first is still stamped with its finder's name. The codex shows how many of the 741 the player has made and how many the world has tried.
 - If the model is unreachable, known recipes still work. An untried pair is refused and nothing is consumed.
 - With no model configured at all (local development), a deterministic
   procedural generator stands in so the game is fully playable.
@@ -230,21 +232,33 @@ money because others must either make it in a run or buy it.
 
 One page styled as a ledger. Four tabs.
 
-- **Stash.** Unlimited. Raws, items, marks. Nothing to sort.
+- **Stash.** Raws, items, marks. It holds 24 items (relics take no room). Another shelf of 8 costs marks and raws, more each time, up to 96. An item carried home to a full stash is salvaged at the door and the sheet says so.
 - **Workshop.** Fuse from the stash. Browse the codex: known recipes, who found them, silhouettes of near neighbours.
-- **Market.** Items are posted at a price by players (2% listing fee, 5% sale tax, both destroyed). Raws trade against the Factor, an NPC who buys at about half and sells at about double a slow reference price that follows trade volume, with a daily volume limit. No auctions. No empty list: the Factor always quotes.
-- **Town.** One project at a time, for example "Raise the sawmill to tier 2". Anyone donates raws; a share of market tax also counts. Targets scale with active players. Stations: Sawmill (+timber per tree), Smelter (+ore), Tannery (+hide), Assay Office (+untried pairs per day). Your standing with the town is a count of what you gave.
+- **Market.** Items are posted at a price by players (2% listing fee, 5% sale tax, both destroyed). Raws trade against the Factor, an NPC who buys at about half and sells at about double a slow reference price that follows trade volume and eases a quarter of the way back to its base each day. Each player has their own daily limit with him (150 a side per raw), so nobody can use up anyone else's. Between his two prices players trade raws with each other: a lot is raws posted at a price, a buy order is raws or a named item wanted, with the marks set aside when the order goes up. No auctions. No empty list: the Factor always quotes. See 5.9.
+- **Town.** One project at a time, for example "Raise the sawmill to tier 2". Anyone gives raws, or marks, which the Factor turns into what the project needs most at his selling price (300 units a day per player). Half of market tax is spent the same way. Targets scale with active players: those with a paid run in the last week. Stations: Sawmill (+timber per tree), Smelter (+ore), Tannery (+hide), Assay Office (+untried pairs per day). When every station is at tier 5 the town turns to works, one after another, for ever (5.8). Your standing with the town is a count of what you gave.
+- **Almanac.** What the account has seen and done as "x of y", the hazard ladder, and titles (5.7).
 
 ### 5.1 What you carry home
 
 - Raws: mule loads, plus held raws (all on a win, 30% on a death).
 - Items: you may carry floor(waves cleared / 4) items from your build, your choice.
-- Marks: 1 per 10 scrip held at the end, plus a per-wave payout.
+- Marks: 1 per 20 scrip held at the end (up to what a run can plausibly hold at that point), plus 3 per wave cleared, times 1 + 0.1 per hazard level.
 
 ### 5.2 Kit
 
-Pack up to 2 stash items for a run. A packed item has 3 charges; one is
-spent per run started, then the item is gone. (A relic is the exception: see 5.6.) That wear is the main item
+Pack up to 2 stash items for a run. A kit is a key, not a win button: a
+packed item brings at most 13 points into a hazard 0 run, and an item over
+that is packed down (its gains lowered, highest first, by the same repair a
+fusion uses; its drawback kept). The stash item is not changed. The cap rises
+with hazard (13, 26, 40, 58, 80, then whole), so a strong item is what opens a
+harder clearing, not what flattens the plain one. Measured with the average
+bot over 400 seeds: no kit 25.8%, the best kit there is 39.3% at hazard 0. It
+was 96%. (`tools/exp/meta/kitcap.ts`; rule in `src/shared/kit.ts`.)
+
+A packed item has 3 charges; one is
+spent per run started, then the item is gone. A worn item can be mended in
+the stash, one charge for 2 marks a point (15 at least) and an eighth of a
+point in each raw, twice per item. (A relic is the exception: see 5.6.) That wear is the main item
 sink and the reason the market keeps moving. The daily clearing ignores
 kits. Everyone can always run with no kit.
 
@@ -349,16 +363,86 @@ beside the name. No glow, no colour ladder, no banner.
 **Development.** `RELIC_FORCE=<relic id>` makes every paying report bring that
 relic home. It is ignored when `NODE_ENV` is `production`.
 
+### 5.7 Hazard, the almanac and titles
+
+**Hazard.** Six levels, 0 to 5, per character. A win at level n as a character
+opens n + 1 for that character: 36 cells. The server stores each cell (wins,
+best time) and refuses a ticket above what is open. A level pays 10% more
+marks and admits more of a packed item (5.2). Relic odds do not move with
+hazard. What a level does to the clearing belongs to the sim: the ticket
+carries `hazard` and the client passes it to `createRun`.
+
+**Almanac.** A tab that opens with the first run home. One ruled line per
+list, each "x of y": authored pairs fused (741), authored items carried home
+(43), kinds of enemy killed (10), characters won with (6), hazard levels
+cleared (36), relics held (8), stations and works given to. Two open-ended
+counts (recipes made, finds that count) are shown without an end. Kills by
+kind come from the server's own replay of the run when there is one.
+
+**Titles.** Earned facts, fifteen at launch, worn after the name where other
+players see it ("Carter 412, third hazard"): ten runs home, ten wins, won
+with every hand, third hazard, fifth hazard, the whole ladder, a hundred
+pairs, first to fuse 100 pairs (one player in the world), the full book,
+twenty-five finds, every item carried, met everything, gave a thousand,
+brought a relic home, thirty dailies. None can be bought. A name can be
+changed once a week.
+
+### 5.8 Works
+
+Once every station is at tier 5 the town builds works in turn: hold a fair
+(no listing fee), light the beacon (five more untried pairs a day), mend the
+bridge (the Factor pays a fifth more for raws), fill the granary (repairs
+cost a quarter less). Each needs 300 raws per assumed giver and gives its
+perk to everyone for a week from the day it is finished. Then the next one
+starts. The town is never out of work and raws are never without a use.
+
+### 5.9 Trading rules
+
+- Trading with other players (listing, buying, orders) opens after 10 paid runs. The Factor trades with anyone.
+- An item may be posted for at most 20 marks a point, scaled by charges left. A raw lot or order may not go above the Factor's selling price.
+- An account with fewer than 30 paid runs can pay other players 600 marks a day and take 600 from them.
+- A relic has no price cap. Both sides of a relic sale need 30 paid runs and three days in town.
+- Buy orders hold the buyer's marks from the moment they go up; the audit checks that what is held matches what open orders are owed.
+
+### 5.10 Seasons (design only, not built)
+
+Eight weeks. At the turn:
+
+- Reset: marks, raws, stash items below a relic, listings, lots, orders, station tiers, works and perks, the Factor's reference, stash shelves.
+- Keep: the codex and every finder's name, characters, titles, hazard records, the almanac, relics and their serials, days played.
+- Archive, readable for good: the season's givers, its daily boards, and each player's almanac line for the season ("season 3: 212 pairs, hazard 4 as Smith").
+- Each season adds 6 to 10 authored items, which reopens 300 to 450 authored pairs and so the finds that count, and one title for the season's ladder.
+- One carry-over: a player may put two items in a strongbox before the turn. They come out with one charge.
+- Needs: a `season` column on the tables that reset, a job that archives and clears in one transaction, and a week's notice on the home page. The reset is the answer to the one thing this pass does not solve: a player who never spends still piles marks up (13,000 at run 100).
+
 ## 6. Economy guard rails
 
 - Every faucet and sink writes to a ledger table. A check sums it.
 - Runs start with a server ticket. The end-of-run report is checked against
-  bounds (raws per wave, items that exist, carry limits). Replay
-  verification of the deterministic sim is the next step, not in the first build.
+  caps per wave cleared, set at 1.5 times the most any of 4,200 bot runs
+  produced (all six characters; `tools/exp/meta/maxima.ts`), against the time
+  the waves take on the server's own clock, and against the fusions the
+  server answered for that run. A report in the first six seconds pays
+  nothing. One account is paid for 12 runs an hour and 80 a day; one address
+  for three times that.
+- **Replays.** The client records the run: the move vector of every tick,
+  quantised to a 31 by 31 grid and run-length encoded, and every bench action
+  in order (`src/shared/replay.ts`, version 1, tied to RULESET). The server
+  plays it again on a worker thread, about 2,000 times faster than real time,
+  and compares the result. `REPLAY_VERIFY=flag` (the default): a report whose
+  replay matches is paid in full; one without a replay, or with one that does
+  not match, is paid no better than an ordinary run, carries home fewer items
+  and no tier 4 one, does not roll for a relic and does not stand on the daily
+  board. `enforce`: no matching replay, no pay. `off`: caps only. Enforce is
+  not the default because the sim uses Math.sin and Math.cos, which may differ
+  in the last bit between browser engines.
+- The daily seed is HMAC(server secret, date). Practice before the scored try is on another seed.
 - Trades are single transactions with an idempotency key.
 - A global switch turns trading off.
 - Relics are rolled by the server alone, never by the client (5.6).
-- New accounts can sell to the Factor at once but post listings only after 3 runs.
+- New accounts can sell to the Factor at once but trade with other players only after 10 paid runs (5.9).
+- Every sink destroys what it costs: town fusion, mending, shelves, fees, tax, marks given to the town.
+- Idempotency rows hold a hash of the request and no response, and are purged hourly after a day.
 
 ## 7. Look, sound and words
 
@@ -421,8 +505,13 @@ First build (this branch): the full run, the bench, fusion with global
 recipes and first-finder credit, stash, kit, Factor and listings, one town
 project, the daily clearing, six characters.
 
-Later: replay verification, seasons, order book for raws, contracts graded
-by the model, more clearings, friends board.
+Second pass (the trust and depth pass, `docs/critique/meta-after.md`): report
+caps from measurement, replays, the kit cap, priced sinks, the hazard ladder
+on the server, the almanac and titles, works, raw lots and buy orders.
+
+Later: hazard scaling in the sim, trigonometry by table so replays can be
+enforced on every browser, seasons (5.10), contracts graded by the model,
+more clearings, friends board.
 
 ## 10. Do not ship if
 

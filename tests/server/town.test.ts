@@ -8,7 +8,7 @@ type W = ReturnType<typeof world>;
 const rich = async (w: W, runs = 5) => {
   const token = await w.player(runs);
   await w.run(token, { wavesCleared: 12, won: true, raws: { timber: 50, ore: 50, hide: 50 }, scripHeld: 1000, scripEarned: 3000 });
-  w.fund(token, 900, 400);
+  w.fund(token, 1500, 400);
   return token;
 };
 

@@ -4,8 +4,9 @@ import { writeFileSync } from 'node:fs';
 import { ProceduralProvider, validatePick } from '../../../server/provider.ts';
 import { BASE_ITEM, BASE_ITEMS } from '../../../src/shared/content/items.ts';
 import { fusedItemId, fusionBlock, fusionBudget, itemPoints, itemTier, recipeKey, type ItemSpec } from '../../../src/shared/item.ts';
+import { packItem } from '../../../src/shared/kit.ts';
 import { carryable, carryLimit, summary } from '../../../src/sim/index.ts';
-import { SKILLS, mean, playSim, pts, table } from './lib.ts';
+import { SKILLS, mean, playSim, pts, table } from './simlib.ts';
 
 const N = Number(process.argv[2] ?? 100);
 const out = process.argv[3] ?? '/tmp/kitab.json';
@@ -43,7 +44,8 @@ for (const sk of skills) for (const [kitName, kitOf] of Object.entries(KITS)) {
   const o: any[] = [];
   for (let s = 1; s <= N; s++) {
     const kit = kitOf(s);
-    const run = await playSim({ seed: s * 7919 + 13, character: 'greenhorn', kit }, SKILLS[sk], s * 31 + 7, null);
+    // The kit enters the run packed down to the hazard 0 cap, as the server's ticket now writes it.
+    const run = await playSim({ seed: s * 7919 + 13, character: 'greenhorn', kit: kit.map((i) => packItem(i, 0)) }, SKILLS[sk], s * 31 + 7, null);
     const sum = summary(run);
     const carry = carryable(run).filter((i) => BASE_ITEM[i.id]).sort((a, b) => pts(b) - pts(a)).slice(0, carryLimit(run)).map((i) => i.id);
     o.push({ wavesCleared: sum.wavesCleared, won: sum.won, scripEarned: sum.scripEarned, scripHeld: sum.scripHeld, level: sum.level, raws: sum.raws, mule: sum.mule, kills: sum.kills, carry, seconds: sum.seconds, kitPts: kit.reduce((n, i) => n + pts(i), 0) });

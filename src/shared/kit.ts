@@ -20,7 +20,7 @@ export const MAX_HAZARD = 5;
  * should be worth about 10 to 15 points of win rate to an average player.
  * The top level admits any item whole.
  */
-export const KIT_POINT_CAP: readonly number[] = [14, 26, 40, 58, 80, 999];
+export const KIT_POINT_CAP: readonly number[] = [13, 26, 40, 58, 80, 999];
 
 export const kitPointCap = (hazard: number): number => KIT_POINT_CAP[Math.max(0, Math.min(MAX_HAZARD, Math.floor(hazard) || 0))];
 

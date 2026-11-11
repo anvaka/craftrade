@@ -1,6 +1,8 @@
 // The town tab: the shared project, the stations, and who gave.
 
+import { nameWithTitle } from '../../shared/almanac.ts';
 import type { StationId } from '../../shared/protocol.ts';
+import { TOWN_FUND_PER_DAY } from '../../shared/rules.ts';
 import { RAWS, emptyRaws, type RawBag } from '../../shared/vocab.ts';
 import { api } from './api.ts';
 import { el, empty, fmt, icon, pips, plural, sprites, stamp, stepper, thing } from './dom.ts';
@@ -8,6 +10,8 @@ import { act, app, say, setProfile } from './state.ts';
 import { RAW_NAME, STATION_NAME, STATION_ORDER, STATION_TOP_TIER, stationDoes } from './words.ts';
 
 const giving: RawBag = emptyRaws();
+/** Marks to hand the Factor for the project. */
+let funding = 0;
 
 export function renderTownhall(root: HTMLElement): void {
   const t = app.town;
@@ -25,23 +29,35 @@ function project(): HTMLElement {
   const sec = el('section', 'section section--first', el('h2', '', 'Town project'));
   const pr = t.project;
   if (!pr) {
-    sec.append(empty('Every station is at its top tier. There is nothing to build until a new project is set.'));
+    sec.append(empty('The town has nothing in hand. A new project will be listed here.'));
     return sec;
   }
-  const name = STATION_NAME[pr.station].toLowerCase();
+  const station = pr.kind === 'station' ? pr.station : undefined;
+  const name = station ? STATION_NAME[station].toLowerCase() : (pr.works?.name ?? 'the works').toLowerCase();
   sec.append(
     el(
       'div',
       'project-head',
-      icon(S.icon.station[pr.station], true),
+      station ? icon(S.icon.station[station], true) : null,
       el(
         'div',
         '',
-        el('div', 'project-name', `Raise the ${name} to tier ${pr.toTier}`),
-        el('div', 'note', `When it is done: ${stationDoes(pr.station, pr.toTier).toLowerCase()}, for every player.`),
+        el('div', 'project-name', station ? `Raise the ${name} to tier ${pr.toTier}` : (pr.works?.name ?? 'Town works')),
+        el(
+          'div',
+          'note',
+          station
+            ? `When it is done: ${stationDoes(station, pr.toTier).toLowerCase()}, for every player.`
+            : `Every station is at its top tier, so the town turns to works. When this is done: ${(pr.works?.perk ?? '').toLowerCase()}, for every player, for a week.`,
+        ),
       ),
     ),
   );
+  if (t.perks.length) {
+    const list = el('ul', 'opened perks');
+    for (const k of t.perks) list.append(el('li', '', el('span', 'label', 'In force'), el('span', '', `${k.perk}. From "${k.name}", until ${new Date(k.until).toISOString().slice(0, 10)}.`)));
+    sec.append(list);
+  }
   const rows = el('div', 'project');
   const giveStamp = stamp('', {
     cls: 'stamp--town',
@@ -50,7 +66,8 @@ function project(): HTMLElement {
       void act('give', 'Town', async () => {
         const offer: Partial<RawBag> = {};
         for (const raw of RAWS) if (giving[raw] > 0) offer[raw] = giving[raw];
-        const before = app.stations[pr.station];
+        const before = station ? app.stations[station] : 0;
+        const wasWorks = pr.works?.id;
         const was = { ...p.raws };
         const res = await api.give(offer);
         setProfile(res.profile);
@@ -58,8 +75,9 @@ function project(): HTMLElement {
         app.stations = res.town.stations;
         const parts = RAWS.map((raw) => [raw, was[raw] - res.profile.raws[raw]] as const).filter(([, n]) => n > 0).map(([raw, n]) => `${fmt(n)} ${raw}`);
         for (const raw of RAWS) giving[raw] = 0;
-        const raised = res.town.stations[pr.station] > before;
-        say('Town', `Gave ${parts.join(', ')}. ${raised ? `The ${name} is at tier ${res.town.stations[pr.station]}.` : `You have given ${fmt(res.profile.standing)} in all.`}`, 'town');
+        const raised = !!station && res.town.stations[station] > before;
+        const finished = !station && res.town.project?.works?.id !== wasWorks;
+        say('Town', `Gave ${parts.join(', ')}. ${raised ? `The ${name} is at tier ${res.town.stations[station!]}.` : finished ? `The works are done: ${(pr.works?.perk ?? '').toLowerCase()} for a week.` : `You have given ${fmt(res.profile.standing)} in all.`}`, 'town');
       }),
   });
   const sync = (): void => {
@@ -110,8 +128,42 @@ function project(): HTMLElement {
     );
   }
   sync();
-  sec.append(rows, el('div', 'bar', el('div', 'bar-text note', 'Half of the tax on every market sale also goes to the project. What you give is counted as your standing.'), giveStamp));
+  sec.append(rows, fundRow(station ? name : 'works'));
+  sec.append(el('div', 'bar', el('div', 'bar-text note', 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your standing.'), giveStamp));
   return sec;
+}
+
+/** Marks for the town: the Factor delivers what the project needs most, at his price. */
+function fundRow(name: string): HTMLElement {
+  const p = app.profile;
+  const max = Math.max(0, p.marks);
+  funding = Math.min(funding, max);
+  const fund = stamp('', {
+    cls: 'stamp--small stamp--town',
+    key: 'fund',
+    onClick: () =>
+      void act('fund', 'Town', async () => {
+        const was = app.profile.marks;
+        const before = app.profile.standing;
+        const res = await api.give({}, funding);
+        setProfile(res.profile);
+        app.town = res.town;
+        app.stations = res.town.stations;
+        funding = 0;
+        say('Town', `The Factor delivered ${fmt(res.profile.standing - before)} raws to the ${name} for ${plural(was - res.profile.marks, 'mark')}.`, 'town');
+      }),
+  });
+  const sync = (): void => {
+    fund.textContent = funding > 0 ? `Pay ${fmt(funding)}` : 'Pay';
+    fund.disabled = funding < 1 || app.busy.has('fund');
+  };
+  sync();
+  return el(
+    'div',
+    'bar bar--fund',
+    el('div', 'bar-text', el('span', 'label', 'With marks'), ' ', el('span', 'note', `Pay the Factor to deliver what the project needs most, at his asking price. He will carry ${TOWN_FUND_PER_DAY} units a day for one player. Marks that do not buy a whole unit stay with you.`)),
+    el('span', 'stamps', stepper({ value: funding, min: 0, max, key: 'fund:marks', label: 'marks to pay', onChange: (v) => void ((funding = v), sync()) }), fund),
+  );
 }
 
 function stations(): HTMLElement {
@@ -125,7 +177,7 @@ function stations(): HTMLElement {
     table.append(
       el(
         'tr',
-        t.project?.station === id ? 'is-on' : '',
+        t.project?.kind === 'station' && t.project.station === id ? 'is-on' : '',
         el('td', '', thing(icon(S.icon.station[id]), STATION_NAME[id])),
         el('td', '', pips(tr, STATION_TOP_TIER, 'tiers')),
         el('td', '', stationDoes(id, tr)),
@@ -149,7 +201,7 @@ function givers(): HTMLElement {
   const table = el('table', 'ledger givers');
   table.append(el('tr', '', el('th', 'num rank', 'Place'), el('th', '', 'Name'), el('th', 'num', 'Given')));
   t.givers.forEach((g, i) => {
-    table.append(el('tr', '', el('td', 'num rank', String(i + 1)), el('td', '', g.name === p.name ? el('span', 'own', g.name) : el('span', 'who', g.name)), el('td', 'num', fmt(g.given))));
+    table.append(el('tr', '', el('td', 'num rank', String(i + 1)), el('td', '', g.name === p.name ? el('span', 'own', nameWithTitle(g.name, g.title)) : el('span', 'who', nameWithTitle(g.name, g.title))), el('td', 'num', fmt(g.given))));
   });
   sec.append(table);
   return sec;

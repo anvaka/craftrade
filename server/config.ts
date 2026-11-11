@@ -42,7 +42,10 @@ export const SCRIP_PAID_CAP = [35, 100, 115, 165, 225, 295, 385, 765, 1265, 1765
  * taken, but it cannot pay better than an ordinary run. Raws scale with
  * station tier like the caps above.
  */
-export const UNCHECKED_PAY = { scripHeld: [22, 56, 61, 88, 130, 156, 198, 392, 485, 722, 1019, 1244, 1244], rawsTotal: [9, 13, 21, 29, 39, 52, 55, 56, 56, 56, 56, 56, 56] };
+export const UNCHECKED_PAY = { scripHeld: [22, 56, 61, 88, 130, 156, 198, 392, 485, 722, 1019, 1244, 1244], rawsTotal: [9, 13, 21, 29, 39, 52, 55, 56, 56, 56, 56, 56, 56],
+  /** An unchecked run carries home one item for this many waves cleared (a checked one: every four), and none of tier 4. */
+  wavesPerItem: 6,
+};
 /** Shortest boss wave any bot managed (5.2 s, with two cap-point kit items), with slack taken off. Killing the boss ends wave 12 early. */
 export const BOSS_WAVE_MIN_SECONDS = 3;
 /** A report sooner than this pays nothing. The fastest death of a player who never moves, and of any bot, is 10.3 s. */
@@ -59,12 +62,13 @@ export const TICKET_TTL_MS = 6 * 3600 * 1000;
 export const RUN_RATE = { perHour: 12, perDay: 80, ipMul: 3 };
 
 export const MARKS_PER_WAVE = 3;
-export const SCRIP_PER_MARK = 10;
+/** Scrip held at the end pays one mark for this much. It was 10: hoarding scrip on the last wave paid better than spending it. */
+export const SCRIP_PER_MARK = 20;
 
 // Hazard, the kit cap, the sinks and the market gates are shared with the town pages: src/shared/rules.ts.
 export {
   HAZARD_MARKS, KIT_POINT_CAP, LISTING_MARKS_PER_POINT, LISTING_MIN_RUNS, MAX_HAZARD, MAX_LOT, NAME_REROLL_MS, RELIC_TRADE, REPAIR, STASH,
-  TOWN_FUSE_MARKS, TOWN_FUSE_RAW_MUL, kitPointCap, priceCeiling, repairCost, stashLimit, stashNextCost, townFuseCost,
+  TOWN_FUND_PER_DAY, TOWN_FUSE_MARKS, TOWN_FUSE_RAW_MUL, kitPointCap, priceCeiling, repairCost, stashLimit, stashNextCost, townFuseCost,
 } from '../src/shared/rules.ts';
 
 export const CHARACTERS: CharacterId[] = ['greenhorn', 'sawyer', 'smith', 'trapper', 'tinker', 'clerk'];

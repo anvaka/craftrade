@@ -370,9 +370,15 @@ export async function endRun(ctx: Ctx, player: Player, r: RunEndReq): Promise<Ru
       gained.marks = Math.floor((Math.floor(heldPaid / SCRIP_PER_MARK) + MARKS_PER_WAVE * r.wavesCleared) * (1 + HAZARD_MARKS * t.hazard));
       move(ctx, player.id, 'run_raws', gained.raws, reason);
       move(ctx, player.id, 'run_marks', { marks: gained.marks }, reason);
+      // A run the town has not played again brings home fewer items, and no finished one: an unchecked
+      // report could otherwise claim three tier 4 items every eight minutes.
+      let carry = r.carry;
+      if (ctx.replay !== 'off' && verified !== 1) {
+        carry = carry.filter((id) => itemTier(getItem(ctx, id)!) < 4).slice(0, Math.floor(r.wavesCleared / UNCHECKED_PAY.wavesPerItem));
+      }
       // What does not fit in the stash is salvaged at the door.
       let room = stashRoom(ctx, player.id);
-      for (const id of r.carry) {
+      for (const id of carry) {
         const item = getItem(ctx, id)!;
         if (Object.hasOwn(BASE_ITEM, id)) note(ctx, player.id, 'item', id);
         if (room > 0) {

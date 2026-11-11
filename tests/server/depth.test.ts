@@ -102,11 +102,11 @@ describe('hazard ladder', () => {
     expect(base.end.profile.hazard.sawyer).toEqual({ open: 0, best: -1 });
     expect((await start(w, token, { character: 'sawyer', hazard: 1 })).body.code).toBe('hazard_locked');
 
-    // Hazard 1 pays 10% more marks: (100 + 36) x 1.1.
+    // Hazard 1 pays 10% more marks: (50 + 36) x 1.1.
     const one = await win(w, token, { hazard: 1 });
     expect(one.start.hazard).toBe(1);
-    expect(base.end.gained.marks).toBe(136);
-    expect(one.end.gained.marks).toBe(Math.floor(136 * 1.1));
+    expect(base.end.gained.marks).toBe(86);
+    expect(one.end.gained.marks).toBe(Math.floor(86 * 1.1));
     expect(one.end.hazardOpened).toBe(2);
     // Winning hazard 0 again opens nothing new.
     expect((await win(w, token)).end.hazardOpened).toBeUndefined();
@@ -145,7 +145,8 @@ describe('sinks', () => {
     const token = await w.player();
     const [brace] = await w.grant(token, ['drillbrace']);
     const cost = repairCost(BASE_ITEM.drillbrace);
-    expect(cost.marks).toBe(itemPoints(BASE_ITEM.drillbrace.effects));
+    expect(cost.marks).toBe(2 * itemPoints(BASE_ITEM.drillbrace.effects));
+    expect(repairCost(BASE_ITEM.tallybook).marks).toBe(15); // never less than fifteen
     const repair = (idem: string) => w.post<WorkshopRes & ApiError>('/api/workshop/repair', token, { uid: brace.uid, idem });
 
     expect((await repair('repair-key-0')).body.code).toBe('not_worn');
@@ -183,7 +184,7 @@ describe('sinks', () => {
     expect(full.end.salvaged).toEqual({ items: 2, marks: expect.any(Number) });
     expect(full.end.salvaged!.marks).toBeGreaterThan(0);
     expect(full.end.profile.stashUsed).toBe(24);
-    expect(full.end.gained.marks).toBe(136 + full.end.salvaged!.marks);
+    expect(full.end.gained.marks).toBe(86 + full.end.salvaged!.marks);
 
     // A full stash cannot take a purchase or a cancelled listing.
     const seller = await w.player(10);
@@ -205,6 +206,44 @@ describe('sinks', () => {
     expect(stashNextCost(1)!.marks).toBeGreaterThan(150);
     expect(stashNextCost(9)).toBeNull();
     expect(audit(w.db).ok).toBe(true);
+  });
+});
+
+describe('sinks: marks for the town', () => {
+  it('spends given marks at the Factor\'s price on what the project needs most, up to a daily limit', async () => {
+    const w = world();
+    const token = await w.player(5);
+    w.fund(token, 10_000);
+    // The first project needs 60 timber, 20 ore, 20 hide. The Factor asks 12, 16 and 14.
+    const some = await w.post<GiveRes>('/api/town/give', token, { raws: {}, marks: 130, idem: 'fund-key-001' });
+    expect(some.status).toBe(200);
+    // 130 marks buy ten timber at 12; the ten left over are not spent.
+    expect(some.body.town.project!.have).toEqual({ timber: 10, ore: 0, hide: 0 });
+    expect(some.body.profile.marks).toBe(10_000 - 120);
+    expect(some.body.profile.standing).toBe(10);
+    // A retry with the same key spends nothing more.
+    expect((await w.post<GiveRes>('/api/town/give', token, { raws: {}, marks: 130, idem: 'fund-key-001' })).body.profile.marks).toBe(10_000 - 120);
+    // Too few marks for one unit is a refusal, not a gift.
+    expect((await w.post<ApiError>('/api/town/give', token, { raws: {}, marks: 5 })).body.code).toBe('not_needed');
+
+    // A project can be finished this way; what is over goes unspent, and the next project waits for the next gift.
+    const rest = await w.post<GiveRes>('/api/town/give', token, { raws: {}, marks: 5000 });
+    expect(rest.body.town.stations.sawmill).toBe(2);
+    expect(rest.body.profile.standing).toBe(100);
+    expect(rest.body.profile.marks).toBe(10_000 - (60 * 12 + 20 * 16 + 20 * 14));
+    // 300 units a day for one player: 100 are used, the smelter needs 100 more, the tannery after it 100 more, then no further.
+    let units = 100;
+    for (let i = 0; i < 6; i++) {
+      const g = await w.post<GiveRes & ApiError>('/api/town/give', token, { raws: {}, marks: 5000 });
+      if (g.status !== 200) { expect(g.body.code).toBe('not_needed'); break; }
+      units = g.body.profile.standing;
+    }
+    expect(units).toBe(300);
+    w.advance(DAY);
+    expect((await w.post<GiveRes>('/api/town/give', token, { raws: {}, marks: 100 })).status).toBe(200);
+    const a = audit(w.db);
+    expect(a.ok).toBe(true);
+    expect(a.byKind.town_fund.marks).toBeLessThan(-3000);
   });
 });
 

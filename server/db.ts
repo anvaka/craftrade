@@ -290,6 +290,8 @@ export const MIGRATIONS: (string | ((db: DB) => void))[] = [
   CREATE INDEX orders_open ON orders (status, created);
 
   CREATE TABLE perks (id TEXT PRIMARY KEY, until INTEGER NOT NULL);
+  -- Units of raws a player has paid the Factor to deliver to the project, per day.
+  CREATE TABLE town_fund (player_id INTEGER NOT NULL, day TEXT NOT NULL, units INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (player_id, day)) WITHOUT ROWID;
   CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
   -- Idempotency rows now hold a hash of the request and no response.

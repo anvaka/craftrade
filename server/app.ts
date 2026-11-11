@@ -118,7 +118,7 @@ const Body = {
     .refine((v) => (v.raw ? !v.itemId && v.qty !== undefined : !!v.itemId && v.qty === undefined), { path: ['raw'] }),
   fill: z.object({ orderId: id, qty: z.number().int().min(1).max(MAX_LOT).optional(), uid: id.optional(), idem }),
   orderCancel: z.object({ orderId: id }),
-  give: z.object({ raws: rawBag.partial(), idem: idem.optional() }),
+  give: z.object({ raws: rawBag.partial(), marks: count(1_000_000).optional(), idem: idem.optional() }),
   repair: z.object({ uid: id, idem }),
   expand: z.object({ idem }),
   title: z.object({ title: z.string().max(32) }),

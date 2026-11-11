@@ -267,7 +267,9 @@ export interface TownRes {
   activePlayers: number;
 }
 // POST /api/town/give  (idem makes a retry safe)
-export interface GiveReq { raws: Partial<RawBag>; idem?: string }
+// `marks` pays the Factor to deliver what the project needs most, at his selling price: at most that many
+// marks are spent, on whole units, up to TOWN_FUND_PER_DAY units a day. Raws and marks may be given together.
+export interface GiveReq { raws: Partial<RawBag>; marks?: number; idem?: string }
 export interface GiveRes { profile: Profile; town: TownRes }
 
 // GET /api/daily
