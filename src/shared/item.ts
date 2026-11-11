@@ -1,5 +1,5 @@
 import {
-  DRAWBACK_REFUND, FUSION_BONUS, GLYPHS, MAX_POINTS, PRIM, PRIMITIVES, RULESET, TIER_AT,
+  DRAWBACK_REFUND, FUSION_BONUS, GLYPHS, MAX_POINTS, PRIM, PRIMITIVES, RELIC_PRIM, RULESET, TIER_AT,
   type GlyphId,
 } from './vocab.ts';
 
@@ -22,8 +22,25 @@ export interface ItemSpec {
   price?: number;
   /** Raw cost at the bench for authored items. */
   raws?: Partial<Record<'timber' | 'ore' | 'hide', number>>;
-  /** Display name of the first finder, for fused items. */
+  /** Display name of the first finder, for fused items. For a relic, whoever brought this one home. */
   by?: string;
+  /** True for a relic: the tier above 4. Authored in content/relics.ts, never fused, never sold at the bench. */
+  relic?: true;
+  /** For one relic in someone's hands: its number among relics of its kind, in the order they were found. */
+  serial?: number;
+  /** For one relic in someone's hands: the day it was found, YYYY-MM-DD. */
+  found?: string;
+}
+
+/** The tier above 4. Not reachable by points. */
+export const RELIC_TIER = 5;
+export type Tier = 1 | 2 | 3 | 4 | 5;
+
+export const isRelic = (item: Pick<ItemSpec, 'relic'> | null | undefined): boolean => item?.relic === true;
+
+/** True if the item is a relic that carries the given relic effect. */
+export function relicHas(item: Pick<ItemSpec, 'relic' | 'effects'> | null | undefined, prim: string): boolean {
+  return isRelic(item) && item!.effects.some((e) => e.p === prim);
 }
 
 export function effectPoints(e: Effect): number {
@@ -46,7 +63,7 @@ export function tierOf(points: number): 1 | 2 | 3 | 4 {
   return 1;
 }
 
-export const itemTier = (item: Pick<ItemSpec, 'effects'>) => tierOf(itemPoints(item.effects));
+export const itemTier = (item: Pick<ItemSpec, 'effects' | 'relic'>): Tier => (item.relic === true ? RELIC_TIER : tierOf(itemPoints(item.effects)));
 
 export function effectValue(e: Effect): number {
   const prim = PRIM[e.p];
@@ -57,7 +74,7 @@ export function effectValue(e: Effect): number {
 
 export function effectText(e: Effect): string {
   const prim = PRIM[e.p];
-  if (!prim) return '';
+  if (!prim) return RELIC_PRIM[e.p]?.text ?? '';
   const v = prim.values[e.l - 1];
   const t = prim.text.replace('{v}', String(v));
   return e.neg ? t.replace('+', '-') : t;
@@ -92,8 +109,15 @@ export function fusionBudget(a: Pick<ItemSpec, 'effects'>, b: Pick<ItemSpec, 'ef
   return Math.min(MAX_POINTS, Math.round((itemPoints(a.effects) + itemPoints(b.effects)) * FUSION_BONUS));
 }
 
+/** The line under a relic's name: its number and who brought it home. Empty for a relic nobody holds. */
+export function relicLine(item: Pick<ItemSpec, 'serial' | 'by'>): string {
+  if (!item.serial) return '';
+  return `No. ${item.serial} in the world${item.by ? `, found by ${item.by}` : ''}`;
+}
+
 /** Why a pair cannot be fused, or null if it can. */
 export function fusionBlock(a: ItemSpec, b: ItemSpec): string | null {
+  if (isRelic(a) || isRelic(b)) return 'A relic cannot be fused.';
   if (a.id === b.id) return 'Two of the same item do not fuse.';
   if (itemTier(a) === 4 || itemTier(b) === 4) return 'A tier 4 item is finished and cannot be fused.';
   return null;

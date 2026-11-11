@@ -38,6 +38,9 @@ provider and prints the results.
 | `npm run typecheck` | TypeScript check |
 | `npx tsx src/sim/balance.ts 300 greenhorn` | Bot plays 300 runs and prints balance figures |
 | `npx tsx server/audit.ts` | Checks the ledger against balances |
+| `npx tsx tools/exp/relics/droprate.ts` | A million wins through the real relic roll: observed and configured odds, world supply |
+| `npx tsx tools/exp/relics/winrate.ts 300` | Bot win rate with each relic against none, on paired seeds |
+| `RELIC_FORCE=saddlescabbard npm start` | Development only: every paying run brings that relic home (see docs/DESIGN.md 5.6) |
 
 Dev pages under `npm run dev`: `/gallery.html` (every sprite, icon, UI piece
 and sound) and `/play.html?bot=1&wave=8` (a run without the server; see

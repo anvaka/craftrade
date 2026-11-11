@@ -81,7 +81,7 @@ const sprites = bakeAll(window.devicePixelRatio);
 const host: RunHost = {
   root: document.getElementById('app')!,
   sprites,
-  ticket: { runId: 'dev', seed, waves, character, kit, stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1 }, profile },
+  ticket: { runId: 'dev', seed, waves, character, kit, stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1 }, profile, notice: null },
   mode: 'run',
   firstRun: q.has('first'),
   fuse,

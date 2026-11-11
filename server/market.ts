@@ -1,4 +1,4 @@
-import { itemPoints } from '../src/shared/item.ts';
+import { isRelic, itemPoints } from '../src/shared/item.ts';
 import {
   KIT_CHARGES, LISTING_FEE, SALE_TAX,
   type BuyReq, type CancelReq, type FactorQuote, type FactorReq, type ListReq, type Listing,
@@ -8,7 +8,7 @@ import { RAWS, type RawId } from '../src/shared/vocab.ts';
 import { FACTOR, FACTOR_BASE, LISTING, LISTING_MIN_RUNS, TAX_TO_TOWN } from './config.ts';
 import { tx } from './db.ts';
 import { ApiErr, bad } from './errors.ts';
-import { activePlayers, addStash, dayOf, getItem, move, newId, playerById, profile, stashRow, type Ctx, type Player } from './players.ts';
+import { activePlayers, addStash, dayOf, heldItem, move, newId, playerById, profile, stashRow, type Ctx, type Player } from './players.ts';
 import { taxToTown } from './town.ts';
 
 interface FactorRow { raw: RawId; ref: number; day: string; bought: number; sold: number }
@@ -67,11 +67,11 @@ export function marketView(ctx: Ctx, player: Player): MarketRes {
     const rows = factorRows(ctx);
     const factor = Object.fromEntries(RAWS.map((raw) => [raw, quote(rows.find((r) => r.raw === raw)!, cap)])) as Record<RawId, FactorQuote>;
     const open = ctx.db
-      .prepare(`SELECT l.id, l.item_id, l.charges, l.price, l.seller, p.name FROM listings l JOIN players p ON p.id = l.seller WHERE l.status = 'open' ORDER BY l.created DESC, l.id LIMIT 200`)
-      .all() as { id: string; item_id: string; charges: number; price: number; seller: number; name: string }[];
+      .prepare(`SELECT l.id, l.item_id, l.charges, l.price, l.seller, l.relic_ref, p.name FROM listings l JOIN players p ON p.id = l.seller WHERE l.status = 'open' ORDER BY l.created DESC, l.id LIMIT 200`)
+      .all() as { id: string; item_id: string; charges: number; price: number; seller: number; relic_ref: number | null; name: string }[];
     const listings: Listing[] = [];
     for (const l of open) {
-      const item = getItem(ctx, l.item_id);
+      const item = heldItem(ctx, l);
       if (item) listings.push({ id: l.id, item, charges: l.charges, price: l.price, seller: l.name, mine: l.seller === player.id });
     }
     return { open: ctx.marketOpen, factor, listings };
@@ -112,21 +112,23 @@ export function listItem(ctx: Ctx, player: Player, req: ListReq): MarketActionRe
       }
       const row = stashRow(ctx, player.id, req.uid);
       if (!row) throw bad('not_owned', 'That item is not in your stash.');
+      // A relic may be posted at any price. Everything else keeps the cap. Fee and tax are the same for both.
+      if (row.relic_ref == null && req.price > LISTING.maxPrice) throw new ApiErr(400, 'bad_request', 'The request is not valid at price.');
       const open = ctx.db.prepare(`SELECT COUNT(*) AS n FROM listings WHERE seller = ? AND status = 'open'`).get(player.id) as { n: number };
       if (open.n >= LISTING.maxOpen) throw bad('listing_limit', `You can have ${LISTING.maxOpen} listings up at once.`);
       move(ctx, player.id, 'listing_fee', { marks: -Math.max(1, Math.ceil(req.price * LISTING_FEE)) }, row.item_id);
       ctx.db.prepare('DELETE FROM stash WHERE uid = ?').run(row.uid);
       ctx.db
-        .prepare(`INSERT INTO listings (id, seller, item_id, charges, price, status, created) VALUES (?, ?, ?, ?, ?, 'open', ?)`)
-        .run(newId(), player.id, row.item_id, row.charges, req.price, ctx.now());
+        .prepare(`INSERT INTO listings (id, seller, item_id, charges, price, status, created, relic_ref) VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`)
+        .run(newId(), player.id, row.item_id, row.charges, req.price, ctx.now(), row.relic_ref);
       return done(ctx, player);
     }),
   );
 }
 
-interface ListingRow { id: string; seller: number; item_id: string; charges: number; price: number }
+interface ListingRow { id: string; seller: number; item_id: string; charges: number; price: number; relic_ref: number | null }
 const openListing = (ctx: Ctx, id: string) =>
-  ctx.db.prepare(`SELECT id, seller, item_id, charges, price FROM listings WHERE id = ? AND status = 'open'`).get(id) as ListingRow | undefined;
+  ctx.db.prepare(`SELECT id, seller, item_id, charges, price, relic_ref FROM listings WHERE id = ? AND status = 'open'`).get(id) as ListingRow | undefined;
 
 export function buyListing(ctx: Ctx, player: Player, req: BuyReq): MarketActionRes {
   requireOpen(ctx);
@@ -140,7 +142,7 @@ export function buyListing(ctx: Ctx, player: Player, req: BuyReq): MarketActionR
       move(ctx, l.seller, 'market_sale', { marks: l.price }, l.id);
       move(ctx, l.seller, 'sale_tax', { marks: -tax }, l.id);
       ctx.db.prepare(`UPDATE listings SET status = 'sold', buyer = ? WHERE id = ?`).run(player.id, l.id);
-      addStash(ctx, player.id, l.item_id, l.charges);
+      addStash(ctx, player.id, l.item_id, l.charges, l.relic_ref);
       taxToTown(ctx, Math.round(tax * TAX_TO_TOWN));
       return done(ctx, player);
     }),
@@ -153,7 +155,7 @@ export function cancelListing(ctx: Ctx, player: Player, req: CancelReq): MarketA
     const l = openListing(ctx, req.listingId);
     if (!l || l.seller !== player.id) throw new ApiErr(409, 'listing_gone', 'That listing is no longer up.');
     ctx.db.prepare(`UPDATE listings SET status = 'cancelled' WHERE id = ?`).run(l.id);
-    addStash(ctx, player.id, l.item_id, l.charges);
+    addStash(ctx, player.id, l.item_id, l.charges, l.relic_ref);
     return done(ctx, player);
   });
 }
@@ -161,8 +163,10 @@ export function cancelListing(ctx: Ctx, player: Player, req: CancelReq): MarketA
 export function salvage(ctx: Ctx, player: Player, req: SalvageReq): MarketActionRes {
   return tx(ctx.db, () => {
     const row = stashRow(ctx, player.id, req.uid);
-    const item = row && getItem(ctx, row.item_id);
+    const item = row && heldItem(ctx, row);
     if (!row || !item) throw bad('not_owned', 'That item is not in your stash.');
+    // A relic cannot be destroyed, by accident or on purpose. It can only change hands.
+    if (isRelic(item)) throw bad('relic_kept', 'A relic cannot be salvaged. It can be posted on the market.');
     ctx.db.prepare('DELETE FROM stash WHERE uid = ?').run(row.uid);
     const marks = Math.max(1, Math.round((itemPoints(item.effects) * row.charges) / (KIT_CHARGES * 5)));
     move(ctx, player.id, 'salvage', { marks }, item.id);

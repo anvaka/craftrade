@@ -169,7 +169,7 @@ function notices(): HTMLElement {
 export async function loadTab(t: TabId): Promise<void> {
   if (!app.online) return;
   try {
-    if (t === 'workshop') app.codex = await api.codex();
+    if (t === 'workshop') [app.codex, app.relics] = await Promise.all([api.codex(), api.relics()]);
     else if (t === 'market') app.market = await api.market();
     else if (t === 'town') app.town = await api.town();
     else if (t === 'daily') app.daily = await api.daily();
@@ -271,6 +271,7 @@ export function watchReach(): void {
       .then((res) => {
         setProfile(res.profile);
         app.stations = res.stations;
+        app.worldNotice = res.notice ?? null;
         app.online = true;
         redraw();
         if (view === 'town') void loadTab(app.tab);

@@ -244,7 +244,7 @@ One page styled as a ledger. Four tabs.
 ### 5.2 Kit
 
 Pack up to 2 stash items for a run. A packed item has 3 charges; one is
-spent per run started, then the item is gone. That wear is the main item
+spent per run started, then the item is gone. (A relic is the exception: see 5.6.) That wear is the main item
 sink and the reason the market keeps moving. The daily clearing ignores
 kits. Everyone can always run with no kit.
 
@@ -274,6 +274,81 @@ Each of the first five runs unlocks one thing, win or lose: workshop,
 second character, market, daily clearing, town project. Before that those
 tabs are not shown.
 
+### 5.6 Relics
+
+A tier above tier 4 that almost nobody has. The reference
+is the one chest on a server that people stop to look at. There are eight,
+authored, and each breaks one rule of the game. None is a bigger number.
+
+| Relic | The rule it breaks | Share of finds | One in this many wins | Bot win rate with it |
+|---|---|---|---|---|
+| Order book | The bench makes a fifth offer | 20.0% | 7,500 | 43.0% (-1.3, inside the noise) |
+| Oilskin wrap | The item packed beside it loses no charge on a win | 17.0% | 8,824 | 44.3% (a town rule: the fight is the same) |
+| Hide blind | Nothing can hurt you while you work a node | 15.0% | 10,000 | 47.3% (+3.0) |
+| Pack saddle | Carry home one more item | 13.0% | 11,538 | 44.3% (a town rule: the fight is the same) |
+| Seed corn | A broken node grows back once in the same wave | 10.5% | 14,286 | 51.7% (+7.4) |
+| Company draft | Weapons at the bench need no raws | 9.0% | 16,667 | 55.0% (+10.7) |
+| Brandy flask | Once a run, a killing blow leaves you standing at half health | 8.0% | 18,750 | 57.7% (+13.4) |
+| Saddle scabbard | Hold one more weapon | 7.5% | 20,000 | 54.3% (+10.0) |
+
+Win rates are the balance bot as a Greenhorn over 300 seeds with the relic
+alone in the kit, against 44.3% on the same seeds with no kit
+(`npx tsx tools/exp/relics/winrate.ts 300`). One standard error on a
+difference is about 3 points. The target was a gain a player feels and
+never more than about 15 points, and the stronger a relic is the rarer it
+is. Three drafts went over and were cut back: every bench recipe free of
+raws (+19), the flask at full health (+18), and the flask at half health
+with a longer grace (+15). Two things the bot plays badly, so its figures
+undersell them: it buys by price, so a fifth offer gives it little, and it
+does not plan a fight around shelter. The Order book is the one relic whose
+gain the bot cannot show at all.
+
+**Where they come from.** Only the server's roll in `run/end`, on a report
+that has passed its checks, with the server's own dice (`server/relics.ts`;
+numbers in `server/config.ts`). The run seed plays no part and the client
+sends nothing that can ask for one.
+
+- A full 12-wave win: 1 in 1,500. This is the main source.
+- A death on wave 9 or later of a full run: 1 in 30,000.
+- The day's scored daily, all 8 waves cleared: 1 in 15,000.
+- Practice, repeat dailies, runs left from the pause menu, refused reports and
+  tickets that were never reported do not roll.
+- No pity timer. Luck does nothing. Nothing can be bought that changes the odds.
+- One account can put 40 reports to the roll in any 24 hours, far above what
+  a person plays; the rest pay out as usual. A ticket cannot be reported
+  sooner than its waves take, so one account cannot roll faster than it can play.
+- At these odds a world with 10,000 wins a day holds about 200 relics after
+  30 days, 15 of them Saddle scabbards (`npx tsx tools/exp/relics/droprate.ts`).
+
+**The book.** Every relic that exists is a row in `relics`: its kind, its
+number within that kind in the order found, who found it, when. The item
+reads "No. 3 in the world, found by Carter 412" and keeps that line when it
+is sold. `GET /api/relics` gives the whole roll and a count per kind; a kind
+nobody has found is sent with no name, and the workshop page rules a blank
+line for it. Who holds a relic now is not sent. For 24 hours after a find,
+every home page carries one line: "Carter 412 brought home the Saddle
+scabbard. No. 2 in the world."
+
+**Rules.**
+
+- It does not wear: packing it spends no charge.
+- One relic to a kit. It takes one of the two kit slots.
+- It cannot be fused, in a run or in town, and nothing fuses into one. Relic
+  effects are not in the fusion vocabulary, so neither the model nor the
+  procedural generator nor the repair step can hand one out.
+- It cannot be salvaged or scrapped. A relic never leaves the world.
+- It can be posted on the market at any price. The 2% fee and 5% tax apply.
+- On the homecoming sheet it is shown last, alone, after a beat, between
+  Ochre double rules, with its own sound. It is not a box and it is not
+  opened; it is either there or, nearly always, not.
+
+**Look.** An Ochre double rule above and below the row, the tier tally
+struck through (four notches and a stroke: five), and the serial stamped
+beside the name. No glow, no colour ladder, no banner.
+
+**Development.** `RELIC_FORCE=<relic id>` makes every paying report bring that
+relic home. It is ignored when `NODE_ENV` is `production`.
+
 ## 6. Economy guard rails
 
 - Every faucet and sink writes to a ledger table. A check sums it.
@@ -282,6 +357,7 @@ tabs are not shown.
   verification of the deterministic sim is the next step, not in the first build.
 - Trades are single transactions with an idempotency key.
 - A global switch turns trading off.
+- Relics are rolled by the server alone, never by the client (5.6).
 - New accounts can sell to the Factor at once but post listings only after 3 runs.
 
 ## 7. Look, sound and words

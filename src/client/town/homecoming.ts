@@ -1,11 +1,12 @@
 // The sheet shown after a run. What came home is first; what opened is said
 // once in one line; two stamps keep the player moving.
 
+import type { ItemSpec } from '../../shared/item.ts';
 import { DEATH_RAW_KEEP, KIT_CHARGES, type RunStartRes } from '../../shared/protocol.ts';
 import { RAWS } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import type { RunRecap } from '../seam.ts';
-import { copyText, el, fmt, icon, itemRow, ordinal, pips, sprite, sprites, stamp, thing, type Kid } from './dom.ts';
+import { charges, copyText, el, fmt, icon, itemRow, ordinal, pips, sprite, sprites, stamp, thing, type Kid } from './dom.ts';
 import { headOut, type Launch, type Report } from './run.ts';
 import { pageHead, showSheet, showTown, soundControls } from './shell.ts';
 import { app } from './state.ts';
@@ -30,10 +31,14 @@ export function showHomecoming(h: Homecoming): void {
   let report: Report | null = null;
   let copied = false;
   let leaving = false;
+  /** A relic is held back until everything else is on the sheet, then shown alone. */
+  let relicShown = false;
 
   const draw = (): void => {
     const hadFocus = (document.activeElement as HTMLElement | null)?.dataset.fk;
-    const root = showSheet(...sheet(h, report, copied, { again, toTown, copy }));
+    const at = window.scrollY;
+    const root = showSheet(...sheet(h, report, copied, relicShown, { again, toTown, copy }));
+    if (at) window.scrollTo(0, at);
     const key = hadFocus && root.querySelector(`[data-fk="${hadFocus}"]`) ? hadFocus : 'again';
     (root.querySelector(`[data-fk="${key}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
   };
@@ -64,7 +69,33 @@ export function showHomecoming(h: Homecoming): void {
     if (leaving) return;
     if (r.state === 'saved' && (r.res.unlockedFeature || r.res.unlockedCharacter || r.res.gained.items.length)) audio.play('reveal');
     draw();
+    if (r.state === 'saved' && r.res.relic) {
+      // Last, alone, after a beat: its own line and its own sound.
+      window.setTimeout(() => {
+        if (leaving) return;
+        relicShown = true;
+        draw();
+        audio.play('relic');
+        document.querySelector('.relic-reveal')?.scrollIntoView({ block: 'center' });
+      }, RELIC_BEAT_MS);
+    }
   });
+}
+
+/** The pause between the rest of the sheet and a relic. */
+const RELIC_BEAT_MS = 1600;
+
+/** The section a found relic is shown in. Nothing else shares it. */
+function relicSection(item: ItemSpec): HTMLElement {
+  const first = item.serial === 1;
+  return el(
+    'section',
+    'section relic-reveal',
+    el('h2', '', 'Also came home'),
+    el('p', 'said', `A relic. ${first ? 'Nobody in the world has found this one before.' : `No. ${item.serial} in the world.`}`),
+    el('ul', 'offers items', itemRow(item, { me: app.profile.name, actions: [charges(item, 1)] })),
+    el('p', 'note', 'It is in your stash. A relic does not wear, cannot be fused or salvaged, and one can be packed for a run. Your name stays on it if it is sold.'),
+  );
 }
 
 interface Acts {
@@ -73,7 +104,7 @@ interface Acts {
   copy: (line: string) => void;
 }
 
-function sheet(h: Homecoming, report: Report | null, copied: boolean, acts: Acts): Kid[] {
+function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown: boolean, acts: Acts): Kid[] {
   const S = sprites();
   const { recap, ticket, launch } = h;
   const r = recap.report;
@@ -157,6 +188,9 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, acts: Acts
     }
     out.push(sec);
   }
+
+  // ---- a relic, last and alone ----------------------------------------------
+  if (res?.relic && relicShown) out.push(relicSection(res.relic));
 
   // ---- stamps --------------------------------------------------------------
   out.push(

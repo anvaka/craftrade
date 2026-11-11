@@ -8,7 +8,7 @@ import { DEATH_RAW_KEEP } from '../../shared/protocol.ts';
 import { PRIM, RAWS, STATS, STAT_LABEL, STAT_PERCENT, type RawBag, type RawId, type StatId } from '../../shared/vocab.ts';
 import {
   BLUNT_KNOCK, CHARACTER, CLASSES, CLASS_LABEL, SET_BONUS, ST, WEAPONS, WEAPON_INDEX, applyFusion, buy, buyBlock, fuseCost,
-  pickUpgrade, reroll, rerollCost, scrapItem, scrapValueItem, scrapValueWeapon, scrapWeapon, sendMule, toggleLock,
+  pickUpgrade, reroll, rerollCost, weaponSlots, scrapItem, scrapValueItem, scrapValueWeapon, scrapWeapon, sendMule, toggleLock,
   weaponCooldown, weaponDamage, weaponRange, type Run, type WeaponClass,
 } from '../../sim/index.ts';
 import type { FuseOutcome } from '../seam.ts';
@@ -411,7 +411,8 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       return s;
     }
     const groups = new Map<string, ItemSpec>();
-    for (const it of p.items) if (!groups.has(it.id)) groups.set(it.id, it);
+    // A relic never goes on the anvil.
+    for (const it of p.items) if (!it.relic && !groups.has(it.id)) groups.set(it.id, it);
     if (groups.size < 2) {
       s.append(el('p', 'note', 'Needs two different items. They are used up and one new item comes out.'));
       return s;
@@ -554,7 +555,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       if (cls === 'blunt') parts.push(`+${BLUNT_KNOCK[step]} knockback`);
       sets.push(el('li', 'g-set-on', `${CLASS_LABEL[cls]} ${n}: ${parts.join(', ')}`));
     }
-    side.append(el('section', 'section', el('h2', '', `Weapons, ${p.weapons.length} of ${ch.slots}`), wt, el('ul', 'g-sets', ...sets)));
+    side.append(el('section', 'section', el('h2', '', `Weapons, ${p.weapons.length} of ${weaponSlots(run)}`), wt, el('ul', 'g-sets', ...sets)));
 
     // Items, grouped.
     const it = el('section', 'section', el('h2', '', `Items, ${p.items.length}`));
@@ -578,7 +579,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
             el('span', '',
               el('span', 'g-item-name', item.name, idxs.length > 1 ? el('span', 'num', ` x${idxs.length}`) : null, tier(itemTier(item)), kit ? el('span', 'g-tag g-tag--plain', 'Kit') : null),
               el('span', 'g-sub', item.effects.map((e) => effectText(e)).join(', '))))),
-          el('td', 'act', sc)));
+          el('td', 'act', item.relic ? el('span', 'note', 'Relic') : sc)));
       }
       it.append(tbl);
     }

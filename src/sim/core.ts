@@ -1,6 +1,7 @@
 // Shared plumbing: events, pools, the spatial grid, stat maths, damage.
 import { effectValue, type ItemSpec } from '../shared/item.ts';
-import { PRIM, PRIMITIVES, STATS, type Primitive, type RawId, type StatId } from '../shared/vocab.ts';
+import { RELIC } from '../shared/content/relics.ts';
+import { PRIM, PRIMITIVES, RELIC_PRIMITIVES, STATS, type Primitive, type RawId, type StatId } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import { ENEMIES } from './data/enemies.ts';
 import {
@@ -19,10 +20,10 @@ import {
 
 export const ST: Record<StatId, number> = Object.fromEntries(STATS.map((s, i) => [s, i])) as Record<StatId, number>;
 const SPECIALS = PRIMITIVES.filter((p) => p.kind === 'special');
-/** Index of each special primitive in Player.sp. */
-export const SP: Record<string, number> = Object.fromEntries(SPECIALS.map((p, i) => [p.id, i]));
-export const SPECIAL_COUNT = SPECIALS.length;
-const SP_CAPS = SPECIALS.map((p) => SPECIAL_CAP[p.id] ?? Infinity);
+/** Index of each special primitive in Player.sp. Relic effects sit after the vocabulary's specials and are 0 or 1. */
+export const SP: Record<string, number> = Object.fromEntries([...SPECIALS, ...RELIC_PRIMITIVES].map((p, i) => [p.id, i]));
+export const SPECIAL_COUNT = SPECIALS.length + RELIC_PRIMITIVES.length;
+const SP_CAPS = [...SPECIALS.map((p) => SPECIAL_CAP[p.id] ?? Infinity), ...RELIC_PRIMITIVES.map(() => 1)];
 const STAT_MIN = STATS.map((s) => STAT_CAP[s][0]);
 const STAT_MAX = STATS.map((s) => STAT_CAP[s][1]);
 export const CLASSES: readonly WeaponClass[] = ['edge', 'blunt', 'shot', 'tool'];
@@ -103,6 +104,12 @@ export function rebuild(run: Run): void {
   sp.fill(0);
   let pierceMax = 0, bounceMax = 0;
   for (const item of p.items) {
+    if (item.relic === true) {
+      // A relic's effects come from the authored table, never from the spec that was handed in.
+      const spec = Object.hasOwn(RELIC, item.id) ? RELIC[item.id] : undefined;
+      if (spec) for (const e of spec.effects) sp[SP[e.p]] = 1;
+      continue;
+    }
     for (const e of item.effects) {
       const prim = primOf(e.p);
       if (!prim) continue;
@@ -166,6 +173,11 @@ export function refresh(run: Run): void {
   p.critChance = s[ST.crit] / 100;
   p.workRate = Math.max(0.25, 1 + s[ST.harvest] / 20);
   p.magnetR = BASE_MAGNET * (1 + sp[SP.magnet] / 100);
+}
+
+/** Weapon slots for this run: the character's, plus one with the Saddle scabbard. */
+export function weaponSlots(run: Run): number {
+  return CHARACTER[run.character].slots + (run.player.sp[SP.extraSlot] > 0 ? 1 : 0);
 }
 
 export function xpForLevel(level: number): number { return (level + 3) * (level + 3); }
@@ -334,6 +346,8 @@ const BURST_TMP = new Float64Array(12);
 export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, ownerUid: number): boolean {
   const p = run.player;
   if (p.iframes > 0 || run.phase !== 'wave') return false;
+  // Hide blind: nothing lands while a node is being worked. The walking rotwood (-2) is not a node.
+  if (p.workingNode >= 0 && p.sp[SP.safeWork] > 0) return false;
   if (p.dodge > 0 && rnd(run.rng, Stream.Combat) < p.dodge) {
     p.iframes = DODGE_IFRAMES;
     emit(run, 'dodge', p.x, p.y);
@@ -368,6 +382,12 @@ export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, o
       p.secondWindUsed = true;
       p.hp = Math.min(p.maxHp, sp[SP.secondWind]);
       p.iframes = 1.2;
+      emit(run, 'secondWind', p.x, p.y, p.hp);
+    } else if (sp[SP.secondLife] > 0 && !p.secondLifeUsed) {
+      // Brandy flask: once a run, back on the feet at half health.
+      p.secondLifeUsed = true;
+      p.hp = Math.max(1, Math.ceil(p.maxHp / 2));
+      p.iframes = 0.8;
       emit(run, 'secondWind', p.x, p.y, p.hp);
     } else {
       p.hp = 0;

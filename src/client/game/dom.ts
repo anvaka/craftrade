@@ -23,7 +23,7 @@ export function icSized(i: Icon, px: number): HTMLCanvasElement {
 export function tier(n: number): HTMLElement {
   const t = el('span', 'tier', el('i'), el('i'), el('i'), el('i'));
   t.dataset.tier = String(n);
-  t.setAttribute('aria-label', `tier ${n}`);
+  t.setAttribute('aria-label', n >= 5 ? 'relic' : `tier ${n}`);
   return t;
 }
 

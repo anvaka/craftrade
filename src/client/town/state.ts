@@ -2,7 +2,7 @@
 // redraw() after changing it. The server owns the truth; this is a copy.
 
 import type {
-  CharacterId, CodexRes, DailyRes, Feature, MarketRes, Profile, StationId, TownRes,
+  CharacterId, CodexRes, DailyRes, Feature, MarketRes, Profile, RelicsRes, StationId, TownRes, WorldNotice,
 } from '../../shared/protocol.ts';
 import { ApiFail, asFail } from './api.ts';
 
@@ -30,6 +30,10 @@ export interface AppState {
   town: TownRes | null;
   daily: DailyRes | null;
   codex: CodexRes | null;
+  /** The world's roll of relics, for the workshop page. */
+  relics: RelicsRes | null;
+  /** The newest relic find of the last 24 hours, told to everyone on the home page. */
+  worldNotice: WorldNotice;
   /** Names of requests in flight, so their stamps can wait. */
   busy: Set<string>;
 }
@@ -62,6 +66,8 @@ export const app: AppState = {
   town: null,
   daily: null,
   codex: null,
+  relics: null,
+  worldNotice: null,
   busy: new Set(),
 };
 

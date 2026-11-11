@@ -103,6 +103,38 @@ export const PRIMITIVES: readonly Primitive[] = [
 // Null prototype so keys like '__proto__' from untrusted input never resolve.
 export const PRIM: Record<string, Primitive> = Object.assign(Object.create(null), Object.fromEntries(PRIMITIVES.map((p) => [p.id, p])));
 
+/**
+ * Relic-only effects. Each one breaks a rule of the game instead of raising a
+ * number, so it has no level, no value and no point cost. They are kept out of
+ * PRIMITIVES and PRIM on purpose: the fusion model's vocabulary, the
+ * procedural generator, validatePick and repairEffects all read those two
+ * tables, so none of them can ever hand a relic effect out. The sim honours
+ * them only on an item flagged `relic` (see src/shared/content/relics.ts).
+ */
+export interface RelicPrimitive {
+  id: string;
+  /** The whole tooltip. One line. */
+  text: string;
+  /** Where the rule lives: in the run simulation or in the town's books. */
+  where: 'run' | 'town';
+}
+
+export const RELIC_PRIMITIVES: readonly RelicPrimitive[] = [
+  { id: 'extraSlot', where: 'run', text: 'Hold one more weapon' },
+  { id: 'safeWork', where: 'run', text: 'Nothing can hurt you while you work a node' },
+  { id: 'regrow', where: 'run', text: 'A broken node grows back once in the same wave' },
+  { id: 'noRawCost', where: 'run', text: 'Weapons at the bench need no raws' },
+  { id: 'secondLife', where: 'run', text: 'Once a run, a killing blow leaves you standing at half health' },
+  { id: 'extraOffer', where: 'run', text: 'The bench makes a fifth offer' },
+  { id: 'extraCarry', where: 'town', text: 'Carry home one more item' },
+  { id: 'keepCharge', where: 'town', text: 'The item packed beside it loses no charge on a win' },
+];
+
+export const RELIC_PRIM: Record<string, RelicPrimitive> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(RELIC_PRIMITIVES.map((p) => [p.id, p])),
+);
+
 /** Fraction of cost refunded by a drawback (a stat primitive taken negative). */
 export const DRAWBACK_REFUND = 0.6;
 

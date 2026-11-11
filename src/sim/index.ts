@@ -11,7 +11,7 @@
 //       draw entities at  px + (x - px) * alpha
 //   when run.phase === 'bench'  (after every wave but the last):
 //       pickUpgrade(run, i)               // while run.bench.picks > 0; choices in run.bench.choices
-//       buy(run, i) / buyBlock(run, i)    // run.bench.offers[0..3]
+//       buy(run, i) / buyBlock(run, i)    // run.bench.offers[0..3], and [4] with the Order book
 //       reroll(run) / rerollCost(run)     // free once all four are bought
 //       toggleLock(run, i)
 //       scrapWeapon(run, i) / scrapItem(run, i)
@@ -90,7 +90,7 @@ export {
   fuseCost, applyFusion, fusionResultBlock, sendMule, priceAt, weaponPrice, itemPrice, offerOdds,
 } from './bench.ts';
 export type { FuseQuote } from './bench.ts';
-export { ST, SP, CLASSES, xpForLevel } from './core.ts';
+export { ST, SP, CLASSES, xpForLevel, weaponSlots } from './core.ts';
 export { weaponRange, weaponDamage, weaponCooldown } from './weapons.ts';
 export { nodeYield, NODE_IDS } from './world.ts';
 export { LANE_MOUTHS, TELL_CHARGE, TELL_SPIT, TELL_SLAM, TELL_SURFACE, TELL_SUMMON } from './enemies.ts';

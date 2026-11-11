@@ -75,7 +75,9 @@ export const mountRun: MountRun = (host: RunHost) => {
   const end = (wavesCleared: number, killedBy: string | null, quit = false): void => {
     if (over) return;
     over = true;
-    host.onEnd(finish(Math.min(wavesCleared, t.waves), killedBy));
+    const recap = finish(Math.min(wavesCleared, t.waves), killedBy);
+    if (quit) recap.report.quit = true;
+    host.onEnd(recap);
     if (quit) host.onQuit();
   };
 

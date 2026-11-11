@@ -306,6 +306,21 @@ export const SOUNDS = {
     k.noise(t + 0.52, 0.02, { f: 2400, q: 1.2, g: 0.35 });
   }, 1, 0.5, 0.02, 0.85),
 
+  // A relic on the table: a strongbox hasp thrown back, the dull bell of the
+  // lid struck once and left to ring, then the serial stamped in the book.
+  // Slower and lower than any other sound, and played once in a great while.
+  relic: def((k, t) => {
+    k.knock(t, 300, 0.7);
+    k.noise(t, 0.03, { f: 1800, q: 1.4, g: 0.4 });
+    k.ring(t + 0.28, 392, BELL, 1.5, 0.75);
+    k.ring(t + 0.28, 196, BAR.slice(0, 2), 1.1, 0.35);
+    logDrum(k, t + 0.28, 62, 0.9, 0.5);
+    // the stamp
+    k.tone(t + 1.25, 0.16, { f: 140, f1: 58, g: 1.2 });
+    k.noise(t + 1.25, 0.05, { f: 600, type: 'lowpass', g: 0.9 });
+    k.noise(t + 1.25, 0.02, { f: 2400, q: 1.2, g: 0.35 });
+  }, 1, 2, 0, 0.8),
+
   // A UI stamp coming down on paper.
   stamp: def((k, t) => {
     k.tone(t, 0.045, { f: 185, f1: 110, g: 0.7 });

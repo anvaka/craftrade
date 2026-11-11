@@ -2,7 +2,8 @@
 // charge pips, item rows, steppers. No framework; a page is rebuilt from
 // state when something changes.
 
-import { effectText, itemTier, type ItemSpec } from '../../shared/item.ts';
+import { effectText, isRelic, itemTier, type ItemSpec } from '../../shared/item.ts';
+import { KIT_CHARGES } from '../../shared/protocol.ts';
 import { spriteElement, type Icon, type Sprite, type Sprites } from '../art/index.ts';
 import { audio, type SoundId } from '../audio/index.ts';
 
@@ -64,8 +65,25 @@ export function tier(n: number): HTMLElement {
   const t = el('span', 'tier', el('i'), el('i'), el('i'), el('i'));
   t.dataset.tier = String(n);
   t.setAttribute('role', 'img');
-  t.setAttribute('aria-label', `tier ${n}`);
+  t.setAttribute('aria-label', n >= 5 ? 'relic' : `tier ${n}`);
   return t;
+}
+
+/** The stamped serial of one relic: "No. 3". Nothing for an item that has none. */
+export function serial(item: ItemSpec): HTMLElement | null {
+  return item.serial ? el('span', 'serial num', `No. ${item.serial}`) : null;
+}
+
+/** "No. 3 in the world, found by Carter 412", with the finder in the reader's or another player's colour. */
+export function relicLine(item: ItemSpec, me: string): Kid[] {
+  if (!item.serial) return [];
+  return [`No. ${item.serial} in the world`, item.by ? ', found by ' : '', item.by ? finder(item.by, me) : null];
+}
+
+/** Charges left, as pips. A relic has none to lose and says so. */
+export function charges(item: ItemSpec, n: number, label: string | null = 'Charges'): HTMLElement {
+  if (isRelic(item)) return el('span', 'charges', el('span', 'label', 'Does not wear'));
+  return el('span', 'charges', pips(n, KIT_CHARGES, 'charges'), label ? el('span', 'label', label) : null);
 }
 
 /** Square pips: n of `of` inked. Used for charges and station tiers. */
@@ -78,12 +96,13 @@ export function pips(n: number, of: number, what: string): HTMLElement {
   return p;
 }
 
-export function effectList(item: ItemSpec): HTMLElement {
+export function effectList(item: ItemSpec, me = ''): HTMLElement {
   const ul = el('ul', 'effects');
   for (const e of item.effects) {
     const text = effectText(e);
     if (text) ul.append(el('li', e.neg ? 'cost' : '', text));
   }
+  if (isRelic(item) && item.serial) ul.append(el('li', 'relic-line', ...relicLine(item, me)));
   return ul;
 }
 
@@ -107,13 +126,13 @@ export function thing(ic: Node, ...kids: Kid[]): HTMLElement {
  * One item as a ruled row: icon | name, tier, effect lines, extra | actions.
  * Uses the kit's .offer layout.
  */
-export function itemRow(item: ItemSpec, o: { meta?: Kid[]; actions?: Kid[]; cls?: string } = {}): HTMLLIElement {
+export function itemRow(item: ItemSpec, o: { meta?: Kid[]; actions?: Kid[]; cls?: string; me?: string } = {}): HTMLLIElement {
   return el(
     'li',
-    `offer ${o.cls ?? ''}`.trim(),
+    `offer ${isRelic(item) ? 'is-relic ' : ''}${o.cls ?? ''}`.trim(),
     itemIcon(item, true),
-    el('div', 'name', el('span', '', item.name), tier(itemTier(item)), ...(o.meta ?? [])),
-    effectList(item),
+    el('div', 'name', el('span', '', item.name), tier(itemTier(item)), serial(item), ...(o.meta ?? [])),
+    effectList(item, o.me),
     o.actions?.length ? el('div', 'buy', ...o.actions) : null,
   );
 }

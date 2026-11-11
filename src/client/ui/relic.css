@@ -1,0 +1,142 @@
+/* Relics, marked the way a ledger marks an entry that matters: an Ochre
+   double rule above and below, a struck tally for the tier, and a serial
+   stamped beside the name. Flat colour only. Nothing here glows.
+
+   .tier[data-tier='5']   four inked notches struck through: the tally for five
+   .serial                the stamped serial, "No. 3"
+   .is-relic              on an .offer row or a table row: the double rule
+   .relic-line            "No. 3 in the world, found by ..." under the effects
+   .relic-reveal          the homecoming section a find is shown in, alone
+   .relic-roll            the two tables on the workshop page
+   .blank                 a ruled blank where a name nobody knows yet would go */
+
+.tier[data-tier='5'] {
+  position: relative;
+}
+.tier[data-tier='5'] i {
+  background: var(--ink);
+}
+.tier[data-tier='5']::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 50%;
+  border-top: 3px solid var(--ochre);
+  transform: translateY(-50%) rotate(-16deg);
+}
+
+.serial {
+  display: inline-block;
+  align-self: center;
+  padding: 1px 7px 0;
+  border: 2px solid var(--ink);
+  outline: var(--hair) solid var(--ink);
+  outline-offset: 2px;
+  margin: 2px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  white-space: nowrap;
+  transform: rotate(-3deg);
+  font-variant-numeric: tabular-nums;
+}
+
+.offers .offer.is-relic {
+  border-top: 6px double var(--ochre);
+  border-bottom: 6px double var(--ochre);
+  margin: 6px 0;
+  padding: 12px 0;
+}
+tr.is-relic > td {
+  border-top: 6px double var(--ochre);
+  border-bottom: 6px double var(--ochre);
+}
+
+.offer .effects li.relic-line,
+.relic-line {
+  padding-left: 0;
+  font-style: italic;
+}
+.offer .effects li.relic-line::before {
+  content: none;
+}
+
+/* The find, shown last and alone on the homecoming sheet. */
+.relic-reveal {
+  border-top: 6px double var(--ochre);
+  border-bottom: 6px double var(--ochre);
+  padding: 14px 0 16px;
+  margin-top: 22px;
+}
+.relic-reveal h2 {
+  margin-top: 0;
+}
+.relic-reveal .said {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+.relic-reveal .offers,
+.relic-reveal .offers .offer.is-relic {
+  border: 0;
+  margin: 0;
+}
+.relic-reveal .note {
+  margin: 8px 0 0;
+}
+.relic-reveal .serial {
+  animation: serial-land 90ms steps(2, end) 1;
+}
+@keyframes serial-land {
+  from {
+    transform: rotate(-3deg) translateY(-6px);
+  }
+  to {
+    transform: rotate(-3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .relic-reveal .serial {
+    animation: none;
+  }
+}
+
+/* The world's roll, on the workshop page. */
+.relic-roll .blank {
+  display: block;
+  height: 1.3em;
+  max-width: 220px;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.relic-roll td.fx {
+  font-size: 15px;
+}
+.relic-roll .ledger + .ledger,
+.relic-roll .ledger + h3 {
+  margin-top: 18px;
+}
+.relic-roll h3 {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* A finder's name is one piece: it does not break across lines. */
+.relic-line .own,
+.relic-line .who,
+.relic-roll .own,
+.relic-roll .who {
+  white-space: nowrap;
+}
+
+/* The one-line word from the world, above the home page. */
+.world-notice {
+  margin-top: 14px;
+}
+
+.l-name .serial {
+  margin-left: 10px;
+}

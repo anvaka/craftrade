@@ -1,8 +1,9 @@
 import { randomInt } from 'node:crypto';
 import { BASE_ITEM } from '../src/shared/content/items.ts';
-import { fnv1a, recipeKey, type ItemSpec } from '../src/shared/item.ts';
+import { RELIC } from '../src/shared/content/relics.ts';
+import { fnv1a, isRelic, recipeKey, relicHas, type ItemSpec } from '../src/shared/item.ts';
 import {
-  DAILY_WAVES, DEATH_RAW_KEEP, KIT_CHARGES, RUN_WAVES,
+  DAILY_WAVES, DEATH_RAW_KEEP, KIT_CHARGES, KIT_RELICS, RUN_WAVES,
   type CharacterId, type DailyRes, type Feature, type RunEndReq, type RunEndRes, type RunStartReq, type RunStartRes,
 } from '../src/shared/protocol.ts';
 import { RAWS, emptyRaws } from '../src/shared/vocab.ts';
@@ -12,12 +13,20 @@ import {
 } from './config.ts';
 import { tx } from './db.ts';
 import { ApiErr, bad } from './errors.ts';
-import { addStash, dayOf, getItem, move, newId, playerById, profile, stashRow, stations, touch, type Ctx, type Player } from './players.ts';
+import { addStash, dayOf, getItem, heldItem, move, newId, playerById, profile, stashRow, stations, touch, type Ctx, type Player } from './players.ts';
+import { rollForRun, worldNotice } from './relics.ts';
 
 interface Ticket {
   id: string; player_id: number; mode: 'run' | 'daily' | 'practice'; character: CharacterId;
-  seed: number; waves: number; kit: string; day: string; scored: number; status: string; started: number;
+  seed: number; waves: number; kit: string; day: string; scored: number; status: string; started: number; kit_uids: string;
 }
+
+/** One packed item as the ticket remembers it. `spent` means its last charge went on this run. */
+interface Packed { uid: string; id: string; spent: boolean }
+
+/** True if the ticket says a relic with this effect was packed. */
+const packedRelic = (t: Ticket, prim: string): boolean =>
+  (JSON.parse(t.kit) as string[]).some((id) => Object.hasOwn(RELIC, id) && relicHas(RELIC[id], prim));
 
 /** Today's clearing: the same seed and character for everyone, rotating daily. */
 export function dailyInfo(ctx: Ctx) {
@@ -35,17 +44,24 @@ export function startRun(ctx: Ctx, player: Player, req: RunStartReq): RunStartRe
     let waves = RUN_WAVES;
     let scored = 0;
     const kit: ItemSpec[] = [];
+    const packed: Packed[] = [];
 
     if (req.mode === 'run') {
       if (!charactersFor(me.runs).includes(character)) throw new ApiErr(403, 'locked', 'That character is not unlocked yet.');
       if (new Set(req.kit).size !== req.kit.length) throw bad('not_owned', 'A kit item was listed twice.');
       for (const uid of req.kit) {
         const row = stashRow(ctx, me.id, uid);
-        const item = row && getItem(ctx, row.item_id);
+        const item = row && heldItem(ctx, row);
         if (!row || !item) throw bad('not_owned', 'A kit item is not in your stash.');
-        // One charge per run started. The item is gone when the last is spent.
-        if (row.charges <= 1) ctx.db.prepare('DELETE FROM stash WHERE uid = ?').run(uid);
-        else ctx.db.prepare('UPDATE stash SET charges = charges - 1 WHERE uid = ?').run(uid);
+        if (isRelic(item)) {
+          // A relic does not wear: no charge is spent and it stays in the stash.
+          if (kit.filter(isRelic).length >= KIT_RELICS) throw bad('kit_relics', 'Only one relic can be packed for a run.');
+        } else {
+          // One charge per run started. The item is gone when the last is spent.
+          if (row.charges <= 1) ctx.db.prepare('DELETE FROM stash WHERE uid = ?').run(uid);
+          else ctx.db.prepare('UPDATE stash SET charges = charges - 1 WHERE uid = ?').run(uid);
+          packed.push({ uid, id: item.id, spent: row.charges <= 1 });
+        }
         kit.push(item);
       }
     } else {
@@ -60,10 +76,10 @@ export function startRun(ctx: Ctx, player: Player, req: RunStartReq): RunStartRe
     ctx.db.prepare(`UPDATE runs SET status = 'void' WHERE player_id = ? AND status = 'open'`).run(me.id);
     const runId = newId();
     ctx.db
-      .prepare(`INSERT INTO runs (id, player_id, mode, character, seed, waves, kit, day, scored, status, started) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`)
-      .run(runId, me.id, req.mode, character, seed, waves, JSON.stringify(kit.map((i) => i.id)), daily.date, scored, ctx.now());
+      .prepare(`INSERT INTO runs (id, player_id, mode, character, seed, waves, kit, day, scored, status, started, kit_uids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`)
+      .run(runId, me.id, req.mode, character, seed, waves, JSON.stringify(kit.map((i) => i.id)), daily.date, scored, ctx.now(), JSON.stringify(packed));
     touch(ctx, me.id);
-    return { runId, seed, waves, character, kit, stations: stations(ctx), profile: profile(ctx, me.id) };
+    return { runId, seed, waves, character, kit, stations: stations(ctx), profile: profile(ctx, me.id), notice: worldNotice(ctx) };
   });
 }
 
@@ -101,7 +117,9 @@ function checkReport(ctx: Ctx, t: Ticket, r: RunEndReq) {
   if (r.kills > BOUNDS.killsPerWave * attempted) throw forged('More kills than the waves could hold.');
 
   // Carried items: authored, or made in this run by a recipe the server knows.
-  if (r.carry.length > Math.floor(r.wavesCleared / 4)) throw forged('Too many items carried home.', 'bad_carry');
+  // The Pack saddle, if the ticket says it was packed, carries one more.
+  const extra = packedRelic(t, 'extraCarry') ? 1 : 0;
+  if (r.carry.length > Math.floor(r.wavesCleared / 4) + extra) throw forged('Too many items carried home.', 'bad_carry');
   const made = new Map<string, number>();
   const recipe = ctx.db.prepare('SELECT out FROM recipes WHERE key = ?');
   for (const [a, b, out] of r.fusions) {
@@ -113,6 +131,22 @@ function checkReport(ctx: Ctx, t: Ticket, r: RunEndReq) {
     const left = made.get(id) ?? 0;
     if (left < 1) throw forged('A carried item was not made in this run.', 'bad_carry');
     made.set(id, left - 1);
+  }
+}
+
+/**
+ * Oilskin wrap: on a win, the item packed beside it gets back the charge this
+ * run spent. An item whose last charge went on the run comes back with one,
+ * under its old uid. An item that has left the stash since is left alone.
+ */
+function keepCharges(ctx: Ctx, playerId: number, t: Ticket) {
+  if (!packedRelic(t, 'keepCharge')) return;
+  for (const k of JSON.parse(t.kit_uids) as Packed[]) {
+    if (k.spent) {
+      if (!ctx.db.prepare('SELECT 1 FROM stash WHERE uid = ?').get(k.uid)) addStash(ctx, playerId, k.id, 1, null, k.uid);
+    } else {
+      ctx.db.prepare('UPDATE stash SET charges = MIN(?, charges + 1) WHERE uid = ? AND player_id = ?').run(KIT_CHARGES, k.uid, playerId);
+    }
   }
 }
 
@@ -160,7 +194,11 @@ export function endRun(ctx: Ctx, player: Player, r: RunEndReq): RunEndRes {
       ctx.db.prepare('UPDATE players SET runs = runs + 1, wins = wins + ? WHERE id = ?').run(r.won ? 1 : 0, player.id);
       unlockedFeature = (Object.keys(FEATURE_AT) as Feature[]).find((f) => FEATURE_AT[f] === before + 1);
       unlockedCharacter = charactersFor(before + 1).find((c) => !charactersFor(before).includes(c));
+      if (t.mode === 'run' && r.won) keepCharges(ctx, player.id, t);
     }
+
+    // The relic roll: the server's dice, on a report that has passed its checks. See server/relics.ts.
+    const relic = rollForRun(ctx, player.id, t, r);
 
     let daily: RunEndRes['daily'];
     if (t.mode !== 'run') {
@@ -170,7 +208,7 @@ export function endRun(ctx: Ctx, player: Player, r: RunEndReq): RunEndRes {
       // For an unscored try this is where it would have placed.
       daily = { rank: rankOf(ctx, t.day, r.wavesCleared, r.scripEarned, now), players: dailyPlayers(ctx, t.day), scored: !!t.scored };
     }
-    return { profile: profile(ctx, player.id), gained, unlockedFeature, unlockedCharacter, daily };
+    return { profile: profile(ctx, player.id), gained, relic, notice: worldNotice(ctx), unlockedFeature, unlockedCharacter, daily };
   });
 }
 

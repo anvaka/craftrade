@@ -12,7 +12,7 @@
 import type { ItemSpec } from '../../shared/item.ts';
 import type {
   ApiError, CharacterId, CodexRes, DailyRes, FuseReq, FuseRes, GiveRes, HelloRes, ItemsRes, MarketActionRes, MarketRes,
-  NameRes, RunEndReq, RunEndRes, RunStartReq, RunStartRes, TownRes,
+  NameRes, RelicsRes, RunEndReq, RunEndRes, RunStartReq, RunStartRes, TownRes,
 } from '../../shared/protocol.ts';
 import type { RawBag, RawId } from '../../shared/vocab.ts';
 
@@ -206,6 +206,8 @@ export const api = {
   give: (raws: Partial<RawBag>) => call<GiveRes>('POST', '/api/town/give', { raws }),
 
   daily: () => call<DailyRes>('GET', '/api/daily'),
+
+  relics: () => call<RelicsRes>('GET', '/api/relics'),
 };
 
 export type { ItemSpec };

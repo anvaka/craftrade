@@ -1,6 +1,7 @@
 // Run lifecycle: create, step, next wave, summary, state hash.
 import { fnv1a, type ItemSpec } from '../shared/item.ts';
-import { DAILY_WAVES, RUN_WAVES } from '../shared/protocol.ts';
+import { RELIC } from '../shared/content/relics.ts';
+import { DAILY_WAVES, KIT_SLOTS, RUN_WAVES } from '../shared/protocol.ts';
 import { emptyRaws, RAWS, STATS, type RawBag } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import {
@@ -9,8 +10,8 @@ import {
 } from './data/tuning.ts';
 import { WAVE_PLAN, WAVES } from './data/waves.ts';
 import { SOURCE_COUNT, SOURCE_IDS, WEAPON_INDEX } from './data/weapons.ts';
-import { newOffer } from './bench.ts';
-import { buildGrid, clampX, clampY, rebuild, refresh, runBursts, SPECIAL_COUNT, ST, xpForLevel } from './core.ts';
+import { BENCH_OFFERS, newOffer } from './bench.ts';
+import { buildGrid, clampX, clampY, rebuild, refresh, runBursts, SP, SPECIAL_COUNT, ST, xpForLevel } from './core.ts';
 import { direct, updateEnemies, updateEShots, updateHazards } from './enemies.ts';
 import { seedStreams } from './rng.ts';
 import type { Enemy, EShot, Hazard, Pickup, ResNode, Run, RunOptions, Shot, SimEvent } from './types.ts';
@@ -33,7 +34,7 @@ const newShot = (): Shot => ({
 });
 const newEShot = (): EShot => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, dmg: 0, r: 0, life: 0, type: 0, owner: -1, ownerUid: 0 });
 const newPickup = (): Pickup => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, kind: 0, value: 0, pulled: false, claimed: -1 });
-const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, work: 0, need: 1, working: false, tickAcc: 0 });
+const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, work: 0, need: 1, working: false, tickAcc: 0, regrown: false });
 const newHazard = (): Hazard => ({ alive: false, kind: 0, x: 0, y: 0, r0: 0, r1: 0, t: 0, dur: 0, dmg: 0, type: 0, owner: -1, ownerUid: 0 });
 const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0 });
 
@@ -47,7 +48,9 @@ export function createRun(opts: RunOptions): Run {
   base[ST.maxHp] = PLAYER_BASE_HP;
   for (const s of STATS) base[ST[s]] += ch.stats[s] ?? 0;
   const start = WEAPON_INDEX[opts.startWeapon ?? ch.start] ?? WEAPON_INDEX[ch.start];
-  const kit = (opts.kit ?? []).slice(0, 2);
+  // Two kit items at most, and only one of them may be a relic.
+  let relics = 0;
+  const kit = (opts.kit ?? []).slice(0, KIT_SLOTS).filter((k) => k.relic !== true || (Object.hasOwn(RELIC, k.id) && ++relics === 1));
   const run: Run = {
     seed: opts.seed >>> 0, character: ch.id, totalWaves, plan: WAVE_PLAN[totalWaves],
     stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1, ...(opts.stations ?? {}) },
@@ -59,14 +62,14 @@ export function createRun(opts: RunOptions): Run {
       base, stat: new Float64Array(STATS.length), sp: new Float64Array(SPECIAL_COUNT), flat: new Float64Array(STATS.length),
       piercePct: 0, bouncePct: 0, classCount: new Int32Array(4),
       maxHp: PLAYER_BASE_HP, mendPerSec: 0, takenMul: 1, dodge: 0, moveSpeed: 0, dmgMul: 1, rateMul: 1, critChance: 0,
-      workRate: 1, magnetR: 0, knockAdd: 0, secondWindUsed: false, workingNode: -1,
+      workRate: 1, magnetR: 0, knockAdd: 0, secondWindUsed: false, secondLifeUsed: false, workingNode: -1,
     },
     enemies: fill(MAX_ENEMIES, newEnemy), enemyCount: 0,
     shots: fill(MAX_SHOTS, newShot), eshots: fill(MAX_ESHOTS, newEShot), pickups: fill(MAX_PICKUPS, newPickup),
     nodes: fill(MAX_NODES, newNode), hazards: fill(MAX_HAZARDS, newHazard),
     events: { list: fill(MAX_EVENTS, newEvent), n: 0, dropped: 0 },
     grid: { cols, rows, start: new Int32Array(cols * rows + 1), items: new Int16Array(MAX_ENEMIES), fill: new Int32Array(cols * rows) },
-    bench: { index: 0, picks: 0, choices: [], offers: fill(4, newOffer), rerolls: 0, freeReroll: false, mule: false, interestPaid: 0 },
+    bench: { index: 0, picks: 0, choices: [], offers: fill(BENCH_OFFERS, newOffer), rerolls: 0, freeReroll: false, mule: false, interestPaid: 0 },
     eliteIdx: -1, lanes: new Float64Array(16), laneCount: 0,
     groupNext: new Float64Array(Math.max(...WAVES.map((w) => w.groups.length))),
     eliteSpawned: false, burstQ: new Float64Array(64 * 3), burstN: 0, nextUid: 1, bossDead: false,
@@ -135,8 +138,8 @@ export function abandon(run: Run): void {
 /** Empty the event queue after the presentation layer has read it. */
 export function clearEvents(run: Run): void { run.events.n = 0; }
 
-/** How many items may be carried home: floor(waves cleared / 4). */
-export function carryLimit(run: Run): number { return Math.floor(run.wavesCleared / 4); }
+/** How many items may be carried home: floor(waves cleared / 4), and one more with the Pack saddle. */
+export function carryLimit(run: Run): number { return Math.floor(run.wavesCleared / 4) + (run.player.sp[SP.extraCarry] > 0 ? 1 : 0); }
 
 /** Items that may be carried home (everything held except kit items). */
 export function carryable(run: Run): ItemSpec[] {
