@@ -125,16 +125,18 @@ export async function fuse(ctx: Ctx, player: Player, req: FuseReq): Promise<Fuse
   const a = getItem(ctx, req.a);
   const b = getItem(ctx, req.b);
   if (!a || !b) throw new ApiErr(404, 'unknown_item', 'No such item.');
+  const town = req.ctx === 'town';
   const block = fusionBlock(a, b);
+  // A packed item is held in the run packed down, so a tier 4 refusal would name a tier the player cannot see: say why the run refuses instead.
+  if (block && !town && itemTier(a) !== 4 && itemTier(b) !== 4) throw bad('blocked', block);
+  if (!town) checkRunFusion(ctx, player, req, a, b);
   if (block) throw bad('blocked', block);
 
-  const town = req.ctx === 'town';
   const owns = () => {
     if (!req.uidA || !req.uidB || req.uidA === req.uidB) return false;
     return stashRow(ctx, player.id, req.uidA)?.item_id === a.id && stashRow(ctx, player.id, req.uidB)?.item_id === b.id;
   };
   if (town && !owns()) throw bad('not_owned', 'Those items are not in your stash.');
-  if (!town) checkRunFusion(ctx, player, req, a, b);
   // Town fusion is priced by the result's tier. Check the most it can cost before anything is asked of the model.
   const me = playerById(ctx, player.id);
   const purse = { marks: me.marks, raws: { timber: me.timber, ore: me.ore, hide: me.hide } };

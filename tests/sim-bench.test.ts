@@ -420,6 +420,18 @@ describe('fusion', () => {
     expect(applyFusion(run, 0, 3, ok)).not.toBeNull();
   });
 
+  it('keeps a packed item off the anvil, whatever tier it was packed down to', () => {
+    const run = createRun({ seed: 3, character: 'greenhorn', kit: [BASE_ITEM.saltpork] });
+    toBench(run);
+    give(run, 'whetstone');
+    rich(run);
+    const ok = standInFusion(BASE_ITEM.whetstone, BASE_ITEM.saltpork, fusionBudget(BASE_ITEM.whetstone, BASE_ITEM.saltpork));
+    expect(run.player.itemKit).toEqual([true, false]);
+    expect(fuseCost(run, 0, 1).block).toMatch(/packed item/);
+    expect(applyFusion(run, 0, 1, ok)).toMatch(/packed item/);
+    expect(run.player.items.map((i) => i.id)).toEqual(['saltpork', 'whetstone']);
+  });
+
   it('Tinker pays no raws for the first fusion at a bench; a raw that is missing can be covered in scrip', () => {
     const run = benchAt(2, 3, 'tinker');
     give(run, 'whetstone', 'saltpork');

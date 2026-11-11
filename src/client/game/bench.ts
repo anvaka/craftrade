@@ -113,7 +113,8 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   const pairKey = (a: string, c: string): string => (a < c ? `${a}+${c}` : `${c}+${a}`);
   const itemIndex = (id: string | null, skip = -1): number => {
     if (!id) return -1;
-    for (let i = 0; i < p.items.length; i++) if (i !== skip && p.items[i].id === id) return i;
+    // Only for the anvil: a packed item stays off it, so it is never the one found.
+    for (let i = 0; i < p.items.length; i++) if (i !== skip && !p.itemKit[i] && p.items[i].id === id) return i;
     return -1;
   };
 
@@ -440,15 +441,16 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       return s;
     }
     const groups = new Map<string, ItemSpec>();
-    // A relic never goes on the anvil.
-    for (const it of p.items) if (!it.relic && !groups.has(it.id)) groups.set(it.id, it);
+    // A relic never goes on the anvil, and nor does a packed item: it came in packed down, and the anvil would bring back the whole of it.
+    p.items.forEach((it, i) => { if (!it.relic && !p.itemKit[i] && !groups.has(it.id)) groups.set(it.id, it); });
+    const packedNote = p.itemKit.some(Boolean) ? ' Packed items stay off the anvil.' : '';
     if (groups.size < 2) {
-      s.append(el('p', 'note', 'Two different items go on and one new item comes off. What a pair makes is the same for everyone, and whoever strikes a pair first has their name on it for good. You need two items.'));
+      s.append(el('p', 'note', `Two different items go on and one new item comes off. What a pair makes is the same for everyone, and whoever strikes a pair first has their name on it for good. You need two items bought or made in this run.${packedNote}`));
       return s;
     }
     s.append(el('p', 'note', anvilHint
       ? 'You hold two different items. Pick both and strike: they are used up and one new item comes off. If nobody in the world has tried the pair, your name goes on what it makes.'
-      : 'Pick two different items. They are used up and one new item comes off.'));
+      : `Pick two different items. They are used up and one new item comes off.${packedNote}`));
     const picks = el('div', 'g-anvil-picks');
     for (const [id, it] of groups) {
       const on = anvil[0] === id || anvil[1] === id;

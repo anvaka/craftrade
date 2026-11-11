@@ -238,8 +238,12 @@ describe('fusion', () => {
 
     w.db.prepare(`INSERT INTO items (id, name, glyph, tags, effects, finder, created) VALUES ('fbig', 'Big thing', 'stone', '[]', ?, 1, 0)`)
       .run(JSON.stringify([{ p: 'damage', l: 5 }, { p: 'crit', l: 5 }]));
-    const done = await w.post<ApiError>('/api/fuse', token, { a: A, b: 'fbig', ctx: 'run' });
+    const done = await w.post<ApiError>('/api/fuse', token, { a: A, b: 'fbig', ctx: 'town' });
     expect([done.status, done.body.code]).toEqual([400, 'blocked']);
+    expect(done.body.error).toMatch(/tier 4/);
+    // In a run the run is checked first: a packed item is held packed down, and its stash tier is not what the player sees.
+    const inRun = await w.post<ApiError>('/api/fuse', token, { a: A, b: 'fbig', ctx: 'run' });
+    expect([inRun.status, inRun.body.code]).toEqual([400, 'not_held']);
   });
 
   it('allows 20 untried pairs a day, more with the Assay Office, and unlimited known ones', async () => {

@@ -3,7 +3,7 @@
 // action is not allowed, so a UI can call them straight from buttons.
 import { ipow } from './trig.ts';
 import { BASE_ITEMS } from '../shared/content/items.ts';
-import { basePrice, fusionBlock, fusionBudget, itemPoints, itemTier, tierOf, type ItemSpec } from '../shared/item.ts';
+import { basePrice, fusionBlock, isRelic, fusionBudget, itemPoints, itemTier, tierOf, type ItemSpec } from '../shared/item.ts';
 import { emptyRaws, RUN_FUSE_RAW_COST, GLYPHS, RAWS, STATS, type RawBag, type StatId } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import {
@@ -436,7 +436,7 @@ export function fuseCost(run: Run, a: number, b: number): FuseQuote {
   const q: FuseQuote = { block: null, budget: 0, tier: 1, raws: emptyRaws(), scrip: 0 };
   if (run.phase !== 'bench') { q.block = 'Fusing is done at the bench.'; return q; }
   if (!A || !B || a === b) { q.block = 'Pick two different items.'; return q; }
-  q.block = fusionBlock(A, B);
+  q.block = (isRelic(A) || isRelic(B) ? fusionBlock(A, B) : null) ?? (p.itemKit[a] || p.itemKit[b] ? 'A packed item cannot go on the anvil during a run.' : fusionBlock(A, B));
   q.budget = fusionBudget(A, B);
   q.tier = tierOf(q.budget);
   q.raws = fuseRaws(run, q.tier);
@@ -475,7 +475,7 @@ export function applyFusion(run: Run, a: number, b: number, result: ItemSpec): s
   const q = fuseCost(run, a, b);
   const A = p.items[a], B = p.items[b];
   if (!A || !B || a === b || run.phase !== 'bench') return q.block ?? 'Pick two different items.';
-  const hard = fusionBlock(A, B) ?? fusionResultBlock(result, q.budget);
+  const hard = (p.itemKit[a] || p.itemKit[b] ? q.block : null) ?? fusionBlock(A, B) ?? fusionResultBlock(result, q.budget);
   if (hard) return hard;
   const cost = fuseRaws(run, itemTier(result));
   if (p.scrip < shortOf(run, cost) * rawPrice(run)) return 'Not enough raws, and not enough scrip to cover them.';
