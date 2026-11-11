@@ -241,7 +241,6 @@ export function startWave(run: Run): void {
 
 export function endWave(run: Run): void {
   const p = run.player, ch = CHARACTER[run.character];
-  emit(run, 'waveEnd', p.x, p.y, run.wave);
   // Magpies still in the clearing drop what they took.
   for (let i = 0; i < MAX_ENEMIES; i++) {
     const e = run.enemies[i];
@@ -253,17 +252,19 @@ export function endWave(run: Run): void {
     killEnemy(run, i, false);
   }
   // Raws are swept up.
-  let left = 0;
+  let left = 0, rawsSwept = 0;
   for (let i = 0; i < MAX_PICKUPS; i++) {
     const k = run.pickups[i];
     if (!k.alive) continue;
     k.alive = false;
-    if (k.kind === PK_SCRIP) left += k.value; else grant(run, k.kind, k.value);
+    if (k.kind === PK_SCRIP) left += k.value; else { grant(run, k.kind, k.value); rawsSwept += k.value; }
   }
   // Most of the scrip left lying is swept up at once; the rest is banked and pays double on later pickups.
   const swept = Math.round(left * SWEEP_SHARE);
   if (swept > 0) gainScrip(run, swept);
   p.bank += left - swept;
+  // a: wave number; b: scrip swept into the purse; c: scrip banked; d: raws swept up.
+  emit(run, 'waveEnd', p.x, p.y, run.wave, swept, left - swept, rawsSwept);
   for (let i = 0; i < MAX_SHOTS; i++) run.shots[i].alive = false;
   for (let i = 0; i < MAX_ESHOTS; i++) run.eshots[i].alive = false;
   for (let i = 0; i < MAX_HAZARDS; i++) run.hazards[i].alive = false;

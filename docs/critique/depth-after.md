@@ -28,6 +28,19 @@ hands wins 14%, below the band the fun critic asked for.
 | `tools/exp/depth/skill.sh 200` | The fun critic's three skill policies (`tools/exp/fun/`) on this tree. |
 | `tools/exp/depth/maxima.sh <dir>` | Re-measures the server's report caps (`tools/exp/meta/maxima.ts`). |
 
+## A note on the last change
+
+The tables below were measured before the sim's sine and cosine were
+replaced by `src/sim/trig.ts` (for engine-independent replay). That change
+moves every run by a hair, so it was re-checked on the same 200 seeds:
+default bot 49.0% -> 53.5%, never fuse 39.5% -> 36.5%, Sawyer 62.5% ->
+63.0%, novice deaths in waves 1-2 0% -> 0%, novice reaching wave 4 69.5% ->
+69.0%. All inside the noise; the fusion gain reads +9.5 before and +17
+after, so call it about +10 to +17.
+
+The player-facing names of three enemies changed after measuring (Spitting
+toad, Badger, Bear); ids are unchanged and the tables use ids.
+
 ## What changed, by system
 
 1. **Early curve (fun.md 1.5, variant d, then more).** Base Max HP 16,
@@ -277,7 +290,9 @@ Primitives: only `magnet` is held by under 5% of winners anywhere.
 | 4 | Volleys: spitters spit three, each at 70% | 12% | 13.5% | 6,733 | 99 | 4,584 |
 | 5 | Old Tusk gets up once at half health | 6% | 6.0% | 5,170 | 93 | 4,373 |
 
-**Met** within the noise. For the server: higher levels do not raise scrip
+**Met** within the noise. The report caps in `server/config.ts` were re-measured
+(`tools/exp/depth/maxima.sh`, 2,580 runs) and raised where the new sim goes
+further; the check finds 0 of 2,580 honest runs refused. For the server: higher levels do not raise scrip
 or raws (raws fall), and kills rise at most 6.5%, so a slack of
 `1 + 0.25 x hazard` is far more than needed; `1 + 0.05 x hazard` on kills
 and none on scrip and raws would be safe.

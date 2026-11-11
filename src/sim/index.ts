@@ -64,20 +64,22 @@
 //   attack      player          weapon index (WEAPONS)    weapon slot
 //   hit, crit   enemy           damage                    enemy index
 //   kill        enemy           enemy type index          rank (0, 1 elite, 2 boss)
-//   hurt        player          damage                    enemy type index
+//   hurt        player          damage                    enemy type index   c: attacker's enemy index (-1 for a shard),
+//                                                                            d: HIT_TOUCH, HIT_SHOT, HIT_SLAM, HIT_CHARGE or HIT_SHARD
 //   dodge       player
 //   pickup      player          kind (PK_*)               value
 //   work        node            node type                 (one chop, clink or scrape)
 //   break       node            node type                 1 if rich
 //   levelup     player          new level
 //   tell        enemy           enemy type index          TELL_CHARGE, TELL_SPIT, TELL_SLAM, TELL_SURFACE, TELL_SUMMON
+//                                                         c, d: target point (end of a charge line, the spitter's aim, a ring's centre)
 //   slam        ring centre     outer radius              inner radius      (a ring has landed)
 //   eliteSpawn, eliteDeath, bossSpawn, bossDeath   enemy   enemy type index
 //   bossPhase   boss            phase 2 or 3
 //   steal       magpie          kind (PK_*)               value
 //   escape      magpie          pieces of loot taken
 //   waveStart   player          wave number               standard wave number
-//   waveEnd     player          wave number
+//   waveEnd     player          wave number               b: scrip swept to the purse   c: scrip banked   d: raws swept up
 //   shieldBreak, secondWind (a = HP left), death (a = enemy type index)   player
 //   burst       centre          radius                    (kill burst or recoil blast)
 //
@@ -93,7 +95,7 @@ export {
   offerCost, rawPrice, combineWeapons, twinOf, tierUp, tierUpBlock, tierUpCost,
 } from './bench.ts';
 export type { FuseQuote } from './bench.ts';
-export { ST, SP, CLASSES, xpForLevel, weaponSlots } from './core.ts';
+export { ST, SP, CLASSES, xpForLevel, weaponSlots, HIT_TOUCH, HIT_SHOT, HIT_SLAM, HIT_CHARGE, HIT_SHARD } from './core.ts';
 export { weaponRange, weaponDamage, weaponCooldown } from './weapons.ts';
 export { nodeYield, NODE_IDS } from './world.ts';
 export { LANE_MOUTHS, TELL_CHARGE, TELL_SPIT, TELL_SLAM, TELL_SURFACE, TELL_SUMMON } from './enemies.ts';

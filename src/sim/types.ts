@@ -270,7 +270,7 @@ export type EventType =
   | 'waveStart' | 'waveEnd' | 'shieldBreak' | 'secondWind' | 'burst' | 'slam' | 'death';
 
 /** One presentation event. Objects are reused; copy what you need before the next step. */
-export interface SimEvent { type: EventType; x: number; y: number; a: number; b: number }
+export interface SimEvent { type: EventType; x: number; y: number; a: number; b: number; c: number; d: number }
 
 export interface EventQueue { list: SimEvent[]; n: number; dropped: number }
 

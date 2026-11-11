@@ -577,7 +577,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     }
     statNone = el('p', 'note', 'No stats raised yet. Upgrades and items show here.');
     statNone.hidden = shownRows > 0;
-    side.append(el('section', 'section g-first', el('h2', '', `${ch.name}, level ${p.level}`), ch.twist !== 'No twist.' ? el('p', 'note', ch.twist) : null, statNone, stats));
+    side.append(el('section', 'section g-first', el('h2', '', `${ch.name}, level ${p.level}`), ch.id !== 'greenhorn' ? el('p', 'note', ch.twist) : null, statNone, stats));
 
     // Weapons.
     const wt = el('table', 'ledger');

@@ -629,3 +629,28 @@ describe('engine-independent trigonometry', () => {
     expect(ipow(2, 0)).toBe(1);
   });
 });
+
+describe('events for the presentation layer', () => {
+  it('hurt names the attacker and how it hit; waveEnd says what was swept and banked; a charge tell gives its line', async () => {
+    const { HIT_SHOT, HIT_TOUCH } = await import('../src/sim/core.ts');
+    const run = quietRun();
+    tough(run); disarm(run);
+    const i = place(run, 'mite', 5, 0);
+    const hurt: number[][] = [];
+    ticks(run, 2, 0, 0, (r) => { for (let k = 0; k < r.events.n; k++) { const e = r.events.list[k]; if (e.type === 'hurt') hurt.push([e.c, e.d]); } });
+    expect(hurt[0]).toEqual([i, HIT_TOUCH]);
+    expect(HIT_SHOT).not.toBe(HIT_TOUCH);
+    const boar = place(run, 'boar', 200, 0);
+    run.player.iframes = 10;
+    let line: number[] = [];
+    ticks(run, 90, 0, 0, (r) => { for (let k = 0; k < r.events.n; k++) { const e = r.events.list[k]; if (e.type === 'tell' && e.b === 0) line = [e.c, e.d]; } });
+    expect(line.length).toBe(2);
+    expect(line[0]).toBeLessThan(run.enemies[boar].x + 1);
+    const end = quietRun();
+    const p = end.player, k = end.pickups[0];
+    k.alive = true; k.kind = 0; k.value = 10; k.x = k.px = p.x + 600; k.y = k.py = p.y; k.vx = k.vy = 0; k.pulled = false;
+    endWave(end);
+    const ev = end.events.list.slice(0, end.events.n).find((e) => e.type === 'waveEnd')!;
+    expect([ev.a, ev.b, ev.c]).toEqual([1, 6, 4]);
+  });
+});

@@ -40,7 +40,7 @@ export interface CharacterDef {
 const NOT_TOOLS_DEAR: Record<string, number> = Object.fromEntries(WEAPONS.filter((w) => !w.tool).map((w) => [w.id, 1.5]));
 
 export const CHARACTERS: readonly CharacterDef[] = [
-  { id: 'greenhorn', name: 'Greenhorn', twist: 'No twist.', start: 'sling', stats: {}, slots: 6 },
+  { id: 'greenhorn', name: 'Greenhorn', twist: 'Plain kit and no favours.', start: 'sling', stats: {}, slots: 6 },
   { id: 'sawyer', name: 'Sawyer', twist: 'Each tool counts twice toward the Tool set. Every weapon that is not a tool costs half as much again. Starts with a hatchet. -4 Max HP.',
     start: 'hatchet', stats: { maxHp: -4 }, slots: 6, toolDouble: true, weaponPrice: NOT_TOOLS_DEAR },
   { id: 'smith', name: 'Smith', twist: 'Raises a held weapon one tier for a third less and without raws. +2 Armor, -10% Speed.',

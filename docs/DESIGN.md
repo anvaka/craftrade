@@ -193,10 +193,10 @@ it makes you do.
 | Mite | 1 | Walks at you. Fodder. |
 | Gnat cloud | 2 | Fast, weak, arrives in packs of 8. |
 | Boar | 3 | Paws the ground (0.7 s tell), then charges in a line. |
-| Spitter | 4 | Keeps distance, lobs slow shots. |
+| Spitting toad | 4 | Keeps distance, lobs slow shots. |
 | Magpie | 4 | Ignores you, grabs scrip and raws off the ground and runs for the treeline. Kill it to get them back. |
-| Burrower | 5 | Surfaces next to a node you are working. Work calls one up from wave 5. |
-| Brute | 7 | Slow, tough, ground slam with a visible ring. |
+| Badger (burrower) | 5 | Surfaces next to a node you are working. Work calls one up from wave 5. |
+| Bear (brute) | 7 | Slow, tough, ground slam with a visible ring. |
 | Stag (elite, wave 6) | - | Charges, leaves antler shards that linger. |
 | Rotwood (elite, wave 9) | - | A walking tree. Sheds mites. Can be worked like a node while it lives. |
 | Old Tusk (boss, wave 12) | - | Three phases: charge, summon, slam rings. About 15,600 health in wave 12. |
@@ -355,7 +355,7 @@ Unlocked by playing, win or lose, one per run for the first runs.
 
 | Character | Twist |
 |---|---|
-| Greenhorn | No twist. |
+| Greenhorn | Plain kit and no favours. |
 | Sawyer | Each tool counts twice toward the Tool set. Every weapon that is not a tool costs half as much again. Starts with a hatchet. -4 Max HP. |
 | Smith | Raises a held weapon one tier for a third less and without raws. +2 Armor, -10% Speed. |
 | Trapper | Elites and brutes leave a carcass. Every node broken heals 2 HP. Carcasses appear twice as often. +6% Dodge, +2 Ranged, -2 Max HP. |

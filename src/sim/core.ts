@@ -37,11 +37,11 @@ export function primOf(id: string): Primitive | undefined {
 
 // ---- events --------------------------------------------------------------
 
-export function emit(run: Run, type: EventType, x: number, y: number, a = 0, b = 0): void {
+export function emit(run: Run, type: EventType, x: number, y: number, a = 0, b = 0, c = 0, d = 0): void {
   const q = run.events;
   if (q.n >= MAX_EVENTS) { q.dropped++; return; }
   const e = q.list[q.n++];
-  e.type = type; e.x = x; e.y = y; e.a = a; e.b = b;
+  e.type = type; e.x = x; e.y = y; e.a = a; e.b = b; e.c = c; e.d = d;
 }
 
 // ---- grid ----------------------------------------------------------------
@@ -390,7 +390,10 @@ const BURST_TMP = new Float64Array(12);
  * Hurt the player. `type` is the enemy type index for the recap; owner and
  * ownerUid name the attacker for thorns (-1 if none). Returns true if damage landed.
  */
-export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, ownerUid: number): boolean {
+/** How a hit landed, carried in the `d` field of a 'hurt' event. */
+export const HIT_TOUCH = 0, HIT_SHOT = 1, HIT_SLAM = 2, HIT_CHARGE = 3, HIT_SHARD = 4;
+
+export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, ownerUid: number, how = HIT_TOUCH): boolean {
   const p = run.player;
   if (p.iframes > 0 || run.phase !== 'wave') return false;
   // Hide blind: nothing lands while a node is being worked. The walking rotwood (-2) is not a node.
@@ -418,7 +421,7 @@ export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, o
   if (d > 0) {
     p.hp -= d;
     run.damageTaken += d;
-    emit(run, 'hurt', p.x, p.y, d, type);
+    emit(run, 'hurt', p.x, p.y, d, type, owner, how);
   }
   const sp = p.sp;
   // Thorns and the recoil blast both grow with Armor: one twelfth more per point.

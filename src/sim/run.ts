@@ -36,7 +36,7 @@ const newEShot = (): EShot => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, 
 const newPickup = (): Pickup => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, kind: 0, value: 0, pulled: false, claimed: -1 });
 const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, work: 0, need: 1, working: false, tickAcc: 0, regrown: false, noise: 0 });
 const newHazard = (): Hazard => ({ alive: false, kind: 0, x: 0, y: 0, r0: 0, r1: 0, t: 0, dur: 0, dmg: 0, type: 0, owner: -1, ownerUid: 0 });
-const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0 });
+const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0, c: 0, d: 0 });
 
 /** Start a run. The first wave is already under way when this returns. */
 export function createRun(opts: RunOptions): Run {

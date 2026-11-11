@@ -7,7 +7,7 @@ import {
 } from './data/tuning.ts';
 import { EARLY_ELITE, TUSK_SUMMONS, WAVES } from './data/waves.ts';
 import { SRC_BURN } from './data/weapons.ts';
-import { clampX, clampY, damageEnemy, emit, hurtPlayer, killEnemy, spawnEnemy } from './core.ts';
+import { clampX, clampY, damageEnemy, emit, HIT_CHARGE, HIT_SHARD, HIT_SHOT, HIT_SLAM, HIT_TOUCH, hurtPlayer, killEnemy, spawnEnemy } from './core.ts';
 import { rnd, Stream } from './rng.ts';
 import { ES, HZ_RING, HZ_SHARD, type Enemy, type Run } from './types.ts';
 
@@ -115,7 +115,9 @@ function startCharge(run: Run, e: Enemy, tell: number): void {
   const dx = p.x - e.x, dy = p.y - e.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
   e.dx = dx / d; e.dy = dy / d;
   e.state = ES.Windup; e.t = tell;
-  emit(run, 'tell', e.x, e.y, e.type, TELL_CHARGE);
+  // c, d: the far end of the locked charge line.
+  const reach = tell === AI.boarTell ? AI.boarChargeSpeed * AI.boarChargeTime : e.type === ENEMY_INDEX.stag ? AI.stagChargeSpeed * AI.stagChargeTime : AI.tuskChargeSpeed * AI.tuskChargeTime;
+  emit(run, 'tell', e.x, e.y, e.type, TELL_CHARGE, e.x + e.dx * reach, e.y + e.dy * reach);
 }
 
 /** Advance a charge. Returns true when it has ended (time up or treeline reached). */
@@ -207,7 +209,7 @@ export function updateEnemies(run: Run): void {
           e.t2 -= DT;
           if (e.t2 <= 0 && pd < AI.spitFar + 90) {
             e.state = ES.Windup; e.t = AI.spitTell;
-            emit(run, 'tell', e.x, e.y, e.type, TELL_SPIT);
+            emit(run, 'tell', e.x, e.y, e.type, TELL_SPIT, p.x, p.y);
           }
         }
         break;
@@ -231,7 +233,7 @@ export function updateEnemies(run: Run): void {
           if (bd <= 46 || e.t <= 0) {
             e.state = ES.Surfacing; e.t = AI.burrowTell; e.tx = e.x; e.ty = e.y;
             addHazard(run, HZ_RING, e.x, e.y, 0, AI.burrowBlastR, AI.burrowTell, e.dmg * 1.3, e.type, i, e.uid);
-            emit(run, 'tell', e.x, e.y, e.type, TELL_SURFACE);
+            emit(run, 'tell', e.x, e.y, e.type, TELL_SURFACE, e.x, e.y);
           } else { e.x += (bx / bd) * step; e.y += (by / bd) * step; }
         } else if (e.state === ES.Surfacing) {
           contact = 0;
@@ -253,7 +255,7 @@ export function updateEnemies(run: Run): void {
           if (pd < AI.slamTrigger && e.t2 <= 0) {
             e.state = ES.Slam; e.t = AI.slamTell;
             slamRing(run, e, i, 0, AI.slamR, AI.slamTell, AI.slamDmg);
-            emit(run, 'tell', e.x, e.y, e.type, TELL_SLAM);
+            emit(run, 'tell', e.x, e.y, e.type, TELL_SLAM, e.x, e.y);
           }
         }
         break;
@@ -300,7 +302,7 @@ export function updateEnemies(run: Run): void {
           if (e.t3 <= 0 && pd < AI.rotSlamR * 0.9) {
             e.state = ES.Slam; e.t = AI.rotSlamTell;
             slamRing(run, e, i, 0, AI.rotSlamR, AI.rotSlamTell, 1.6);
-            emit(run, 'tell', e.x, e.y, e.type, TELL_SLAM);
+            emit(run, 'tell', e.x, e.y, e.type, TELL_SLAM, e.x, e.y);
           }
         }
         break;
@@ -337,7 +339,7 @@ export function updateEnemies(run: Run): void {
 
     if (contact > 0 && def.dmg > 0 && p.iframes <= 0) {
       const cdx = p.x - e.x, cdy = p.y - e.y, rr = e.r + PLAYER_R - 3;
-      if (cdx * cdx + cdy * cdy < rr * rr) hurtPlayer(run, e.dmg * contact, e.type, i, e.uid);
+      if (cdx * cdx + cdy * cdy < rr * rr) hurtPlayer(run, e.dmg * contact, e.type, i, e.uid, e.state === ES.Charge ? HIT_CHARGE : HIT_TOUCH);
     }
   }
 }
@@ -448,18 +450,18 @@ function tusk(run: Run, e: Enemy, idx: number, pd: number, ux: number, uy: numbe
     // The last phase keeps calling packs between rings (`work` is his second summon clock).
     e.work = AI.tuskSummonEvery * 1.6 * run.pace;
     e.state = ES.Summon; e.t = 0.9;
-    emit(run, 'tell', e.x, e.y, e.type, TELL_SUMMON);
+    emit(run, 'tell', e.x, e.y, e.type, TELL_SUMMON, e.x, e.y);
   } else if (phase === 2 && e.t3 <= 0) {
     e.t3 = AI.tuskSummonEvery * run.pace;
     e.state = ES.Summon; e.t = 0.9;
-    emit(run, 'tell', e.x, e.y, e.type, TELL_SUMMON);
+    emit(run, 'tell', e.x, e.y, e.type, TELL_SUMMON, e.x, e.y);
   } else if (phase === 3 && e.t3 <= 0 && pd < AI.tuskRingW * AI.tuskRings) {
     e.t3 = AI.tuskRingEvery;
     e.state = ES.Slam; e.t = AI.tuskRingTell + AI.tuskRingStep * (AI.tuskRings - 1);
     for (let k = 0; k < AI.tuskRings; k++) {
       slamRing(run, e, idx, k * AI.tuskRingW, (k + 1) * AI.tuskRingW, AI.tuskRingTell + k * AI.tuskRingStep, 1.5);
     }
-    emit(run, 'tell', e.x, e.y, e.type, TELL_SLAM);
+    emit(run, 'tell', e.x, e.y, e.type, TELL_SLAM, e.x, e.y);
   } else if (e.t2 <= 0 && pd < 520) {
     startCharge(run, e, AI.tuskTell);
   }
@@ -480,11 +482,11 @@ export function updateHazards(run: Run): void {
       // The ring is cancelled if whoever raised it died first.
       if (h.owner >= 0 && !(run.enemies[h.owner].alive && run.enemies[h.owner].uid === h.ownerUid)) continue;
       const inner = h.r0 > 0 ? h.r0 - PLAYER_R * 0.5 : 0, outer = h.r1 + PLAYER_R * 0.5;
-      if (d2 <= outer * outer && d2 >= inner * inner) hurtPlayer(run, h.dmg, h.type, h.owner, h.ownerUid);
+      if (d2 <= outer * outer && d2 >= inner * inner) hurtPlayer(run, h.dmg, h.type, h.owner, h.ownerUid, HIT_SLAM);
     } else {
       if (h.t <= 0) { h.alive = false; continue; }
       const rr = h.r1 + PLAYER_R * 0.6;
-      if (d2 < rr * rr) hurtPlayer(run, h.dmg, h.type, -1, 0);
+      if (d2 < rr * rr) hurtPlayer(run, h.dmg, h.type, -1, 0, HIT_SHARD);
     }
     if (run.phase !== 'wave') return;
   }
@@ -502,7 +504,7 @@ export function updateEShots(run: Run): void {
     const dx = p.x - s.x, dy = p.y - s.y, rr = s.r + PLAYER_R - 2;
     if (dx * dx + dy * dy < rr * rr) {
       s.alive = false;
-      hurtPlayer(run, s.dmg, s.type, s.owner, s.ownerUid);
+      hurtPlayer(run, s.dmg, s.type, s.owner, s.ownerUid, HIT_SHOT);
       if (run.phase !== 'wave') return;
     }
   }
