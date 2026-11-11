@@ -7,11 +7,15 @@ import { effectText, itemTier, type ItemSpec } from '../../shared/item.ts';
 import { DEATH_RAW_KEEP } from '../../shared/protocol.ts';
 import { PRIM, RAWS, STATS, STAT_LABEL, STAT_PERCENT, type RawBag, type RawId, type StatId } from '../../shared/vocab.ts';
 import {
-  BLUNT_KNOCK, CHARACTER, CLASSES, CLASS_LABEL, SET_BONUS, ST, WEAPONS, WEAPON_INDEX, applyFusion, buy, buyBlock, fuseCost,
-  pickUpgrade, reroll, rerollCost, weaponSlots, offerCost, combineWeapons, twinOf, tierUp, tierUpBlock, tierUpCost, SHOT_PIERCE, STACK_BONUS, scrapItem, scrapValueItem, scrapValueWeapon, scrapWeapon, sendMule, toggleLock,
+  BLUNT_KNOCK, CHARACTER, CLASSES, CLASS_LABEL, SET_BONUS, ST, WEAPONS, WEAPON_INDEX, buyBlock, fuseCost,
+  rerollCost, weaponSlots, scrapValueItem, scrapValueWeapon, offerCost, twinOf, tierUpBlock, tierUpCost, SHOT_PIERCE, STACK_BONUS,
   weaponCooldown, weaponDamage, weaponRange, type Run, type WeaponClass,
 } from '../../sim/index.ts';
+import { rec } from '../../shared/replay.ts';
 import type { FuseOutcome } from '../seam.ts';
+
+// Every action goes through the recorder, so the town can play the run again (src/shared/replay.ts).
+const { applyFusion, buy, pickUpgrade, reroll, scrapItem, scrapWeapon, sendMule, toggleLock } = rec;
 import { cap, cost, el, ic, rawsText, stamp, tier, type Kid } from './dom.ts';
 import { soundControls, type SoundControls } from './hud.ts';
 
@@ -219,13 +223,13 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     if (!w) return;
     const block = tierUpBlock(run, i);
     if (block) { refuse(block); return; }
-    if (tierUp(run, i)) { audio.play('combine'); say(`${WEAPONS[w.def].name} raised to tier ${w.tier}.`); }
+    if (rec.tierUp(run, i)) { audio.play('combine'); say(`${WEAPONS[w.def].name} raised to tier ${w.tier}.`); }
   }
   function doCombine(i: number): void {
     const w = p.weapons[i];
     if (!w || twinOf(run, i) < 0) return;
     const name = WEAPONS[w.def].name, was = w.tier;
-    if (combineWeapons(run, i)) { combined = Math.min(i, p.weapons.length - 1); audio.play('combine'); say(`Two tier ${was} made one tier ${was + 1} ${low(name)}. A slot is free.`); }
+    if (rec.combineWeapons(run, i)) { combined = Math.min(i, p.weapons.length - 1); audio.play('combine'); say(`Two tier ${was} made one tier ${was + 1} ${low(name)}. A slot is free.`); }
   }
   function doScrapItem(i: number): void {
     const it = p.items[i];

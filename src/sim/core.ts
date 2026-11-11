@@ -1,4 +1,5 @@
 // Shared plumbing: events, pools, the spatial grid, stat maths, damage.
+import { tcos, tsin } from './trig.ts';
 import { effectValue, type ItemSpec } from '../shared/item.ts';
 import { RELIC } from '../shared/content/relics.ts';
 import { PRIM, PRIMITIVES, RELIC_PRIMITIVES, STATS, type Primitive, type RawId, type StatId } from '../shared/vocab.ts';
@@ -239,7 +240,7 @@ export function spawnPickup(run: Run, x: number, y: number, kind: number, value:
   const sp = scatter * (0.4 + 0.6 * rnd(run.rng, Stream.Drop));
   slot.alive = true; slot.kind = kind; slot.value = value; slot.pulled = false; slot.claimed = -1;
   slot.x = slot.px = clampX(x); slot.y = slot.py = clampY(y);
-  slot.vx = Math.cos(ang) * sp; slot.vy = Math.sin(ang) * sp;
+  slot.vx = tcos(ang) * sp; slot.vy = tsin(ang) * sp;
 }
 
 /** Stand a fresh node at (x, y) if a slot and the live cap allow. Returns false if not. */

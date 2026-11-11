@@ -6,6 +6,8 @@ import type { Feature } from '../../shared/protocol.ts';
 import { RAWS } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import { api, onReachable } from './api.ts';
+import { nameWithTitle } from '../../shared/almanac.ts';
+import { renderAlmanac } from './almanac.ts';
 import { renderDaily } from './daily.ts';
 import { el, fmt, icon, sprites, type Kid } from './dom.ts';
 import { renderHome } from './home.ts';
@@ -95,14 +97,15 @@ export function pageHead(label: string, title: Kid, ...meta: Kid[]): HTMLElement
 
 function townHead(): HTMLElement {
   const named = app.met && app.profile.name;
-  return pageHead(named ? 'Scrip. Account of' : 'Scrip', named ? el('span', 'own', app.profile.name) : 'No account yet', app.met ? holdings() : null, soundControls());
+  return pageHead(named ? 'Scrip. Account of' : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls());
 }
 
 // ---- tabs ------------------------------------------------------------------
 
-const TAB_ORDER: TabId[] = ['stash', 'workshop', 'market', 'town', 'daily'];
-const tabName = (t: TabId): string => (t === 'stash' ? 'Stash' : FEATURE_TAB[t as Feature]);
-const openTabs = (): TabId[] => TAB_ORDER.filter((t) => t === 'stash' || app.profile.features.includes(t as Feature));
+const TAB_ORDER: TabId[] = ['stash', 'workshop', 'market', 'town', 'daily', 'almanac'];
+const tabName = (t: TabId): string => (t === 'stash' ? 'Stash' : t === 'almanac' ? 'Almanac' : FEATURE_TAB[t as Feature]);
+// The almanac opens with the first run home: before that there is nothing to write in it.
+const openTabs = (): TabId[] => TAB_ORDER.filter((t) => t === 'stash' || (t === 'almanac' ? app.profile.runs > 0 : app.profile.features.includes(t as Feature)));
 
 export function openTab(t: TabId): void {
   if (!openTabs().includes(t)) t = 'stash';
@@ -173,6 +176,7 @@ export async function loadTab(t: TabId): Promise<void> {
     else if (t === 'market') app.market = await api.market();
     else if (t === 'town') app.town = await api.town();
     else if (t === 'daily') app.daily = await api.daily();
+    else if (t === 'almanac') app.almanac = await api.almanac();
     else if (app.profile.features.includes('daily')) app.daily = await api.daily();
     else return;
   } catch (e) {
@@ -196,6 +200,7 @@ function drawTown(): void {
   else if (app.tab === 'market') renderMarket(body);
   else if (app.tab === 'town') renderTownhall(body);
   else if (app.tab === 'daily') renderDaily(body);
+  else if (app.tab === 'almanac') renderAlmanac(body);
   else renderHome(body);
 
   root.replaceChildren(townHead(), tabs(), notices(), body);
@@ -225,7 +230,7 @@ export function showTown(focusKey = 'headout'): void {
   document.body.classList.remove('in-run');
   runRoot().hidden = true;
   townRoot().hidden = false;
-  if (app.tab !== 'stash' && !app.profile.features.includes(app.tab as Feature)) app.tab = 'stash';
+  if (!openTabs().includes(app.tab)) app.tab = 'stash';
   drawTown();
   window.scrollTo(0, 0);
   (townRoot().querySelector(`[data-fk="${focusKey}"]`) as HTMLElement | null)?.focus({ preventScroll: true });

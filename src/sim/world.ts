@@ -1,4 +1,5 @@
 // Nodes, pickups, wave start and wave end.
+import { tcos, tsin } from './trig.ts';
 import { CHARACTER } from './data/characters.ts';
 import { AI, ENEMY_INDEX } from './data/enemies.ts';
 import {
@@ -83,7 +84,7 @@ function throwShards(run: Run, x: number, y: number): void {
   const a0 = rnd(run.rng, Stream.Combat) * 6.2832;
   for (let k = 0; k < n; k++) {
     const a = a0 + (k / n) * 6.2832;
-    fireShot(run, x, y, Math.cos(a), Math.sin(a), 430, dmg, SRC_SHARDS, 300, 1, 0, false, 8, 0, 0, false);
+    fireShot(run, x, y, tcos(a), tsin(a), 430, dmg, SRC_SHARDS, 300, 1, 0, false, 8, 0, 0, false);
   }
 }
 

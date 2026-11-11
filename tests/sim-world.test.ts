@@ -617,3 +617,15 @@ describe('hazard ladder', () => {
     expect(run.bossDead).toBe(true);
   });
 });
+
+describe('engine-independent trigonometry', () => {
+  it('tsin and tcos match Math.sin and Math.cos to 1e-7 over many turns', async () => {
+    const { tsin, tcos, ipow } = await import('../src/sim/trig.ts');
+    for (let x = -40; x <= 40; x += 0.0137) {
+      expect(Math.abs(tsin(x) - Math.sin(x))).toBeLessThan(1e-7);
+      expect(Math.abs(tcos(x) - Math.cos(x))).toBeLessThan(1e-7);
+    }
+    expect(ipow(1.35, 3)).toBeCloseTo(1.35 ** 3, 12);
+    expect(ipow(2, 0)).toBe(1);
+  });
+});

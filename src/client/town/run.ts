@@ -8,7 +8,7 @@ import { ApiFail, api, asFail } from './api.ts';
 import { sprites } from './dom.ts';
 import { showHomecoming } from './homecoming.ts';
 import { loadTab, showRun, showTown, watchReach } from './shell.ts';
-import { app, redraw, say, savePrefs, sayFail, setProfile } from './state.ts';
+import { app, hazardNow, redraw, say, savePrefs, sayFail, setProfile } from './state.ts';
 
 export type Mode = 'run' | 'daily' | 'practice';
 
@@ -16,6 +16,7 @@ export interface Launch {
   mode: Mode;
   character: CharacterId;
   kit: string[];
+  hazard: number;
 }
 
 /** How a finished run was received by the town. */
@@ -64,6 +65,7 @@ function localTicket(character: CharacterId): RunStartRes {
     character,
     kit: [],
     stations: app.stations,
+    hazard: 0,
     profile: app.profile,
     notice: app.worldNotice,
   };
@@ -77,8 +79,8 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
   app.notice = null;
   redraw();
 
-  const launch: Launch = { mode, character: app.character, kit: mode === 'run' ? [...app.kit] : [] };
-  savePrefs({ character: launch.character, kit: launch.kit });
+  const launch: Launch = { mode, character: app.character, kit: mode === 'run' ? [...app.kit] : [], hazard: mode === 'run' ? hazardNow() : 0 };
+  savePrefs({ character: launch.character, kit: launch.kit, hazard: app.hazard });
   const firstRun = mode === 'run' && app.profile.runs === 0;
 
   let ticket: RunStartRes | null = null;
@@ -100,7 +102,7 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
     }
     if (app.online) {
       try {
-        ticket = await api.runStart(mode, launch.character, launch.kit);
+        ticket = await api.runStart(mode, launch.character, launch.kit, launch.hazard);
       } catch (e) {
         const f = asFail(e);
         if (!f.unreachable) throw f;
@@ -111,6 +113,7 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
     if (!ticket) {
       if (mode !== 'run') throw new ApiFail('unreachable', 'The town is out of reach. The daily clearing needs it.');
       launch.kit = [];
+      launch.hazard = 0;
       ticket = localTicket(launch.character);
     } else {
       setProfile(ticket.profile);
@@ -140,7 +143,7 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
   const fuse = async (a: string, b: string): Promise<FuseOutcome> => {
     if (local) return { ok: false, code: 'unreachable', message: 'The town is out of reach. Nothing was used.' };
     try {
-      const res = await api.fuse({ a, b, ctx: 'run' });
+      const res = await api.fuse({ a, b, ctx: 'run', runId: t.runId });
       if (res.profile) setProfile(res.profile);
       return { ok: true, res };
     } catch (e) {

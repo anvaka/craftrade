@@ -32,6 +32,18 @@ export function audit(db: DB): AuditResult {
   const orphans = db.prepare('SELECT COUNT(*) AS n FROM ledger l WHERE l.player_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM players p WHERE p.id = l.player_id)').get() as { n: number };
   if (orphans.n) mismatches.push(`${orphans.n} ledger rows name a player that does not exist`);
 
+  // Marks set aside for buy orders: what went in, less what came back or was paid to sellers, must be what open orders still hold.
+  const sum = (sql: string) => (db.prepare(sql).get() as { n: number | null }).n ?? 0;
+  const heldMarks = -sum(`SELECT SUM(marks) AS n FROM ledger WHERE kind IN ('order_hold', 'order_refund')`) - sum(`SELECT SUM(marks) AS n FROM ledger WHERE kind = 'order_sale'`);
+  const openMarks = sum(`SELECT SUM((qty - filled) * price) AS n FROM orders WHERE status = 'open'`);
+  if (heldMarks !== openMarks) mismatches.push(`orders: ${openMarks} marks are owed to open orders, the ledger holds ${heldMarks}`);
+  // Raws posted as lots: what left stashes for the board, less what was bought or taken back, must be what open lots hold.
+  for (const raw of RAWS) {
+    const posted = -sum(`SELECT SUM(${raw}) AS n FROM ledger WHERE kind IN ('lot_post', 'lot_buy', 'lot_back')`);
+    const open = sum(`SELECT SUM(qty) AS n FROM listings WHERE status = 'open' AND raw = '${raw}'`);
+    if (posted !== open) mismatches.push(`lots: ${open} ${raw} is up in open lots, the ledger holds ${posted}`);
+  }
+
   const byKind: AuditResult['byKind'] = {};
   const kinds = db.prepare(`SELECT kind, ${COLS.map((c) => `SUM(${c}) AS ${c}`).join(', ')} FROM ledger GROUP BY kind ORDER BY kind`).all() as ({ kind: string } & Record<(typeof COLS)[number], number>)[];
   for (const { kind, ...rest } of kinds) byKind[kind] = rest;

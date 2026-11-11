@@ -1,9 +1,10 @@
 // The bench: upgrade picks, offers, reroll, lock, buy, scrap, fusion, mule.
 // Every function returns false (or a reason) and changes nothing if the
 // action is not allowed, so a UI can call them straight from buttons.
+import { ipow } from './trig.ts';
 import { BASE_ITEMS } from '../shared/content/items.ts';
 import { basePrice, fusionBlock, fusionBudget, itemPoints, itemTier, tierOf, type ItemSpec } from '../shared/item.ts';
-import { emptyRaws, FUSE_RAW_COST, GLYPHS, RAWS, STATS, type RawBag, type StatId } from '../shared/vocab.ts';
+import { emptyRaws, RUN_FUSE_RAW_COST, GLYPHS, RAWS, STATS, type RawBag, type StatId } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import {
   BENCH_ITEM_SHARE, LATE_PRICE, LATE_PRICE_FROM, COMMISSION_FROM, COMMISSION_MUL, COMMISSION_T4, RACK_CLASS_BIAS, RACK_WEAPON_BIAS, RARITY, RAW_PRICE,
@@ -244,7 +245,7 @@ export function rerollCost(run: Run): number {
   if (b.freeReroll) return 0;
   const w = b.index;
   // Each paid reroll costs a step more and a third more than the last, so the fifth is a real purchase.
-  const raw = (Math.floor(0.5 * w) + 1 + b.rerolls * Math.max(1, Math.floor(0.4 * w))) * Math.pow(REROLL_GROWTH, b.rerolls);
+  const raw = (Math.floor(0.5 * w) + 1 + b.rerolls * Math.max(1, Math.floor(0.4 * w))) * ipow(REROLL_GROWTH, b.rerolls);
   return Math.floor(raw * (CHARACTER[run.character].rerollMul ?? 1) * (1 - run.player.sp[SP.rerollCut] / 100));
 }
 
@@ -424,7 +425,7 @@ export interface FuseQuote {
 function fuseRaws(run: Run, tier: number): RawBag {
   if (run.bench.freeFuses > 0) return emptyRaws();
   // The anvil runs hot: each fusion already paid for at this bench adds one more set of raws to the next.
-  const c = FUSE_RAW_COST[tier], n = 1 + run.bench.fuses;
+  const c = RUN_FUSE_RAW_COST[tier], n = 1 + run.bench.fuses;
   return { timber: c.timber * n, ore: c.ore * n, hide: c.hide * n };
 }
 

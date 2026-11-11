@@ -166,8 +166,16 @@ export const TIER_AT = [0, 16, 32, 64] as const;
 export const MAX_POINTS = 110;
 export const FUSION_BONUS = 1.4;
 
-/** Raw cost of the first fusion at a bench during a run, by output tier (index 1-4). Each further fusion at the same bench costs one more set. */
+/** Raw cost of a fusion by output tier (index 1-4). The town workshop charges a multiple of this (server/config.ts). */
 export const FUSE_RAW_COST: readonly RawBag[] = [
+  emptyRaws(),
+  { timber: 2, ore: 1, hide: 1 },
+  { timber: 3, ore: 2, hide: 2 },
+  { timber: 5, ore: 4, hide: 3 },
+  { timber: 8, ore: 6, hide: 5 },
+];
+/** Raw cost of the first fusion at a bench during a run, by output tier (index 1-4). Each further fusion at the same bench costs one more set. */
+export const RUN_FUSE_RAW_COST: readonly RawBag[] = [
   emptyRaws(),
   { timber: 1, ore: 0, hide: 0 },
   { timber: 1, ore: 1, hide: 0 },

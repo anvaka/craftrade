@@ -2,7 +2,8 @@
 // ledger, and selling from the stash (post or salvage).
 
 import { effectText, isRelic, itemPoints, itemTier, type ItemSpec } from '../../shared/item.ts';
-import { KIT_CHARGES, LISTING_FEE, SALE_TAX, type Listing, type MarketActionRes, type StashItem } from '../../shared/protocol.ts';
+import { KIT_CHARGES, LISTING_FEE, SALE_TAX, type Listing, type MarketActionRes, type Order, type RawLot, type StashItem } from '../../shared/protocol.ts';
+import { LISTING_MIN_RUNS, MAX_LOT, priceCeiling } from '../../shared/rules.ts';
 import { RAWS, type RawId } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
@@ -12,8 +13,9 @@ import { act, app, redraw, say, setProfile } from './state.ts';
 import { RAW_NAME } from './words.ts';
 
 // Mirrors of server rules, used only to state numbers before a press.
-const LISTING_MIN_RUNS = 3;
 const PRICE_CAP = 100_000;
+/** The most an item may be posted for: by its points and the charges it has left. A relic has no cap. */
+const capFor = (it: StashItem): number => Math.min(PRICE_CAP, priceCeiling(it.item, it.charges));
 /** A relic has no price cap; this is only the longest figure the price field takes. */
 const RELIC_PRICE_DIGITS = 12;
 const FACTOR_MAX_QTY = 100;
@@ -26,6 +28,8 @@ const qty: Record<RawId, number> = { timber: 10, ore: 10, hide: 10 };
 const qtySet: Record<RawId, boolean> = { timber: false, ore: false, hide: false };
 let posting: { uid: string; price: string } | null = null;
 let armed: string | null = null;
+/** The raw trade form: a lot to sell or an order to buy, for one raw, at a price for each unit. */
+const lotForm: { side: 'sell' | 'want'; raw: RawId; qty: number; each: number } = { side: 'sell', raw: 'timber', qty: 20, each: 5 };
 
 function took(res: MarketActionRes): void {
   setProfile(res.profile);
@@ -45,7 +49,7 @@ export function renderMarket(root: HTMLElement): void {
   }
   if (posting && !app.profile.items.some((i) => i.uid === posting!.uid)) posting = null;
   if (armed && !app.profile.items.some((i) => i.uid === armed)) armed = null;
-  root.append(factor(), listings(), sell());
+  root.append(factor(), rawTrade(), listings(), sell());
 }
 
 // ---- the Factor ------------------------------------------------------------
@@ -131,6 +135,149 @@ function syncFactorRow(row: HTMLElement, raw: RawId): void {
   buyB.title = noBuy;
 }
 
+// ---- raws between players ----------------------------------------------------
+
+/** Lots of raws posted by players, orders for raws posted by players, and one form that posts either. */
+function rawTrade(): HTMLElement {
+  const S = sprites();
+  const m = app.market!;
+  const p = app.profile;
+  const sec = el('section', 'section', el('h2', '', 'Raws between players'));
+  const locked = p.runs < LISTING_MIN_RUNS;
+  sec.append(
+    el(
+      'p',
+      'note',
+      locked
+        ? `Trading with other players opens after ${LISTING_MIN_RUNS} runs. You have ${p.runs}. The Factor trades with anyone.`
+        : 'A lot is raws you post at a price. An order is raws you want, with the marks for them set aside when it goes up. Both sit between what the Factor pays and what he asks.',
+    ),
+  );
+  const rows: HTMLElement[] = [];
+  const lotRow = (l: RawLot): HTMLElement => {
+    const short = l.price > p.marks;
+    const action = l.mine
+      ? stamp('Withdraw', {
+          cls: 'stamp--small stamp--plain',
+          key: `wd:${l.id}`,
+          onClick: () => void act(`l:${l.id}`, 'Market', async () => { took(await api.cancel(l.id)); say('Market', `${fmt(l.qty)} ${l.raw} is back with you. The listing fee is not returned.`, 'town'); }).then((ok) => ok === undefined && void loadTab('market')),
+        })
+      : stamp('Buy', {
+          cls: 'stamp--small stamp--town',
+          key: `buy:${l.id}`,
+          sound: null,
+          disabled: !m.open || short || locked,
+          title: !m.open ? 'Trading is closed' : locked ? `${p.runs} of ${LISTING_MIN_RUNS} runs` : short ? `You have ${plural(p.marks, 'mark')}` : undefined,
+          onClick: () => void act(`l:${l.id}`, 'Market', async () => { took(await api.buy(l.id)); audio.play('buy'); say('Market', `Bought ${fmt(l.qty)} ${l.raw} for ${plural(l.price, 'mark')}.`, 'town'); }).then((ok) => ok === undefined && void loadTab('market')),
+        });
+    return el(
+      'tr',
+      l.mine ? 'is-mine' : '',
+      el('td', '', el('div', 'thing', icon(S.icon.raw[l.raw]), el('span', 'l-item', el('span', 'l-name', `Lot: ${fmt(l.qty)} ${l.raw}`), el('span', 'l-seller', 'sold by ', l.mine ? el('span', 'own', 'You') : el('span', 'who', l.seller))))),
+      el('td', 'num wide', (l.price / l.qty).toFixed(1)),
+      el('td', 'num', fmt(l.price)),
+      el('td', 'act', action),
+    );
+  };
+  const orderRow = (o: Order): HTMLElement | null => {
+    if (!o.raw) return null;
+    const raw = o.raw;
+    const left = o.qty - o.filled;
+    const can = Math.min(left, p.raws[raw]);
+    const action = o.mine
+      ? stamp('Withdraw', {
+          cls: 'stamp--small stamp--plain',
+          key: `wo:${o.id}`,
+          onClick: () => void act(`o:${o.id}`, 'Market', async () => { took(await api.cancelOrder(o.id)); say('Market', `Order withdrawn. ${plural(left * o.price, 'mark')} came back.`, 'town'); }).then((ok) => ok === undefined && void loadTab('market')),
+        })
+      : stamp(can > 0 ? `Sell ${fmt(can)}` : 'Sell', {
+          cls: 'stamp--small stamp--plain',
+          key: `fill:${o.id}`,
+          sound: null,
+          disabled: !m.open || can < 1 || locked,
+          title: !m.open ? 'Trading is closed' : locked ? `${p.runs} of ${LISTING_MIN_RUNS} runs` : can < 1 ? `You hold ${fmt(p.raws[raw])}` : `${plural(can * o.price - taxFor(can * o.price), 'mark')} after tax`,
+          onClick: () => void act(`o:${o.id}`, 'Market', async () => { took(await api.fillRaw(o.id, can)); audio.play('scrip'); say('Market', `Sold ${fmt(can)} ${raw} into the order for ${plural(can * o.price, 'mark')}, less tax.`, 'town'); }).then((ok) => ok === undefined && void loadTab('market')),
+        });
+    return el(
+      'tr',
+      o.mine ? 'is-mine' : '',
+      el('td', '', el('div', 'thing', icon(S.icon.raw[raw]), el('span', 'l-item', el('span', 'l-name', `Wanted: ${fmt(left)} ${raw}`), el('span', 'l-seller', 'wanted by ', o.mine ? el('span', 'own', 'You') : el('span', 'who', o.buyer))))),
+      el('td', 'num wide', fmt(o.price)),
+      el('td', 'num', fmt(left * o.price)),
+      el('td', 'act', action),
+    );
+  };
+  for (const l of m.lots) rows.push(lotRow(l));
+  for (const o of m.orders) {
+    const r = orderRow(o);
+    if (r) rows.push(r);
+  }
+  if (rows.length) {
+    const t = el('table', 'ledger listings lots');
+    t.append(el('tr', '', el('th', '', 'Raws'), el('th', 'num wide', 'Each'), el('th', 'num', 'Marks'), el('th', '', '')), ...rows);
+    sec.append(t);
+  } else {
+    sec.append(empty('No lots and no orders are up. Raws that players post or ask for are listed here.'));
+  }
+  if (!locked) sec.append(rawForm());
+  return sec;
+}
+
+function rawForm(): HTMLElement {
+  const m = app.market!;
+  const p = app.profile;
+  const f = lotForm;
+  const q = m.factor[f.raw];
+  const selling = f.side === 'sell';
+  f.each = Math.max(1, Math.min(q.buy, f.each));
+  const maxQty = Math.max(1, Math.min(MAX_LOT, selling ? p.raws[f.raw] : Math.floor(p.marks / f.each)));
+  f.qty = Math.max(1, Math.min(maxQty, f.qty));
+  const total = f.qty * f.each;
+  const choice = <T extends string>(name: string, opts: [T, string][], on: T, set: (v: T) => void): HTMLElement => {
+    const g = el('span', 'choice');
+    g.setAttribute('role', 'radiogroup');
+    g.setAttribute('aria-label', name);
+    for (const [v, label] of opts) {
+      const b = stamp(label, { cls: `stamp--small stamp--plain${v === on ? ' is-pressed' : ''}`, key: `raw:${name}:${v}`, sound: 'lock', onClick: () => { set(v); redraw(); } });
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(v === on));
+      g.append(b);
+    }
+    return g;
+  };
+  const short = selling ? p.raws[f.raw] < f.qty || p.marks < feeFor(total) : p.marks < total;
+  const post = stamp(selling ? `Post ${fmt(f.qty)} ${f.raw} for ${fmt(total)}` : `Order ${fmt(f.qty)} ${f.raw} for ${fmt(total)}`, {
+    cls: 'stamp--town',
+    key: 'raw:post',
+    disabled: !m.open || short || app.busy.has('rawpost'),
+    title: !m.open ? 'Trading is closed' : short ? (selling ? `You hold ${fmt(p.raws[f.raw])} ${f.raw}` : `You have ${plural(p.marks, 'mark')}`) : undefined,
+    onClick: () =>
+      void act('rawpost', 'Market', async () => {
+        if (selling) {
+          took(await api.listLot(f.raw, f.qty, total));
+          say('Market', `${fmt(f.qty)} ${f.raw} is up at ${plural(total, 'mark')}. Fee paid: ${fmt(feeFor(total))}.`, 'town');
+        } else {
+          took(await api.orderRaw(f.raw, f.qty, f.each));
+          say('Market', `Order up for ${fmt(f.qty)} ${f.raw} at ${fmt(f.each)} each. ${plural(total, 'mark')} set aside.`, 'town');
+        }
+      }),
+  });
+  return el(
+    'div',
+    'raw-form',
+    el('div', 'raw-form-row', el('span', 'label', 'I want to'), choice('side', [['sell', 'Post a lot'], ['want', 'Place an order']], f.side, (v) => void (f.side = v))),
+    el('div', 'raw-form-row', el('span', 'label', 'Raw'), choice('raw', RAWS.map((r) => [r, RAW_NAME[r]] as [RawId, string]), f.raw, (v) => void (f.raw = v))),
+    el('div', 'raw-form-row', el('span', 'label', 'Quantity'), stepper({ value: f.qty, min: 1, max: maxQty, key: 'raw:qty', label: 'quantity', onChange: (v) => { if (v !== f.qty) { f.qty = v; redraw(); } } })),
+    el('div', 'raw-form-row', el('span', 'label', 'Marks each'), stepper({ value: f.each, min: 1, max: q.buy, key: 'raw:each', label: 'marks each', onChange: (v) => { if (v !== f.each) { f.each = v; redraw(); } } }), el('span', 'note num', `The Factor pays ${fmt(q.sell)} and asks ${fmt(q.buy)}.`)),
+    el(
+      'div',
+      'raw-form-row',
+      el('span', 'post-terms num', selling ? `Fee ${fmt(feeFor(total))} now. Tax ${fmt(taxFor(total))} when it sells. You receive ${fmt(total - taxFor(total))}.` : `${plural(total, 'mark')} are set aside now and come back for whatever is not filled.`),
+      post,
+    ),
+  );
+}
+
 // ---- listings --------------------------------------------------------------
 
 function listingRow(l: Listing): HTMLElement {
@@ -151,8 +298,8 @@ function listingRow(l: Listing): HTMLElement {
         cls: 'stamp--small stamp--town',
         key: `buy:${l.id}`,
         sound: null,
-        disabled: !open || short,
-        title: !open ? 'Trading is closed' : short ? `You have ${plural(p.marks, 'mark')}` : undefined,
+        disabled: !open || short || p.runs < LISTING_MIN_RUNS,
+        title: !open ? 'Trading is closed' : p.runs < LISTING_MIN_RUNS ? `${p.runs} of ${LISTING_MIN_RUNS} runs` : short ? `You have ${plural(p.marks, 'mark')}` : undefined,
         onClick: () =>
           void act(`l:${l.id}`, 'Market', async () => {
             took(await api.buy(l.id));
@@ -220,9 +367,9 @@ function postForm(it: StashItem): HTMLElement {
   const sync = (): void => {
     const price = Number(posting!.price);
     const relic = isRelic(it.item);
-    const ok = Number.isInteger(price) && price >= 1 && (relic || price <= PRICE_CAP);
+    const ok = Number.isInteger(price) && price >= 1 && (relic || price <= capFor(it));
     if (!ok) {
-      terms.textContent = relic ? 'Set a price of 1 mark or more. A relic has no price cap.' : `Set a price from 1 to ${fmt(PRICE_CAP)} marks.`;
+      terms.textContent = relic ? 'Set a price of 1 mark or more. A relic has no price cap.' : `Set a price from 1 to ${fmt(capFor(it))} marks. The most an item can ask follows its points and its charges.`;
       confirm.textContent = 'Post';
       confirm.disabled = true;
       return;
@@ -276,7 +423,7 @@ function sell(): HTMLElement {
       'p',
       'note',
       locked
-        ? `Listings open after ${LISTING_MIN_RUNS} runs. The Factor trades with anyone. `
+        ? `Trading with other players opens after ${LISTING_MIN_RUNS} runs. You have ${p.runs}. The Factor trades with anyone. `
         : 'Post an item at your price for other players, or salvage it for a few marks. Posting takes the item out of your stash until it sells or you withdraw it. ',
     ),
   );
@@ -310,7 +457,7 @@ function sell(): HTMLElement {
                 disabled: locked || !open,
                 title: locked ? `${p.runs} of ${LISTING_MIN_RUNS} runs` : !open ? 'Trading is closed' : undefined,
                 onClick: () => {
-                  posting = { uid: it.uid, price: relic ? '' : String(Math.max(5, worth * 5)) };
+                  posting = { uid: it.uid, price: relic ? '' : String(Math.min(capFor(it), Math.max(5, worth * 5))) };
                   armed = null;
                   redraw();
                   const field = document.querySelector('[data-fk="post:price"]') as HTMLInputElement | null;

@@ -1,4 +1,5 @@
 // Spawning, enemy behaviour, hazards and enemy shots.
+import { tcos, tsin } from './trig.ts';
 import { AI, ENEMIES, ENEMY_INDEX } from './data/enemies.ts';
 import {
   ARENA_H, ARENA_PAD, ARENA_W, BURN_PERIOD_TICKS, DT, GRID_CELL, LANE_NEAR, MAX_ENEMIES, MAX_ESHOTS, MAX_HAZARDS,
@@ -97,7 +98,7 @@ function fireSpit(run: Run, e: Enemy, idx: number): void {
   // Hazard 4: volleys. Three shots in a fan instead of one.
   const shots = run.hazard >= 4 ? 3 : 1;
   for (let k = 0; k < shots; k++) {
-    const a = (k - (shots - 1) / 2) * AI.spitFan, ca = Math.cos(a), sa = Math.sin(a);
+    const a = (k - (shots - 1) / 2) * AI.spitFan, ca = tcos(a), sa = tsin(a);
     for (let i = 0; i < MAX_ESHOTS; i++) {
       const s = ss[i];
       if (s.alive) continue;
@@ -170,7 +171,7 @@ export function updateEnemies(run: Run): void {
         e.x += ux * sp; e.y += uy * sp; e.dx = ux; e.dy = uy;
         break;
       case A_SWARM: {
-        const w = Math.sin(tick * 0.11 + e.seed) * AI.gnatWobble;
+        const w = tsin(tick * 0.11 + e.seed) * AI.gnatWobble;
         let mx = ux - uy * w, my = uy + ux * w;
         const m = Math.sqrt(mx * mx + my * my) || 1;
         mx /= m; my /= m;
@@ -287,7 +288,7 @@ export function updateEnemies(run: Run): void {
           e.t2 = AI.rotShedEvery;
           for (let k = 0; k < AI.rotShed; k++) {
             const a = rnd(run.rng, Stream.Ai) * 6.2832;
-            spawnEnemy(run, T_MITE, e.x + Math.cos(a) * (e.r + 14), e.y + Math.sin(a) * (e.r + 14), 0.35);
+            spawnEnemy(run, T_MITE, e.x + tcos(a) * (e.r + 14), e.y + tsin(a) * (e.r + 14), 0.35);
           }
         }
         if (e.state === ES.Slam) {
@@ -429,7 +430,7 @@ function tusk(run: Run, e: Enemy, idx: number, pd: number, ux: number, uy: numbe
         const type = ENEMY_INDEX[s.e];
         for (let k = 0; k < s.n; k++) {
           const a = rnd(run.rng, Stream.Ai) * 6.2832, d = e.r + 30 + rnd(run.rng, Stream.Ai) * 70;
-          spawnEnemy(run, type, e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, 0.45);
+          spawnEnemy(run, type, e.x + tcos(a) * d, e.y + tsin(a) * d, 0.45);
         }
         e.state = ES.Move;
       }

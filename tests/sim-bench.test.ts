@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_ITEM } from '../src/shared/content/items.ts';
 import { basePrice, fusionBudget, itemTier } from '../src/shared/item.ts';
-import { FUSE_RAW_COST, RAWS } from '../src/shared/vocab.ts';
+import { RUN_FUSE_RAW_COST as FUSE_RAW_COST, RAWS } from '../src/shared/vocab.ts';
 import {
   addWeapon, applyFusion, buy, buyBlock, fuseCost, itemPrice, pickUpgrade, priceAt, reroll, rerollCost, scrapItem,
   scrapValueWeapon, scrapWeapon, sendMule, toggleLock, weaponPrice,

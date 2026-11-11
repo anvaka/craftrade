@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { audit } from '../../server/audit.ts';
 import type { ApiError, DailyRes, RunEndRes, RunStartRes } from '../../src/shared/protocol.ts';
+import { fnv1a } from '../../src/shared/item.ts';
 import { DAY, report, world } from './helpers.ts';
 
 const MIN = 60_000;
@@ -22,10 +23,20 @@ describe('daily clearing', () => {
 
   it('gives everyone the same seed and character, ignores kit, and changes with the date', async () => {
     const w = world();
-    const [p1, p2] = [await w.player(4), await w.player(4)];
+    const [p1, p2, p3] = [await w.player(4), await w.player(4), await w.player(4)];
+    // Practice before the scored try is on another clearing: the day's seed is first seen on the try that counts.
+    const early = (await w.post<RunStartRes>('/api/run/start', p3, { mode: 'practice', character: 'smith', kit: [] })).body;
     const a = (await w.post<RunStartRes>('/api/run/start', p1, { mode: 'daily', character: 'greenhorn', kit: ['x'] })).body;
-    const b = (await w.post<RunStartRes>('/api/run/start', p2, { mode: 'practice', character: 'smith', kit: [] })).body;
+    const b = (await w.post<RunStartRes>('/api/run/start', p2, { mode: 'daily', character: 'smith', kit: [] })).body;
     expect(a).toMatchObject({ waves: 8, kit: [], seed: b.seed, character: b.character });
+    expect(early.seed).not.toBe(a.seed);
+    expect(early.character).toBe(a.character);
+    // After the scored ticket, practice is the day's clearing.
+    expect((await w.post<RunStartRes>('/api/run/start', p1, { mode: 'practice', character: 'smith', kit: [] })).body.seed).toBe(a.seed);
+    // The seed is keyed with the server's secret: it is not a plain hash of the date.
+    expect(a.seed).not.toBe(fnv1a('daily:2026-11-11'));
+    const elsewhere = world({ secret: 'another town' });
+    expect((await elsewhere.post<RunStartRes>('/api/run/start', await elsewhere.player(4), { mode: 'daily', character: 'greenhorn', kit: [] })).body.seed).not.toBe(a.seed);
     const board = (await w.get<DailyRes>('/api/daily', p1)).body;
     expect(board).toMatchObject({ date: '2026-11-11', character: a.character, mine: null, players: 0, top: [] });
 
@@ -40,7 +51,7 @@ describe('daily clearing', () => {
     const token = await w.player(4);
     const first = await attempt(w, token, 'daily', { wavesCleared: 5, scripEarned: 300, scripHeld: 100, raws: { timber: 10, ore: 0, hide: 0 } });
     expect(first.end.daily).toEqual({ rank: 1, players: 1, scored: true });
-    expect(first.end.gained.marks).toBe(10 + 15);
+    expect(first.end.gained.marks).toBe(5 + 15); // 100 scrip held at 20 to the mark, and 3 a wave
     const after = await w.me(token);
     expect(after).toMatchObject({ runs: 5, daysPlayed: 1 });
 
@@ -70,7 +81,7 @@ describe('daily clearing', () => {
 
   it('ranks by waves, then scrip, and lists the top 20', async () => {
     const w = world();
-    const scores: [number, number][] = [[5, 100], [8, 50], [5, 300], [2, 850]];
+    const scores: [number, number][] = [[5, 100], [8, 50], [5, 300], [2, 200]];
     const tokens: string[] = [];
     for (const [waves, scrip] of scores) {
       const t = await w.player(4);
@@ -82,7 +93,7 @@ describe('daily clearing', () => {
     const board = (await w.get<DailyRes>('/api/daily', tokens[0])).body;
     expect(board.players).toBe(24);
     expect(board.top.length).toBe(20);
-    expect(board.top.slice(0, 4).map((r) => [r.waves, r.scrip])).toEqual([[8, 50], [5, 300], [5, 100], [2, 850]]);
+    expect(board.top.slice(0, 4).map((r) => [r.waves, r.scrip])).toEqual([[8, 50], [5, 300], [5, 100], [2, 200]]);
     expect(board.top[2].name).toBe((await w.me(tokens[0])).name);
     expect(board.mine).toEqual({ waves: 5, scrip: 100, rank: 3 });
     expect((await w.get<DailyRes>('/api/daily', tokens[3])).body.mine!.rank).toBe(4);

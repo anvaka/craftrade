@@ -282,10 +282,10 @@ describe('relics: the roll at run end', () => {
     const d = dice(0.5);
     const w = world({ rng: d.rng });
     const token = await w.player();
-    // An account that reports a win every 8 minutes, round the clock: 60 in 8 hours.
+    // An account that reports a win every 9 minutes, round the clock: 60 in 9 hours.
     for (let i = 0; i < 60; i++) {
       const s = await w.post<RunStartRes>('/api/run/start', token, { mode: 'run', character: 'greenhorn', kit: [] });
-      w.advance(8 * MIN);
+      w.advance(9 * MIN);
       expect((await w.post('/api/run/end', token, report(s.body.runId, WIN))).status).toBe(200);
     }
     // Only the first 40 were put to the roll. The rest still paid out.
@@ -337,7 +337,7 @@ describe('relics: the roll at run end', () => {
 
 describe('relics: the rules', () => {
   /** A world where the first win of `token` finds `id`. Returns the stash uid of the relic. */
-  async function withRelic(id: string, runs = 3) {
+  async function withRelic(id: string, runs = 30) {
     const d = dice(landOn(id));
     const w = world({ rng: d.rng });
     const token = await w.player(runs);
@@ -396,6 +396,7 @@ describe('relics: the rules', () => {
     expect((w.db.prepare('SELECT COUNT(*) AS n FROM recipes').get() as { n: number }).n).toBe(0);
     // And a relic is never the result of a recipe: no stored item has a relic effect.
     await w.grant(token, [B, C]);
+    w.fund(token, 500, 100);
     const items = (await w.me(token)).items;
     const b = items.find((i) => i.item.id === B)!, c = items.find((i) => i.item.id === C)!;
     const fused = await w.post<FuseRes>('/api/fuse', token, { a: B, b: C, ctx: 'town', uidA: b.uid, uidB: c.uid });
@@ -418,7 +419,7 @@ describe('relics: the rules', () => {
   it('can be posted with no price cap and the usual fee and tax, and keeps its number and finder', async () => {
     const { w, token, uid } = await withRelic('saddlescabbard');
     const finder = (await w.me(token)).name;
-    const buyer = await w.player(3);
+    const buyer = await w.player(30);
     // Marks for the fees and for the purchase, entered in the ledger like any other.
     const give = async (t: string, marks: number) => {
       const name = (await w.me(t)).name;
@@ -607,7 +608,7 @@ describe('relics: development and old databases', () => {
     try {
       // A version 1 file with a player, a stash item, a listing and a finished run.
       const old = new Database(path);
-      old.exec(MIGRATIONS[0]);
+      old.exec(MIGRATIONS[0] as string);
       old.pragma('user_version = 1');
       old.prepare(`INSERT INTO players (id, token_hash, name, marks, runs, created, last_seen) VALUES (1, 'h', 'Carter 412', 50, 6, 0, 0)`).run();
       old.prepare(`INSERT INTO stash (uid, player_id, item_id, charges, created) VALUES ('u1', 1, ?, 2, 0)`).run(A);

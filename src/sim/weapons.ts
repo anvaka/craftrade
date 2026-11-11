@@ -1,4 +1,5 @@
 // Player attacks: auto-targeting, melee shapes, shots.
+import { tcos } from './trig.ts';
 import {
   STACK_BONUS, BOUNCE_SEEK, BURN_SECONDS, DT, ELITE_FOCUS, SHOT_LEAD, TICK_HZ, MAX_SHOTS, MIN_COOLDOWN, NATIVE_CHAIN, ARENA_H, ARENA_W,
 } from './data/tuning.ts';
@@ -9,7 +10,7 @@ import { rnd, Stream } from './rng.ts';
 import type { Enemy, Player, Run, Shot, WeaponState } from './types.ts';
 
 const DEG = Math.PI / 180;
-const COS_HALF = WEAPONS.map((w) => Math.cos((w.width / 2) * DEG));
+const COS_HALF = WEAPONS.map((w) => tcos((w.width / 2) * DEG));
 
 /** Reach in px of a weapon for this player. */
 export function weaponRange(p: Player, def: WeaponDef): number {

@@ -82,9 +82,8 @@
 //   burst       centre          radius                    (kill burst or recoil blast)
 //
 // DETERMINISM: the same RunOptions and the same inputs give the same run,
-// bit for bit, on one JavaScript engine. Math.sin and Math.cos are used for
-// spawn scatter and gnat wobble; engines may differ in their last bit, so
-// cross-engine replay would need those replaced by a table.
+// bit for bit, on any engine: the sim step uses only IEEE-exact arithmetic (sine and cosine come
+// from src/sim/trig.ts, never Math.sin or Math.cos), so the server's replay matches a browser's run.
 
 export { createRun, step, nextWave, abandon, clearEvents, summary, stateHash, hasBadNumber, setCarry, carryLimit, carryable } from './run.ts';
 export type { RunSummary, StepInput } from './run.ts';

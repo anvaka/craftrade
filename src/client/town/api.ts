@@ -11,8 +11,8 @@
 
 import type { ItemSpec } from '../../shared/item.ts';
 import type {
-  ApiError, CharacterId, CodexRes, DailyRes, FuseReq, FuseRes, GiveRes, HelloRes, ItemsRes, MarketActionRes, MarketRes,
-  NameRes, RelicsRes, RunEndReq, RunEndRes, RunStartReq, RunStartRes, TownRes,
+  AlmanacRes, ApiError, CharacterId, CodexRes, DailyRes, FuseReq, FuseRes, GiveRes, HelloRes, ItemsRes, MarketActionRes, MarketRes,
+  NameRes, RelicsRes, RunEndReq, RunEndRes, RunStartReq, RunStartRes, TitleRes, TownRes, WorkshopRes,
 } from '../../shared/protocol.ts';
 import type { RawBag, RawId } from '../../shared/vocab.ts';
 
@@ -173,8 +173,8 @@ export const api = {
   items: (ids: string[]) => call<ItemsRes>('GET', `/api/items?ids=${encodeURIComponent(ids.join(','))}`),
   codex: () => call<CodexRes>('GET', '/api/codex'),
 
-  runStart: (mode: RunStartReq['mode'], character: CharacterId, kit: string[]) =>
-    call<RunStartRes>('POST', '/api/run/start', { mode, character, kit } satisfies RunStartReq, 3000),
+  runStart: (mode: RunStartReq['mode'], character: CharacterId, kit: string[], hazard = 0) =>
+    call<RunStartRes>('POST', '/api/run/start', { mode, character, kit, hazard } satisfies RunStartReq, 3000),
 
   /**
    * Report a finished run. Tried three times if the town cannot be reached.
@@ -185,7 +185,8 @@ export const api = {
     let last: ApiFail | null = null;
     for (let i = 0; i < 3; i++) {
       try {
-        return await call<RunEndRes>('POST', '/api/run/end', req, 5000);
+        // The town plays the run again before it answers, which can take a few seconds on a busy day.
+        return await call<RunEndRes>('POST', '/api/run/end', req, 15_000);
       } catch (e) {
         last = asFail(e);
         if (!last.unreachable) throw last;
@@ -203,7 +204,20 @@ export const api = {
   salvage: (uid: string) => call<MarketActionRes>('POST', '/api/market/salvage', { uid }),
 
   town: () => call<TownRes>('GET', '/api/town'),
-  give: (raws: Partial<RawBag>) => call<GiveRes>('POST', '/api/town/give', { raws }),
+  give: (raws: Partial<RawBag>, marks = 0) => keyed<GiveRes>('/api/town/give', marks > 0 ? { raws, marks } : { raws }),
+
+  listLot: (rawId: RawId, qty: number, price: number) => keyed<MarketActionRes>('/api/market/list', { raw: rawId, qty, price }),
+  orderRaw: (rawId: RawId, qty: number, price: number) => keyed<MarketActionRes>('/api/market/order', { raw: rawId, qty, price }),
+  orderItem: (itemId: string, price: number) => keyed<MarketActionRes>('/api/market/order', { itemId, price }),
+  fillRaw: (orderId: string, qty: number) => keyed<MarketActionRes>('/api/market/fill', { orderId, qty }),
+  fillItem: (orderId: string, uid: string) => keyed<MarketActionRes>('/api/market/fill', { orderId, uid }),
+  cancelOrder: (orderId: string) => call<MarketActionRes>('POST', '/api/market/order/cancel', { orderId }),
+
+  repair: (uid: string) => keyed<WorkshopRes>('/api/workshop/repair', { uid }),
+  expandStash: () => keyed<WorkshopRes>('/api/stash/expand', {}),
+
+  almanac: () => call<AlmanacRes>('GET', '/api/almanac'),
+  wearTitle: (title: string) => call<TitleRes>('POST', '/api/almanac/title', { title }),
 
   daily: () => call<DailyRes>('GET', '/api/daily'),
 

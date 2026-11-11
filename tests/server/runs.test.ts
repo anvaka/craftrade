@@ -24,9 +24,9 @@ describe('runs', () => {
     }));
     expect(end.status).toBe(200);
     expect(end.body.gained.raws).toEqual({ timber: 15, ore: 7, hide: 5 });
-    expect(end.body.gained.marks).toBe(13 + 3 * 12); // 1 per 10 scrip held, plus the per-wave payout
+    expect(end.body.gained.marks).toBe(6 + 3 * 12); // 1 per 20 scrip held, plus the per-wave payout
     expect(end.body.gained.items.map((i) => i.id)).toEqual([A, B, C]);
-    expect(end.body.profile).toMatchObject({ runs: 1, wins: 1, marks: 49, raws: { timber: 15, ore: 7, hide: 5 } });
+    expect(end.body.profile).toMatchObject({ runs: 1, wins: 1, marks: 42, raws: { timber: 15, ore: 7, hide: 5 } });
     expect(end.body.profile.items.every((s) => s.charges === 3)).toBe(true);
     expect(end.body.unlockedFeature).toBe('workshop');
     expect(end.body.daily).toBeUndefined();
@@ -86,7 +86,8 @@ describe('runs', () => {
     // Nothing above paid out or counted as a run.
     expect(await w.me(token)).toMatchObject({ runs: 0, marks: 0, raws: { timber: 0, ore: 0, hide: 0 }, items: [] });
 
-    // The honest version of the carried fusion is accepted.
+    // The honest version of the carried fusion is accepted: the server answered it for this run.
+    expect((await w.post<FuseRes>('/api/fuse', token, { a: B, b: A, ctx: 'run', runId: s.body.runId })).body.item.id).toBe(fused);
     const ok = await w.post<RunEndRes>('/api/run/end', token, report(s.body.runId, { wavesCleared: 8, carry: [fused, A], fusions: [[B, A, fused]] }));
     expect(ok.status).toBe(200);
     expect(ok.body.gained.items.map((i) => i.id)).toEqual([fused, A]);
@@ -118,9 +119,9 @@ describe('runs', () => {
   });
 
   it('allows a real pace and knows the boss can fall early', () => {
-    // Waves 1-3 take 75 s; a report after 65 s is within slack, after 60 s is not.
-    expect(minDurationMs(3)).toBeGreaterThan(60_000);
-    expect(minDurationMs(3)).toBeLessThanOrEqual(65_000);
+    // Waves 1-3 take 75 s. The server times the run on its own clock, so the slack is two seconds, not a tenth.
+    expect(minDurationMs(3)).toBeGreaterThan(70_000);
+    expect(minDurationMs(3)).toBeLessThanOrEqual(75_000);
     expect(minDurationMs(0)).toBe(0);
     // Wave 12 lasts 90 s on the clock but counts for much less.
     expect(minDurationMs(12) - minDurationMs(11)).toBeLessThan(20_000);
@@ -145,7 +146,7 @@ describe('runs', () => {
     await start([a.uid]);
     const third = await start([a.uid]);
     expect(third.body.kit.map((i: { id: string }) => i.id)).toEqual([A]);
-    expect(third.body.profile.items).toEqual([{ uid: b.uid, item: b.item, charges: 2 }]);
+    expect(third.body.profile.items).toEqual([{ uid: b.uid, item: b.item, charges: 2, repairs: 0 }]);
     expect((await start([a.uid])).body.code).toBe('not_owned');
   });
 
@@ -157,7 +158,7 @@ describe('runs', () => {
 
     const seen: (string | undefined)[] = [];
     for (let i = 0; i < 10; i++) {
-      const r = await w.run(token, { wavesCleared: i % 2, won: false });
+      const r = await w.run(token, { wavesCleared: i % 2, won: false, scripEarned: 20, scripHeld: 10, kills: 10 });
       seen.push(r.end.unlockedFeature ?? r.end.unlockedCharacter);
       expect(!!r.end.unlockedFeature && !!r.end.unlockedCharacter).toBe(false);
     }

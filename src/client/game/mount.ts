@@ -11,9 +11,10 @@ import { bakeAll, capDpr, type Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
 import type { ItemSpec } from '../../shared/item.ts';
 import {
-  DT, ENEMIES, HAZARD_RULES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, clearEvents, createBot, createRun, nextWave,
-  setCarry, step, summary, type Run, type SimEvent,
+  DT, ENEMIES, HAZARD_RULES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, botBench, botInput, clearEvents, createBot, createRun, nextWave,
+  step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
+import { killsOf, rec, record, replayOf } from '../../shared/replay.ts';
 import type { RunHandle, RunHost, RunRecap } from '../seam.ts';
 import { createBench } from './bench.ts';
 import { el, loadShake, saveShake, stamp } from './dom.ts';
@@ -50,7 +51,9 @@ const PK_NAME = ['scrip', 'timber', 'ore', 'hide'];
 
 export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const t = host.ticket;
-  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: (t as { hazard?: number }).hazard ?? 0 });
+  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0 } as Parameters<typeof createRun>[0]);
+  // The input log the town checks the report against. A run driven by the dev harness is not a real one and is not logged.
+  if (!Object.keys(dev).length) record(run);
   const bot = dev.bot || dev.wave || dev.bench ? createBot((t.seed ^ 0x5bd1e995) >>> 0) : null;
   const botIn = { mx: 0, my: 0 };
 
@@ -122,7 +125,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   });
 
   function startNext(): void {
-    if (!nextWave(run)) return;
+    if (!rec.nextWave(run)) return;
     bench.close();
     state = 'wave';
     acc = 0; alpha = 1; freezeT = 0;
@@ -186,7 +189,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     pauseSound?.dispose(); pauseSound = null;
     bench.close();
     quitting = true;
-    abandon(run);
+    rec.abandon(run);
     showEnd();
   }
 
@@ -201,13 +204,15 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   function finish(carried: ItemSpec[]): void {
     if (state === 'done') return;
     state = 'done';
-    setCarry(run, carried.map((i) => i.id));
+    rec.setCarry(run, carried.map((i) => i.id));
     const s = summary(run);
+    const replay = replayOf(run);
     const recap: RunRecap = {
       report: {
         wavesCleared: s.wavesCleared, won: s.won, scripEarned: s.scripEarned, scripHeld: s.scripHeld, level: s.level,
         raws: s.raws, mule: s.mule, carry: s.carry, kills: s.kills, fusions: s.fusions,
         ...(quitting ? { quit: true } : {}),
+        ...(replay ? { replay, killsBy: killsOf(run) } : {}),
       },
       killedBy: killerName(run),
       endWave: s.endWave,
@@ -343,7 +348,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
         while (acc >= DT && steps < MAX_STEPS) {
           if (bot && dev.bot) botInput(run, bot, moveIn); else input.read(moveIn);
           dev.beforeStep?.(run);
-          step(run, moveIn);
+          rec.step(run, moveIn);
           steps++;
           acc -= DT;
           drain();

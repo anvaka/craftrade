@@ -9,7 +9,7 @@ describe('identity', () => {
     expect(status).toBe(200);
     expect(body.token.length).toBeGreaterThanOrEqual(40);
     expect(body.profile.name).toMatch(/^[A-Z][a-z]+ \d{3,5}$/);
-    expect(body.profile).toMatchObject({ marks: 0, runs: 0, characters: ['greenhorn'], features: [], novelLeft: 20 });
+    expect(body.profile).toMatchObject({ marks: 0, runs: 0, characters: ['greenhorn'], features: [], novelLeft: 3, title: '', titles: [], stashUsed: 0, stashLimit: 24 });
     expect(body.stations).toEqual({ sawmill: 1, smelter: 1, tannery: 1, assay: 1 });
     expect(body.llm).toBe(false);
 
@@ -46,13 +46,18 @@ describe('identity', () => {
     const w = world();
     const token = await w.player();
     const before = (await w.me(token)).name;
-    const names = new Set<string>();
-    for (let i = 0; i < 5; i++) {
-      const res = await w.post<NameRes>('/api/name/reroll', token, { name: 'Typed By Player' });
-      names.add(res.body.profile.name);
-      expect(res.body.profile.name).toMatch(/^[A-Z][a-z]+ \d{3,5}$/);
-    }
-    expect([...names].some((n) => n !== before)).toBe(true);
+    const res = await w.post<NameRes>('/api/name/reroll', token, { name: 'Typed By Player' });
+    expect(res.body.profile.name).toMatch(/^[A-Z][a-z]+ \d{3,5}$/);
+    expect(res.body.profile.name).not.toBe('Typed By Player');
+    expect(res.body.profile.nameChangeAt).toBe(w.now() + 7 * 24 * 3600_000);
+
+    // Once a week: finder stamps and boards follow the name, so it is not changed at will.
+    const again = await w.post<ApiError>('/api/name/reroll', token);
+    expect([again.status, again.body.code]).toEqual([429, 'name_wait']);
+    expect((await w.me(token)).name).toBe(res.body.profile.name);
+    w.advance(7 * 24 * 3600_000);
+    expect((await w.post<NameRes>('/api/name/reroll', token)).status).toBe(200);
+    expect(before).toMatch(/^[A-Z][a-z]+ \d{3,5}$/);
   });
 
   it('rejects malformed bodies with 400', async () => {
@@ -68,14 +73,14 @@ describe('identity', () => {
     const w = world({ rateLimit: true });
     const token = await w.player();
     const codes: number[] = [];
-    for (let i = 0; i < 60; i++) codes.push((await w.post('/api/name/reroll', token)).status);
+    for (let i = 0; i < 60; i++) codes.push((await w.post('/api/almanac/title', token, { title: '' })).status);
     expect(codes.slice(0, 20).every((s) => s === 200)).toBe(true);
     expect(codes).toContain(429);
     // Reads are not limited.
     expect((await w.get('/api/daily', token)).status).toBe(200);
     // Time refills the bucket.
     w.advance(60_000);
-    expect((await w.post('/api/name/reroll', token)).status).toBe(200);
+    expect((await w.post('/api/almanac/title', token, { title: '' })).status).toBe(200);
 
     const made: number[] = [];
     for (let i = 0; i < 14; i++) made.push((await w.post('/api/hello')).status);
