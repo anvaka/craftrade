@@ -34,7 +34,7 @@ export const FEATURE_OPENED: Record<Feature, string> = {
   workshop: 'The workshop is open. Two stash items go on the anvil and one new item comes off.',
   market: 'The market is open. The Factor trades raws for marks, and players post items at a price.',
   daily: 'The daily clearing is open. Eight waves, the same for everyone, one scored attempt a day.',
-  town: 'The town project is open. Raws you give raise a station for every player.',
+  town: 'The town project is open. Raws you give raise a station, which pays more raws on every run.',
 };
 
 export const CONTROLS = 'You only move: WASD or the arrow keys, or drag anywhere on a touch screen. Weapons fire on their own.';

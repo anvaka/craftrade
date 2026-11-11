@@ -1,10 +1,15 @@
 import { createHash } from 'node:crypto';
 import { createApp, type AppOptions } from '../../server/app.ts';
-import { openDb } from '../../server/db.ts';
+import initSqlJs from 'sql.js';
+import { openDb, setupDb } from '../../server/db.ts';
+import { wrapSqlJs } from '../../src/client/local/sqlite.ts';
 import { ProceduralProvider } from '../../server/provider.ts';
 import { BASE_ITEMS } from '../../src/shared/content/items.ts';
 import type { HelloRes, Profile, RunEndReq, RunEndRes, RunStartReq, RunStartRes } from '../../src/shared/protocol.ts';
 import { emptyRaws } from '../../src/shared/vocab.ts';
+
+// SCRIP_DB=sqljs runs every test world on the browser's database engine (the solo world's), to prove the server code is the same on both.
+const sqljs = process.env.SCRIP_DB === 'sqljs' ? await initSqlJs() : null;
 
 export const HOUR = 3600_000;
 export const DAY = 24 * HOUR;
@@ -16,7 +21,7 @@ export const DAY = 24 * HOUR;
  */
 export function world(opts: AppOptions = {}) {
   let t = Date.UTC(2026, 10, 11, 9);
-  const db = opts.db ?? openDb(':memory:');
+  const db = opts.db ?? (sqljs ? setupDb(wrapSqlJs(new sqljs.Database()).db) : openDb(':memory:'));
   const app = createApp({ db, provider: new ProceduralProvider(), now: () => t, rateLimit: false, replay: 'off', runRate: false, ...opts });
 
   async function call<T = any>(method: 'GET' | 'POST', path: string, token?: string, body?: unknown) {

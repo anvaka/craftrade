@@ -3,7 +3,7 @@
 // their hands. A new device is one press from its first run.
 
 import { bakeAll } from '../art/index.ts';
-import { api } from './api.ts';
+import { api, isSolo } from './api.ts';
 import { setSprites } from './dom.ts';
 import { headOut, loadMountRun } from './run.ts';
 import { currentView, loadTab, showTown, watchReach } from './shell.ts';
@@ -11,6 +11,7 @@ import { app, getPrefs, redraw, setProfile } from './state.ts';
 
 /** The longest the first screen waits for the town before going on without it. */
 const HELLO_WAIT_MS = 1500;
+const SOLO_WAIT_MS = 8000;
 
 const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 
@@ -28,7 +29,8 @@ export async function boot(): Promise<void> {
 
   const first = await Promise.race([
     hello.then((res) => res, () => null),
-    new Promise<null>((r) => setTimeout(() => r(null), HELLO_WAIT_MS)),
+    // The solo world opens from this device: slower than a ping the first time, but it always arrives.
+    new Promise<null>((r) => setTimeout(() => r(null), isSolo() ? SOLO_WAIT_MS : HELLO_WAIT_MS)),
   ]);
   if (first) {
     setProfile(first.profile);

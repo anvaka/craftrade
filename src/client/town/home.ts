@@ -6,9 +6,10 @@ import { isRelic, itemPoints } from '../../shared/item.ts';
 import { DAILY_WAVES, KIT_CHARGES, KIT_SLOTS, type CharacterId, type StashItem } from '../../shared/protocol.ts';
 import { HAZARD_MARKS, MAX_HAZARD, REPAIR, canPay, kitPointCap, packItem, repairCost, stashNextCost, type Cost } from '../../shared/rules.ts';
 import { audio } from '../audio/index.ts';
-import { api } from './api.ts';
+import { SOLO_ONLY, api, isSolo } from './api.ts';
 import { charges, el, empty, finder, fmt, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
 import { headOut } from './run.ts';
+import { switchWorld } from './shell.ts';
 import { act, app, getPrefs, hazardNow, redraw, savePrefs, say, setProfile } from './state.ts';
 import { GLOSS } from '../ui/glossary.ts';
 import { setTip, term } from '../ui/tip.ts';
@@ -311,6 +312,21 @@ function account(): HTMLElement {
         }),
     }),
   );
+  if (!SOLO_ONLY) {
+    const solo = isSolo();
+    row(
+      'World',
+      el('span', '', solo ? 'Solo, on this device' : 'Shared town'),
+      stamp(solo ? 'Go to the shared town' : 'Play solo', {
+        cls: 'stamp--small stamp--plain',
+        key: 'world:switch',
+        title: solo
+          ? 'The shared town is one world for every player and needs a connection. Its save is separate: this solo save stays on the device and you can come back to it.'
+          : 'Solo is the whole game kept on this device, with a town of your own. It needs no connection. Its save is separate: this account stays in the shared town and you can come back to it.',
+        onClick: () => switchWorld(solo ? 'town' : 'solo'),
+      }),
+    );
+  }
   row('Title worn', p.title && TITLE[p.title] ? TITLE[p.title].name : el('span', 'note', 'none'));
   row('Runs', fmt(p.runs));
   row('Wins', fmt(p.wins));

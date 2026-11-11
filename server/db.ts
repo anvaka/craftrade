@@ -318,6 +318,12 @@ export function openDb(path: string): DB {
   db.pragma('synchronous = NORMAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
+  return setupDb(db);
+}
+
+/** Bring an open database up to date and seed it. For engines other than the one openDb uses (the solo world in a browser). */
+export function setupDb(db: DB): DB {
+  db.pragma('foreign_keys = ON');
   migrate(db);
   seed(db);
   return db;

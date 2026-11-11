@@ -6,7 +6,6 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { z } from 'zod';
 import { KIT_SLOTS, type ApiError, type HelloRes, type NameRes } from '../src/shared/protocol.ts';
 import { RAWS } from '../src/shared/vocab.ts';
-import { BedrockProvider, hasBedrockCredentials } from './bedrock.ts';
 import { MAX_REPLAY_CHARS } from '../src/shared/replay.ts';
 import { almanac, wearTitle } from './almanac.ts';
 import { CHARACTERS, FACTOR, LISTING, MAX_HAZARD, MAX_LOT, MODEL_TIMEOUT_MS, REPORT_CAPS } from './config.ts';
@@ -28,7 +27,7 @@ export interface AppOptions {
   /** An open database, or a path to open. Default: DB_PATH or ./data/craftrade.db. */
   db?: DB;
   dbPath?: string;
-  /** Default: Bedrock when credentials are configured, else the procedural generator. */
+  /** Default: the procedural generator. The server's entry point passes Bedrock when credentials are configured (server/default-provider.ts). */
   provider?: FusionProvider;
   now?: () => number;
   /** Default: true unless MARKET_OPEN=0. */
@@ -66,13 +65,6 @@ function loadSecret(db: DB, given: string | undefined): string {
   const value = randomBytes(32).toString('base64url');
   db.prepare(`INSERT OR IGNORE INTO meta (key, value) VALUES ('secret', ?)`).run(value);
   return (db.prepare(`SELECT value FROM meta WHERE key = 'secret'`).get() as { value: string }).value;
-}
-
-/** CRAFT_PROVIDER=procedural|bedrock forces the choice; otherwise it follows the credentials. */
-export function defaultProvider(env: NodeJS.ProcessEnv = process.env): FusionProvider {
-  const forced = env.CRAFT_PROVIDER;
-  if (forced === 'bedrock' || (forced !== 'procedural' && hasBedrockCredentials(env))) return new BedrockProvider();
-  return new ProceduralProvider();
 }
 
 // Request bodies. Everything a client sends is checked here before it is used.
@@ -131,7 +123,7 @@ export function createApp(opts: AppOptions = {}) {
   const db = opts.db ?? openDb(opts.dbPath ?? process.env.DB_PATH ?? './data/craftrade.db');
   const ctx: Ctx = {
     db,
-    provider: opts.provider ?? defaultProvider(),
+    provider: opts.provider ?? new ProceduralProvider(),
     now,
     marketOpen: opts.marketOpen ?? process.env.MARKET_OPEN !== '0',
     modelTimeoutMs: opts.modelTimeoutMs ?? MODEL_TIMEOUT_MS,
@@ -147,9 +139,11 @@ export function createApp(opts: AppOptions = {}) {
   if (ctx.relicForce) console.warn(`[relics] RELIC_FORCE=${ctx.relicForce}: every paying run report brings this relic home. Development only.`);
   // Idempotency records only need to outlive client retries: purged now and then every hour.
   purgeIdem(ctx);
-  setInterval(() => {
+  const purge = setInterval(() => {
     try { purgeIdem(ctx); } catch (err) { console.warn(`[idem] purge failed: ${(err as Error)?.message ?? err}`); }
-  }, IDEM_PURGE_EVERY_MS).unref();
+  }, IDEM_PURGE_EVERY_MS) as unknown as { unref?: () => void };
+  // In a browser a timer is a number and has nothing to unref.
+  if (typeof purge === 'object') purge.unref?.();
   const buckets = new Buckets(now);
   const limited = opts.rateLimit ?? true;
   const app = new Hono<Env>();

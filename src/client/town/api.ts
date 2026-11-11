@@ -16,7 +16,16 @@ import type {
 } from '../../shared/protocol.ts';
 import type { RawBag, RawId } from '../../shared/vocab.ts';
 
-const TOKEN_KEY = 'scrip.device';
+/**
+ * Which world this device plays in. 'town' is the shared server. 'solo' is the same game kept on this
+ * device (src/client/local/world.ts): it needs no server and works with no connection. The two have
+ * separate saves. Undecided until the first answer: a game server makes it 'town', a host with no
+ * game server makes it 'solo'. A build made with VITE_SOLO=1 is always solo.
+ */
+export type World = 'town' | 'solo';
+const WORLD_KEY = 'scrip.world';
+const TOKEN_KEYS: Record<World, string> = { town: 'scrip.device', solo: 'scrip.solo.device' };
+export const SOLO_ONLY = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_SOLO === '1';
 const DEFAULT_TIMEOUT = 4000;
 export const UNREACHABLE = 'unreachable';
 
@@ -36,20 +45,44 @@ export class ApiFail extends Error {
 export const asFail = (e: unknown): ApiFail =>
   e instanceof ApiFail ? e : new ApiFail('client_error', 'Something went wrong on this page.');
 
-let token: string | null = null;
-try {
-  token = localStorage.getItem(TOKEN_KEY);
-} catch {
-  // storage blocked: the token is kept in memory for this session
+const stored = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null; // storage blocked: kept in memory for this session
+  }
+};
+const store = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // session only
+  }
+};
+
+let world: World | null = SOLO_ONLY ? 'solo' : stored(WORLD_KEY) === 'solo' ? 'solo' : stored(WORLD_KEY) === 'town' ? 'town' : null;
+let token: string | null = stored(TOKEN_KEYS[world ?? 'town']);
+
+/** The world in use, or null before the first answer. */
+export const currentWorld = (): World | null => world;
+export const isSolo = (): boolean => world === 'solo';
+
+/** Choose the world. The page should be loaded again afterwards: everything on it belongs to the old one. */
+export function setWorld(w: World): void {
+  world = SOLO_ONLY ? 'solo' : w;
+  store(WORLD_KEY, world);
+  token = stored(TOKEN_KEYS[world]);
 }
 
 function keepToken(t: string): void {
   token = t;
-  try {
-    localStorage.setItem(TOKEN_KEY, t);
-  } catch {
-    // session only
-  }
+  store(TOKEN_KEYS[world ?? 'town'], t);
+}
+
+const loadSolo = () => import('../local/world.ts');
+/** Write the solo world to the device now. Nothing to do in the shared town. */
+export async function flushSolo(): Promise<void> {
+  if (world === 'solo') await (await (await loadSolo()).soloWorld()).flush();
 }
 
 /** True if this browser has met the server before. */
@@ -86,19 +119,17 @@ async function raw<T>(method: 'GET' | 'POST', path: string, body: unknown, timeo
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   let res: Response;
+  const solo = world === 'solo';
   try {
     const headers: Record<string, string> = {};
     if (token) headers['x-device'] = token;
     if (method === 'POST') headers['content-type'] = 'application/json';
-    res = await fetch(path, {
-      method,
-      headers,
-      body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
-      signal: ctl.signal,
-      cache: 'no-store',
-    });
-  } catch {
+    const init: RequestInit = { method, headers, body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined };
+    if (solo) res = await (await (await loadSolo()).soloWorld()).request(path, init);
+    else res = await fetch(path, { ...init, signal: ctl.signal, cache: 'no-store' });
+  } catch (err) {
     setReachable(false);
+    if (solo) throw new ApiFail(UNREACHABLE, err instanceof Error && err.name === 'SoloBusy' ? err.message : 'The save on this device could not be opened.');
     throw new ApiFail(UNREACHABLE, 'The town is out of reach.');
   } finally {
     clearTimeout(timer);
@@ -111,6 +142,8 @@ async function raw<T>(method: 'GET' | 'POST', path: string, body: unknown, timeo
   }
   if (res.ok && data !== undefined) {
     setReachable(true);
+    // The first answer from a game server settles it: this device plays in the shared town.
+    if (world === null) setWorld('town');
     return data as T;
   }
   const err = data as Partial<ApiError> | undefined;
@@ -119,6 +152,11 @@ async function raw<T>(method: 'GET' | 'POST', path: string, body: unknown, timeo
     throw new ApiFail(err.code, err.error, res.status);
   }
   // No JSON body: a proxy or a dead process answered, not the game server.
+  // On a device that has never met a game server, that means there is none here: play solo.
+  if (world === null) {
+    setWorld('solo');
+    return raw<T>(method, path, body, timeoutMs);
+  }
   setReachable(false);
   throw new ApiFail(UNREACHABLE, 'The town is out of reach.', res.status);
 }

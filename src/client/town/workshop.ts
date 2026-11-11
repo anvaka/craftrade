@@ -6,7 +6,7 @@ import { effectText, fusionBlock, fusionBudget, isRelic, itemTier, tierOf, type 
 import { KIT_CHARGES, type CodexRecipe, type FuseRes, type StashItem } from '../../shared/protocol.ts';
 import { canPay, townFuseCost } from '../../shared/rules.ts';
 import { audio } from '../audio/index.ts';
-import { api } from './api.ts';
+import { api, isSolo } from './api.ts';
 import { effectList, el, empty, finder, fmt, itemIcon, pips, plural, stamp, thing, tier, type Kid } from './dom.ts';
 import { costText } from './home.ts';
 import { app, clearNotice, redraw, sayFail, setProfile } from './state.ts';
@@ -400,7 +400,7 @@ function fillCodex(box: HTMLElement): void {
     if (rows.length > cap) box.append(el('p', 'note', `${fmt(rows.length - cap)} more. Type an item name above to find a recipe.`));
   };
   section('Your recipes', mine, 'No recipes yet. Every pair you fuse, here or at the bench in a run, is written down in this list.');
-  section('Recent finds in the world', world, mine.length ? 'Nobody else has found a recipe lately. Finds by other players are listed here as they are made.' : 'No finds yet. The first pair anyone fuses is listed here with the finder.');
+  if (!isSolo()) section('Recent finds in the world', world, mine.length ? 'Nobody else has found a recipe lately. Finds by other players are listed here as they are made.' : 'No finds yet. The first pair anyone fuses is listed here with the finder.');
 }
 
 function codex(): HTMLElement {

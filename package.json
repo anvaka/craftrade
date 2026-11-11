@@ -25,8 +25,10 @@
     "@anthropic-ai/sdk": "^1.8.0",
     "@fontsource/zilla-slab": "^5.3.0",
     "@hono/node-server": "^2.1.6",
+    "@types/sql.js": "^1.4.11",
     "better-sqlite3": "^13.0.3",
     "hono": "^4.13.17",
+    "sql.js": "^1.16.0",
     "zod": "^4.6.7"
   }
 }

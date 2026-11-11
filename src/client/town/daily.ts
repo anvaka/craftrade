@@ -1,5 +1,6 @@
 // The daily tab: today's clearing, your result, the board, and a line to copy.
 
+import { isSolo } from './api.ts';
 import { GLOSS } from '../ui/glossary.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
 import { DAILY_WAVES } from '../../shared/protocol.ts';
@@ -32,7 +33,9 @@ export function renderDaily(root: HTMLElement): void {
     el(
       'p',
       'note',
-      `${DAILY_WAVES} waves. Everyone gets the same clearing and the same bench, and kits stay home. One scored attempt a day, which pays like a run. Practice is unlimited and pays nothing.`,
+      isSolo()
+        ? `${DAILY_WAVES} waves, one clearing and one bench for the day, and kits stay home. One scored attempt a day, which pays like a run. Practice is unlimited and pays nothing. The shared town ranks the day against every player.`
+        : `${DAILY_WAVES} waves. Everyone gets the same clearing and the same bench, and kits stay home. One scored attempt a day, which pays like a run. Practice is unlimited and pays nothing.`,
     ),
   );
 

@@ -4,7 +4,8 @@
 //      AWS_REGION, AWS_BEARER_TOKEN_BEDROCK (or standard AWS credentials).
 
 import { serve } from '@hono/node-server';
-import { createApp, defaultProvider } from './app.ts';
+import { createApp } from './app.ts';
+import { defaultProvider } from './default-provider.ts';
 
 const provider = defaultProvider();
 const app = createApp({ provider, staticDir: './dist' });

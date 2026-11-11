@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defaultProvider } from '../../server/app.ts';
+import { defaultProvider } from '../../server/default-provider.ts';
 import { BedrockProvider, DEFAULT_MODEL_ID, SYSTEM_PROMPT, hasBedrockCredentials, userTurn } from '../../server/bedrock.ts';
 import { BASE_ITEMS } from '../../src/shared/content/items.ts';
 import type { ApiError, FuseRes, HelloRes } from '../../src/shared/protocol.ts';

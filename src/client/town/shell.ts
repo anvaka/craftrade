@@ -5,7 +5,7 @@
 import type { Feature } from '../../shared/protocol.ts';
 import { RAWS } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
-import { api, onReachable } from './api.ts';
+import { SOLO_ONLY, api, isSolo, onReachable, setWorld } from './api.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
 import { renderAlmanac } from './almanac.ts';
 import { renderDaily } from './daily.ts';
@@ -99,7 +99,7 @@ export function pageHead(label: string, title: Kid, ...meta: Kid[]): HTMLElement
 
 function townHead(): HTMLElement {
   const named = app.met && app.profile.name;
-  return pageHead(named ? 'Scrip. Account of' : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls());
+  return pageHead(named ? (isSolo() ? 'Scrip. Solo account of' : 'Scrip. Account of') : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls());
 }
 
 // ---- tabs ------------------------------------------------------------------
@@ -110,7 +110,7 @@ const TAB_TIP: Record<TabId, string> = {
   stash: 'Your items, your kit for the next run, and who heads out.',
   workshop: 'Fuse two stash items into one new item, and read the codex of known recipes.',
   market: 'Trade raws with the Factor, and buy or sell items with other players.',
-  town: 'Give raws to raise a station that helps every player.',
+  town: 'Give raws to raise a station. In the shared town it helps every player.',
   daily: 'Today\u2019s clearing: the same eight waves for everyone, one scored try.',
   almanac: 'Your record: what you have done, found and earned, and what the game\u2019s words mean.',
 };
@@ -157,19 +157,33 @@ function tabs(): HTMLElement {
   return nav;
 }
 
+/** Change worlds. Everything on the page belongs to the old one, so the page is loaded again. */
+export function switchWorld(w: 'town' | 'solo'): void {
+  setWorld(w);
+  location.reload();
+}
+
 // ---- notices ---------------------------------------------------------------
 
 function notices(): HTMLElement {
   const box = el('div', 'notices');
   box.setAttribute('role', 'status');
   box.setAttribute('aria-live', 'polite');
-  if (!app.online) {
+  if (!app.online && isSolo()) {
+    box.append(el('div', 'notice', el('span', 'tag', 'Save'), el('span', 'text', 'Opening the save on this device.')));
+  } else if (!app.online) {
+    const goSolo = el('button', 'stamp stamp--plain stamp--small', 'Play solo on this device');
+    goSolo.type = 'button';
+    goSolo.dataset.fk = 'world:solo';
+    setTip(goSolo, 'Solo is the whole game kept on this device, with a town of your own. It needs no connection. Its save is separate from the shared town\u2019s.');
+    goSolo.addEventListener('click', () => switchWorld('solo'));
     box.append(
       el(
         'div',
         'notice',
         el('span', 'tag', 'Town'),
-        el('span', 'text', app.met ? 'The town is out of reach. You can still head out. Nothing from a run will be saved until it answers.' : 'The town is out of reach. You can still head out as a Greenhorn. Nothing from the run will be saved.'),
+        el('span', 'text', app.met ? 'The town is out of reach. You can still head out. Nothing from a run will be saved until it answers. ' : 'The town is out of reach. You can still head out as a Greenhorn. Nothing from the run will be saved. '),
+        SOLO_ONLY ? null : goSolo,
       ),
     );
   }

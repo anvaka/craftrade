@@ -1,5 +1,6 @@
 // The town tab: the shared project, the stations, and who gave.
 
+import { isSolo } from './api.ts';
 import { GLOSS } from '../ui/glossary.ts';
 import { setTip, term } from '../ui/tip.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
@@ -21,7 +22,9 @@ export function renderTownhall(root: HTMLElement): void {
     root.append(el('section', 'section section--first', el('h2', '', 'Town project'), empty(app.online ? 'Asking after the project.' : 'The town is out of reach. The project and the stations will be here when it answers.')));
     return;
   }
-  root.append(project(), stations(), givers());
+  // Solo: the town is yours alone, so there is no table of who gave.
+  root.append(project(), stations());
+  if (!isSolo()) root.append(givers());
 }
 
 function project(): HTMLElement {
@@ -49,8 +52,8 @@ function project(): HTMLElement {
           'div',
           'note',
           station
-            ? `When it is done: ${stationDoes(station, pr.toTier).toLowerCase()}, for every player.`
-            : `Every station is at its top tier, so the town turns to works. When this is done: ${(pr.works?.perk ?? '').toLowerCase()}, for every player, for a week.`,
+            ? `When it is done: ${stationDoes(station, pr.toTier).toLowerCase()}${isSolo() ? '' : ', for every player'}.`
+            : `Every station is at its top tier, so the town turns to works. When this is done: ${(pr.works?.perk ?? '').toLowerCase()}${isSolo() ? '' : ', for every player'}, for a week.`,
         ),
       ),
     ),
@@ -131,7 +134,7 @@ function project(): HTMLElement {
   }
   sync();
   sec.append(rows, fundRow(station ? name : 'works'));
-  sec.append(el('div', 'bar', el('div', 'bar-text note', 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your ', term('standing', 'standing'), '.'), giveStamp));
+  sec.append(el('div', 'bar', el('div', 'bar-text note', isSolo() ? 'This town is yours alone: only what you give raises it. What you give is counted as your ' : 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your ', term('standing', 'standing'), '.'), giveStamp));
   return sec;
 }
 
@@ -173,7 +176,7 @@ function stations(): HTMLElement {
   const t = app.town!;
   const sec = el('section', 'section', el('h2', '', term('Stations', 'station')));
   const table = el('table', 'ledger');
-  table.append(el('tr', '', el('th', '', 'Station'), el('th', '', setTip(el('span', 'term', 'Tier'), 'A station has five tiers. The town project raises one at a time, for every player.')), el('th', '', 'Does now'), el('th', 'wide', 'At the next tier')));
+  table.append(el('tr', '', el('th', '', 'Station'), el('th', '', setTip(el('span', 'term', 'Tier'), 'A station has five tiers. The town project raises one at a time.')), el('th', '', 'Does now'), el('th', 'wide', 'At the next tier')));
   for (const id of STATION_ORDER as StationId[]) {
     const tr = t.stations[id] ?? 1;
     table.append(

@@ -1,6 +1,7 @@
 // The market tab: the Factor's table for raws, the listings as a price
 // ledger, and selling from the stash (post or salvage).
 
+import { isSolo } from './api.ts';
 import { GLOSS } from '../ui/glossary.ts';
 import { setTip, term } from '../ui/tip.ts';
 import { effectText, isRelic, itemPoints, itemTier, type ItemSpec } from '../../shared/item.ts';
@@ -51,7 +52,9 @@ export function renderMarket(root: HTMLElement): void {
   }
   if (posting && !app.profile.items.some((i) => i.uid === posting!.uid)) posting = null;
   if (armed && !app.profile.items.some((i) => i.uid === armed)) armed = null;
-  root.append(factor(), rawTrade(), listings(), sell());
+  // Solo has nobody to trade with: the Factor and salvage are the whole market.
+  if (isSolo()) root.append(factor(), sell());
+  else root.append(factor(), rawTrade(), listings(), sell());
 }
 
 // ---- the Factor ------------------------------------------------------------
@@ -424,9 +427,11 @@ function sell(): HTMLElement {
     el(
       'p',
       'note',
-      locked
-        ? `Trading with other players opens after ${LISTING_MIN_RUNS} runs. You have ${p.runs}. The Factor trades with anyone. `
-        : 'Post an item at your price for other players, or salvage it for a few marks. Posting takes the item out of your stash until it sells or you withdraw it. ',
+      isSolo()
+        ? 'Salvage an item for a few marks. Posting items for other players is part of the shared town. '
+        : locked
+          ? `Trading with other players opens after ${LISTING_MIN_RUNS} runs. You have ${p.runs}. The Factor trades with anyone. `
+          : 'Post an item at your price for other players, or salvage it for a few marks. Posting takes the item out of your stash until it sells or you withdraw it. ',
     ),
   );
   if (!p.items.length) {
@@ -451,7 +456,7 @@ function sell(): HTMLElement {
         el(
           'td',
           'act',
-          isPosting
+          isPosting || isSolo()
             ? null
             : stamp('Post', {
                 cls: 'stamp--small stamp--town',

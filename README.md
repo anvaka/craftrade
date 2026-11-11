@@ -21,6 +21,27 @@ database in `./data`.
 Production: `npm run build`, then `npm start` serves the client and the API
 from one process on `PORT` (default 8787).
 
+## Solo, offline and on a phone
+
+The built game (`npm run build`, the `dist` folder) is a plain static site.
+Put it on any static host and it plays with no game server: the first visit
+finds no server and starts a **solo world** kept on the device. Solo is the
+server's own code running in the page against SQLite in WebAssembly
+(`src/client/local`), so every town rule is the same; it has one player, a
+town project of its own, the built-in generator for untried pairs, and no
+market between players.
+
+After the first visit the whole game is cached (`src/client/sw.js`), so it
+opens and plays with no connection, and it can be added to a phone's home
+screen. The solo save lives in the browser's storage on that device.
+
+A device that meets a game server plays in the shared town instead. The
+Account section switches between the two; they are separate saves.
+`VITE_SOLO=1 npm run build` makes a build that is always solo.
+
+`SCRIP_DB=sqljs npm test` runs the server tests on the browser's database
+engine.
+
 ## Fusion and the model
 
 Untried item pairs are decided by Claude on Amazon Bedrock. Set
