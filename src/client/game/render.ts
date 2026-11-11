@@ -730,26 +730,38 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       drawSprite(ctx, S.shot.spit, snapPx(x), snapPx(y - 12), false, (s.r / 7) * 1.15 * pulse);
     }
 
-    // The elite or boss, when it is off screen: a Madder chevron on the edge it is behind.
-    if (elite && elite.alive) {
-      const ex = elite.x, ey = elite.y, m = 26 / zoom;
-      if (ex < cx || ex > cx + vw || ey < cy || ey > cy + vh) {
-        const ax = Math.max(cx + m, Math.min(cx + vw - m, ex)), ay = Math.max(cy + m + 70 / zoom, Math.min(cy + vh - m, ey));
-        const dx = ex - ax, dy = ey - ay, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, w = 11 / zoom;
-        ctx.lineWidth = OUTLINE / zoom;
-        for (let pass = 0; pass < 2; pass++) {
-          ctx.strokeStyle = pass === 0 ? INK : MADDER;
-          ctx.lineWidth = (pass === 0 ? OUTLINE * 2.4 : OUTLINE) / zoom;
-          ctx.beginPath();
-          for (let k = 0; k < 2; k++) {
-            const bx = ax - ux * k * w, by = ay - uy * k * w;
-            ctx.moveTo(bx - uy * w - ux * w * 0.8, by + ux * w - uy * w * 0.8);
-            ctx.lineTo(bx, by);
-            ctx.lineTo(bx + uy * w - ux * w * 0.8, by - ux * w - uy * w * 0.8);
-          }
-          ctx.stroke();
+    // Edge chevrons for things behind the edge of the screen: Madder for the
+    // elite or boss, Ochre for the nearest node when none is in view.
+    const edgeMark = (ex: number, ey: number, colour: string, count: number): void => {
+      const m = 26 / zoom;
+      if (!(ex < cx || ex > cx + vw || ey < cy || ey > cy + vh)) return;
+      const ax = Math.max(cx + m, Math.min(cx + vw - m, ex)), ay = Math.max(cy + m + 70 / zoom, Math.min(cy + vh - m, ey));
+      const dx = ex - ax, dy = ey - ay, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, w = 11 / zoom;
+      for (let pass = 0; pass < 2; pass++) {
+        ctx.strokeStyle = pass === 0 ? INK : colour;
+        ctx.lineWidth = (pass === 0 ? OUTLINE * 2.4 : OUTLINE) / zoom;
+        ctx.beginPath();
+        for (let k = 0; k < count; k++) {
+          const bx = ax - ux * k * w, by = ay - uy * k * w;
+          ctx.moveTo(bx - uy * w - ux * w * 0.8, by + ux * w - uy * w * 0.8);
+          ctx.lineTo(bx, by);
+          ctx.lineTo(bx + uy * w - ux * w * 0.8, by - ux * w - uy * w * 0.8);
         }
+        ctx.stroke();
       }
+    };
+    if (elite && elite.alive) edgeMark(elite.x, elite.y, MADDER, 2);
+    {
+      let best = -1, bestD = Infinity, inView = false;
+      const pl = run.player;
+      for (let i = 0; i < run.nodes.length; i++) {
+        const n = run.nodes[i];
+        if (!n.alive) continue;
+        if (n.x >= cx && n.x <= cx + vw && n.y >= cy && n.y <= cy + vh) { inView = true; break; }
+        const d2 = (n.x - pl.x) * (n.x - pl.x) + (n.y - pl.y) * (n.y - pl.y);
+        if (d2 < bestD) { bestD = d2; best = i; }
+      }
+      if (!inView && best >= 0) edgeMark(run.nodes[best].x, run.nodes[best].y, OCHRE, 1);
     }
 
     // Damage numbers, one per target, in the one typeface.

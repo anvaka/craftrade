@@ -17,7 +17,7 @@ export function renderDaily(root: HTMLElement): void {
   }
   const S = sprites();
   const p = app.profile;
-  const taken = getPrefs().dailyTaken === d.date;
+  const taken = d.taken || getPrefs().dailyTaken === d.date;
 
   const sec = el('section', 'section section--first', el('h2', '', 'Daily clearing, ', el('span', 'num', d.date)));
   sec.append(

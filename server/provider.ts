@@ -156,11 +156,12 @@ export class ProceduralProvider implements FusionProvider {
     const glyph = rnd() < 0.75 ? (rnd() < 0.5 ? a.glyph : b.glyph) : GLYPHS[Math.floor(rnd() * GLYPHS.length)];
     const nouns = NOUNS[glyph];
     const pickTag = () => (tags.length ? tags[Math.floor(rnd() * tags.length)] : MODS[Math.floor(rnd() * MODS.length)]);
-    const names = [
-      `${pickTag()} ${nouns[Math.floor(rnd() * nouns.length)]}`,
-      `${pickTag()} ${nouns[Math.floor(rnd() * nouns.length)]}`,
-      `${MODS[Math.floor(rnd() * MODS.length)]} ${nouns[Math.floor(rnd() * nouns.length)]}`,
-    ];
+    // A name never repeats a word ("charm charm").
+    const pair = (first: string): string => {
+      const rest = nouns.filter((n) => n !== first);
+      return `${first} ${(rest.length ? rest : nouns)[Math.floor(rnd() * (rest.length || nouns.length))]}`;
+    };
+    const names = [pair(pickTag()), pair(pickTag()), pair(MODS[Math.floor(rnd() * MODS.length)])];
     const outTags: string[] = [];
     for (const pool = [...tags]; pool.length && outTags.length < 3; ) outTags.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
     return { names, glyph, tags: outTags, effects };

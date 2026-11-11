@@ -74,7 +74,7 @@ export const PRIMITIVES: readonly Primitive[] = [
   stat('harvest', [3, 6, 10, 15, 22], 'tools, baskets, know-how'),
   stat('luck', [5, 10, 16, 24, 34], 'charms, coins, odd finds'),
 
-  special('thorns', 'Attackers take {v} damage', [3, 6, 10, 16, 24], C, 'spikes, burrs, barbs'),
+  special('thorns', 'Attackers take {v} damage', [8, 15, 25, 40, 60], C, 'spikes, burrs, barbs'),
   special('nodeBurst', 'Breaking a node throws {v} shards', [3, 5, 7, 10, 14], DEAR, 'splinters, blasting, quarry work'),
   special('nodeHeal', 'Breaking a node heals {v} HP', [2, 4, 6, 9, 13], C, 'forage, sap, marrow'),
   special('richNodes', '{v}% chance a node gives double', [6, 12, 18, 26, 36], C, 'prospecting, careful work'),

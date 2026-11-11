@@ -44,7 +44,7 @@ function dailyRow(): HTMLElement {
     row.append(el('div', 'bar-text', el('span', 'label', "Today's clearing"), ' ', el('span', 'note', app.online ? 'Asking the board.' : 'The board is in town, which is out of reach.')));
     return row;
   }
-  const taken = getPrefs().dailyTaken === d.date;
+  const taken = d.taken || getPrefs().dailyTaken === d.date;
   let result: Kid;
   if (d.mine) result = `${d.mine.waves} of ${DAILY_WAVES} waves, ${fmt(d.mine.scrip)} scrip, ${ordinal(d.mine.rank)} of ${fmt(d.players)}.`;
   else if (taken) result = 'Scored attempt taken, no result. Practice is open.';

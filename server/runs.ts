@@ -186,6 +186,7 @@ export function dailyBoard(ctx: Ctx, player: Player): DailyRes {
     date,
     character,
     mine: row ? { waves: row.waves, scrip: row.scrip, rank: rankOf(ctx, date, row.waves, row.scrip, row.ts) } : null,
+    taken: !!ctx.db.prepare(`SELECT 1 FROM runs WHERE player_id = ? AND mode = 'daily' AND day = ?`).get(player.id, date),
     players: dailyPlayers(ctx, date),
     top,
   };

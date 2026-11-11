@@ -152,6 +152,8 @@ export interface DailyRes {
   date: string;
   character: CharacterId;
   mine: { waves: number; scrip: number; rank: number } | null;
+  /** True once today's scored attempt has been started, finished or not. */
+  taken: boolean;
   players: number;
   top: { name: string; waves: number; scrip: number }[];
 }

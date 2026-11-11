@@ -44,6 +44,9 @@ function placeNodes(run: Run): void {
       for (let i = 0; i < MAX_NODES; i++) if (!run.nodes[i].alive) { slot = run.nodes[i]; break; }
       if (!slot) return;
       let x = 0, y = 0, ok = false;
+      // The first tree of a run stands close to the start, so the first thing
+      // a new player learns is that the clearing can be worked.
+      if (run.wave === 1 && type === NODE_TREE && k === 0) { x = ARENA_W / 2 + 230; y = ARENA_H / 2 - 110; ok = true; }
       for (let tries = 0; tries < 16 && !ok; tries++) {
         const lane = Math.floor(rnd(run.rng, Stream.Spawn) * run.laneCount);
         const mx = run.lanes[lane * 2], my = run.lanes[lane * 2 + 1];
