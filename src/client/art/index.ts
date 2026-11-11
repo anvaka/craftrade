@@ -22,7 +22,9 @@
 //   node[tree|seam|carcass].normal[0..3] .rich[0..3] .remnant .richRemnant
 //                                              stage 0 untouched, 3 nearly done
 //   pickup.scrip .timber .ore .hide
-//   shot.stone .arrow .ball .axe (spin it) .bola .spit .shard
+//   shot.stone .arrow .ball .axe (spin it) .bola .spit (turn it to its heading) .shard
+//   mark.ground .head (the player, under the feet and over the head) .tick (where a hit came from,
+//                                              turn it) .point (teaching pointer)
 //   arc.sweep[0|1] .thrust[0|1]                frame 0 the cut, 1 the after-mark;
 //                                              unit reach 48 / 58 px, scale to the weapon
 //   chip.ink[0..3] .ochre[] .madder[] .spruce[]
@@ -39,8 +41,8 @@ import { CHARACTER_IDS, boar, brute, burrower, gnat, magpie, mite, player, rotwo
 import { GLYPH_ICON, ICON_UNIT, MISC_ICON, RAW_ICON, STATION_ICON, STATION_IDS, STAT_ICON, WEAPON_ICON, WEAPON_IDS, type StationId, type WeaponId } from './icons.ts';
 import { INK, MADDER, OCHRE, SPRUCE, bake, capDpr, type Drawing, type Sprite } from './print.ts';
 import {
-  NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chip, hidePickup, orePickup,
-  rubble, scripToken, seam, shardShot, spitShot, stoneShot, stump, sweepArc, thrustArc, timberPickup, tree,
+  NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chip, hidePickup, hurtTick, orePickup,
+  playerGround, playerHead, pointer, rubble, scripToken, seam, shardShot, spitShot, stoneShot, stump, sweepArc, thrustArc, timberPickup, tree,
   type NodeId, type NodeStage,
 } from './world.ts';
 
@@ -88,6 +90,7 @@ export interface Sprites {
   node: Record<NodeId, NodeSprites>;
   pickup: { scrip: Sprite; timber: Sprite; ore: Sprite; hide: Sprite };
   shot: { stone: Sprite; arrow: Sprite; ball: Sprite; axe: Sprite; bola: Sprite; spit: Sprite; shard: Sprite };
+  mark: { ground: Sprite; head: Sprite; tick: Sprite; point: Sprite };
   arc: { sweep: Frames; thrust: Frames };
   chip: { ink: ChipSet; ochre: ChipSet; madder: ChipSet; spruce: ChipSet };
   icon: {
@@ -170,6 +173,10 @@ export function bakeAll(devicePixelRatio = 1): Sprites {
     shot: {
       stone: b('s-stone', stoneShot), arrow: b('s-arrow', arrowShot), ball: b('s-ball', ballShot), axe: b('s-axe', axeShot),
       bola: b('s-bola', bolaShot), spit: b('s-spit', spitShot), shard: b('s-shard', shardShot),
+    },
+    mark: {
+      ground: bake(dpr, 'm-ground', playerGround, { jitter: 0.3 }), head: bake(dpr, 'm-head', playerHead, { jitter: 0.3 }),
+      tick: b('m-tick', hurtTick), point: b('m-point', pointer),
     },
     arc: { sweep: two('a-sweep', sweepArc), thrust: two('a-thrust', thrustArc) },
     chip: { ink: chips(INK), ochre: chips(OCHRE), madder: chips(MADDER), spruce: chips(SPRUCE) },

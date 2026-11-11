@@ -1,0 +1,71 @@
+/*
+  The run recap's own pieces, on top of ui/theme.css and town.css. Same rules:
+  seven colours, one type family, ruled lines, no radius, shadow or blend.
+*/
+
+/* How close it was, the best so far, the next thing to aim for: one ruled
+   line each, an inked tag in front. */
+.recap-marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: var(--hair) solid var(--ink);
+}
+.recap-marks li {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 34px;
+  border-bottom: var(--hair) solid var(--ink);
+  font-size: 18px;
+}
+.recap-marks li > span:last-child {
+  padding: 5px 0;
+  min-width: 0;
+}
+.recap-marks .label {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  background: var(--ink);
+  color: var(--bone);
+  padding: 0 8px;
+}
+.recap-marks .is-close .label {
+  background: var(--madder);
+}
+.recap-marks .is-new .label {
+  background: var(--ochre);
+  color: var(--ink);
+  outline: var(--hair) solid var(--ink);
+  outline-offset: -1px;
+}
+.recap-marks .is-new {
+  font-weight: 700;
+}
+
+/* The stamps sit straight under the marks, so the next run is on the first
+   screen of a phone. */
+.stamps--main.recap-stamps {
+  margin-top: 16px;
+  padding-top: 0;
+  border-top: 0;
+}
+@media (max-width: 560px) {
+  .recap-marks li {
+    font-size: 16px;
+  }
+  .recap-marks .label {
+    min-width: 70px;
+  }
+  .stamps--main.recap-stamps .stamp {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .stamps--main.recap-stamps .note {
+    flex: 1 1 100%;
+  }
+}

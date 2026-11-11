@@ -35,7 +35,7 @@ export interface ToneOpts {
 const FLOOR = 0.0001;
 
 export class Kit {
-  readonly ac: AudioContext;
+  readonly ac: BaseAudioContext;
   readonly out: AudioNode;
   /** Pitch multiplier for this play (caller's pitch times a small random drift). */
   readonly p: number;
@@ -44,7 +44,7 @@ export class Kit {
   end = 0;
   private t0: number;
 
-  constructor(ac: AudioContext, out: AudioNode, noiseBuffer: AudioBuffer, pitch: number, t0: number) {
+  constructor(ac: BaseAudioContext, out: AudioNode, noiseBuffer: AudioBuffer, pitch: number, t0: number) {
     this.ac = ac;
     this.out = out;
     this.nbuf = noiseBuffer;

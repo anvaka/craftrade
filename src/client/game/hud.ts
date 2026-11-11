@@ -32,7 +32,16 @@ export interface Hud {
   /** One ruled line under the wave box. */
   notice(tag: string, text: string, danger?: boolean, seconds?: number): void;
   /** The teaching line near the player; '' hides it. x, y in css px. */
-  teach(text: string, x: number, y: number): void;
+  teach(text: string, x: number, y: number, danger?: boolean): void;
+  /**
+   * A card over the middle column: an elite or boss arriving, a wave cleared,
+   * the line a run ends on. One at a time; seconds <= 0 keeps it up.
+   */
+  card(tag: string, title: string, sub: string, kind: 'plain' | 'danger' | 'paid', seconds: number): void;
+  /** Css px of each edge of the stage that HUD furniture covers: top, right, bottom, left. */
+  insets(): [number, number, number, number];
+  /** The level box inks over for a moment (a level gained). */
+  levelUp(): void;
   hurt(): void;
   rebind(s: Sprites): void;
   destroy(): void;
@@ -43,14 +52,19 @@ const SEGMENTS = 16;
 export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPause: () => void): Hud {
   let S = sprites;
   const p = run.player;
-  const narrow = typeof matchMedia === 'function' && matchMedia('(max-width: 620px)').matches;
+  // Phones, upright or on their side: the short form of the line under the counters.
+  const narrow = typeof matchMedia === 'function' && matchMedia('(max-width: 960px)').matches;
 
   const bar = el('span', 'bar');
   const hpNum = el('span', 'num');
   const hp = el('div', 'hp', bar, hpNum);
   const lvLabel = el('span', 'label');
   const xp = el('div', 'meter g-xp');
-  const tl = el('div', 'g-tl', hp, el('div', 'g-lv', lvLabel, xp));
+  // Upgrade picks waiting at the bench: the count is the reward you can see coming.
+  const owed = el('span', 'g-owed');
+  owed.hidden = true;
+  const lvBox = el('div', 'g-lv', lvLabel, xp, owed);
+  const tl = el('div', 'g-tl', hp, lvBox);
 
   const waveLabel = el('span', 'label');
   const waveTime = el('span', 'time num');
@@ -70,7 +84,11 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
   elite.hidden = true;
   const notices = el('div', 'g-notices');
   notices.setAttribute('aria-live', 'polite');
-  const mid = el('div', 'g-mid', elite, notices);
+  const cardTag = el('span', 'tag'), cardTitle = el('span', 'g-card-title'), cardSub = el('span', 'g-card-sub');
+  const cardEl = el('div', 'g-card', cardTag, el('div', 'g-card-body', cardTitle, cardSub));
+  cardEl.setAttribute('role', 'status');
+  cardEl.hidden = true;
+  const mid = el('div', 'g-mid', elite, cardEl, notices);
 
   const pause = stamp('Pause', 'stamp--plain stamp--small');
   pause.addEventListener('click', () => { pause.blur(); onPause(); });
@@ -105,6 +123,7 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
   const flashT = [0, 0, 0, 0];
   let segN = -1, segOn = -1, segSh = -1, hpText = '', low = false, hurtT = 0;
   let lv = -1, xpV = -1, waveText = '', timeText = '', bankV = -1, slotSig = '';
+  let owedV = -1, lvFlashT = 0, cardT = 0, cardKeep = false;
   let eliteUid = -1, eliteV = -1;
   const slotCd: HTMLElement[] = [];
   const slotV: number[] = [];
@@ -135,6 +154,14 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
     if (hurtT > 0) { hurtT -= dt; if (hurtT <= 0) hp.classList.remove('is-hurt'); }
 
     if (p.level !== lv) { lvLabel.textContent = `Level ${p.level}`; lv = p.level; }
+    const ow = run.phase === 'wave' ? run.bench.picks : 0;
+    if (ow !== owedV) {
+      owed.hidden = ow <= 0;
+      if (ow > 0) owed.textContent = ow === 1 ? '1 pick owed' : `${ow} picks owed`;
+      owedV = ow;
+    }
+    if (lvFlashT > 0) { lvFlashT -= dt; if (lvFlashT <= 0) lvBox.classList.remove('is-flash'); }
+    if (cardT > 0 && !cardKeep) { cardT -= dt; if (cardT <= 0) cardEl.hidden = true; }
     const xv = Math.round(Math.min(1, p.xp / p.xpNext) * 40) / 40;
     if (xv !== xpV) { xp.style.setProperty('--v', String(xv)); xpV = xv; }
 
@@ -160,7 +187,8 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
     const bk = Math.round(p.bank);
     if (bk !== bankV) {
       bank.hidden = bk <= 0;
-      if (bk > 0) bank.textContent = narrow ? `${bk} banked, x2` : `${bk} banked, pays double`;
+      // Scrip left on the floor at a wave end is owed back: pickups pay double until it is made up.
+      if (bk > 0) bank.textContent = narrow ? `${bk} left behind, x2` : `${bk} left behind: pickups pay double`;
       bankV = bk;
     }
 
@@ -210,12 +238,42 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
       notices.append(n);
       notes.push({ el: n, ttl: seconds });
     },
-    teach(text, x, y) {
-      if (text !== teachText) { teach.textContent = text; teach.hidden = !text; teachText = text; }
+    teach(text, x, y, danger = false) {
+      if (text !== teachText) {
+        teach.textContent = text; teach.hidden = !text; teachText = text;
+        teach.classList.toggle('g-teach--danger', danger);
+      }
       if (!text) return;
       const rx = Math.round(x), ry = Math.round(y);
       if (rx !== teachX || ry !== teachY) { teach.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, 0)`; teachX = rx; teachY = ry; }
     },
+    card(tag, title, sub, kind, seconds) {
+      cardTag.textContent = tag;
+      cardTitle.textContent = title;
+      cardSub.textContent = sub;
+      cardSub.hidden = !sub;
+      cardEl.className = `g-card g-card--${kind}`;
+      cardEl.hidden = !title;
+      cardKeep = seconds <= 0;
+      cardT = seconds;
+      // A card and a notice saying the same thing is one line too many.
+      while (notes.length) notes.shift()!.el.remove();
+    },
+    insets() {
+      const s = stage.getBoundingClientRect();
+      let top = 0, bottom = 0;
+      for (const e of [tl, wave, tr, slots, sound.el, elite]) {
+        if (e.hidden) continue;
+        const r = e.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        if (r.top - s.top < s.height / 2) top = Math.max(top, r.bottom - s.top);
+        // At the foot only the elite bar counts (a phone on its side): the sound panel is a corner, not a band.
+        else if (e === elite) bottom = Math.max(bottom, s.bottom - r.top);
+      }
+      // Never give more than 45% of the screen to the furniture.
+      return [Math.min(top, s.height * 0.45), 0, Math.min(bottom, s.height * 0.3), 0];
+    },
+    levelUp() { lvBox.classList.add('is-flash'); lvFlashT = 0.55; },
     hurt() { hp.classList.add('is-hurt'); hurtT = 0.08; },
     rebind(s) { S = s; buildCounters(); slotSig = ''; },
     destroy() { sound.dispose(); root.remove(); teach.remove(); },

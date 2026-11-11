@@ -282,8 +282,50 @@ export const bolaShot: Drawing = (p) => {
 
 /** Enemy spit: the only round Madder shape in the game. */
 export const spitShot: Drawing = (p) => {
-  p.disc(0, 0, 5, MADDER);
-  p.dot(-1.5, -1.5, 1.2);
+  // A heavy Ink rim so it reads over a crowd of Madder bodies, and a cut tail
+  // that shows which way it flies. Faces right; the renderer turns it.
+  p.flat([-21, 0, -7, -8, -7, 8], INK);
+  p.disc(0, 0, 9, INK);
+  p.disc(0, 0, 6, MADDER);
+  p.dot(-1.8, -1.8, 1.4);
+};
+
+// --------------------------------------------------------------------- marks
+// Presentation marks drawn over the clearing. They are prints like the rest:
+// cut corners, one outline weight, the same seven colours.
+
+const ring8 = (rx: number, ry: number): number[] => {
+  const out: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    const a = ((i + 0.5) / 8) * Math.PI * 2;
+    out.push(Math.cos(a) * rx, Math.sin(a) * ry);
+  }
+  return out;
+};
+
+/** The player's ground mark: an Ink band with an Ochre line down its middle. Nothing else on the floor is a ring this heavy. */
+export const playerGround: Drawing = (p) => {
+  p.flat(ring8(29, 14), INK);
+  p.cut(ring8(20, 8.5));
+  const mid = ring8(24.5, 11.2);
+  p.line([...mid, mid[0]!, mid[1]!], false, OCHRE);
+};
+
+/** The player's head mark: an Ink pennant with an Ochre core, pointing down. Drawn over everything in the clearing. */
+export const playerHead: Drawing = (p) => {
+  p.flat([-11, -16, 11, -16, 11, -5, 0, 8, -11, -5], INK);
+  p.flat([-6, -11.5, 6, -11.5, 6, -6.5, 0, 1, -6, -6.5], OCHRE);
+};
+
+/** Where a hit came from: a Madder wedge with its point toward the source. Faces right. */
+export const hurtTick: Drawing = (p) => {
+  p.shape([-9, -11, 10, 0, -9, 11, -4, 0], MADDER);
+};
+
+/** A pointer for a teaching line: two Ochre chevrons pointing down. */
+export const pointer: Drawing = (p) => {
+  p.shape([-12, -16, 0, -6, 12, -16, 12, -9, 0, 2, -12, -9], OCHRE);
+  p.shape([-12, -2, 0, 8, 12, -2, 12, 5, 0, 16, -12, 5], OCHRE);
 };
 
 /** Antler shard. Lies where it lands and hurts to walk on. */

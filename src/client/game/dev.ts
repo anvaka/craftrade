@@ -10,16 +10,18 @@
 //   ?stuff=300       keep this many enemies alive (perf test)
 //   ?perf=1          print frame-time percentiles every 5 s (perf=2 also forces rasterisation into the measured span)
 //   ?slow=8          run time 8 times slower, to look at single frames
-//   ?first=1         first-run teaching lines
+//   ?first=1         a new device: teaching lines, nothing learned (first=keep: teach, keep what was learned)
 //   ?fuse=first|known|fail|slow   what the fake server answers (default: first, 1.2 s)
 //   ?kit=1           start with two kit items
 import { bakeAll } from '../art/index.ts';
+import { audio } from '../audio/index.ts';
 import { BASE_ITEMS } from '../../shared/content/items.ts';
 import { fusionBudget, type ItemSpec } from '../../shared/item.ts';
 import type { CharacterId, Profile } from '../../shared/protocol.ts';
 import { ARENA_H, ARENA_W, ENEMIES, ES, MAX_ENEMIES, standInFusion, type Run } from '../../sim/index.ts';
 import type { FuseOutcome, RunHost } from '../seam.ts';
 import { mount } from './mount.ts';
+import { forget } from './progress.ts';
 
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number): number => (q.has(k) ? Number(q.get(k)) || d : d);
@@ -97,7 +99,10 @@ const host: RunHost = {
 };
 
 function start(): void {
+  // ?first=1 is a new device: nothing learned, no best. Without it the harness teaches nothing.
+  if (q.get('first') === '1') forget();
   mount(host, {
+    teach: q.has('first'),
     wave: q.has('wave') ? num('wave', 1) : undefined,
     bench: q.has('bench') ? num('bench', 1) : undefined,
     bot: q.has('bot'),
@@ -106,10 +111,11 @@ function start(): void {
     slow: q.has('slow') ? num('slow', 8) : undefined,
     flush: q.get('perf') === '2',
     beforeStep: god || stuffN ? (run) => { if (god) run.player.hp = run.player.maxHp; if (stuffN) stuff(run); } : undefined,
-    expose(run, redraw) {
+    expose(run, redraw, playerScreen) {
       live = run;
-      const w = window as unknown as { __run: Run; __draw: () => void };
-      w.__run = run; w.__draw = redraw;
+      const w = window as unknown as { __run: Run; __draw: () => void; __playerScreen: () => { x: number; y: number; zoom: number } };
+      w.__run = run; w.__draw = redraw; w.__playerScreen = playerScreen;
+      (window as unknown as { __audio: typeof audio }).__audio = audio;
     },
   });
   (window as unknown as { __ready: boolean }).__ready = true;

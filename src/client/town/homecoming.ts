@@ -1,5 +1,13 @@
-// The sheet shown after a run. What came home is first; what opened is said
-// once in one line; two stamps keep the player moving.
+// The one sheet shown after a run. There is no other recap: the game half
+// hands over as soon as the run ends (it stops first only to ask what to
+// carry, when there is a choice).
+//
+// Order: how it ended, in one large line with what did it; how close it was
+// and the best so far; the two stamps, "Go again" with the focus, so death
+// to the next run is one press; what is new; what came home; the run in
+// figures.
+
+import './homecoming.css';
 
 import type { ItemSpec } from '../../shared/item.ts';
 import { DEATH_RAW_KEEP, KIT_CHARGES, type RunStartRes } from '../../shared/protocol.ts';
@@ -11,6 +19,9 @@ import { headOut, type Launch, type Report } from './run.ts';
 import { pageHead, showSheet, showTown, soundControls } from './shell.ts';
 import { app } from './state.ts';
 import { FEATURE_OPENED, RAW_NAME, characterName, characterTwist } from './words.ts';
+
+/** A press this soon after the sheet appears was meant for the run, not for "Go again". */
+const GUARD_MS = 350;
 
 export interface Homecoming {
   recap: RunRecap;
@@ -33,6 +44,7 @@ export function showHomecoming(h: Homecoming): void {
   let leaving = false;
   /** A relic is held back until everything else is on the sheet, then shown alone. */
   let relicShown = false;
+  const shownAt = performance.now();
 
   const draw = (): void => {
     const hadFocus = (document.activeElement as HTMLElement | null)?.dataset.fk;
@@ -47,7 +59,7 @@ export function showHomecoming(h: Homecoming): void {
     if (!report) report = await h.report;
   };
   const again = async (): Promise<void> => {
-    if (leaving) return;
+    if (leaving || performance.now() - shownAt < GUARD_MS) return;
     leaving = true;
     // A new ticket voids an open one, so the report must land first.
     await settle();
@@ -111,14 +123,60 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
   const practice = launch.mode === 'practice';
   const res = report?.state === 'saved' ? report.res : null;
 
-  const title = r.won ? `Cleared all ${ticket.waves} waves` : recap.killedBy ? `Died on wave ${recap.endWave}` : `Left on wave ${recap.endWave}`;
+  // One verb for a death, here and on the card the run ends on: down.
+  const title = r.won ? `All ${ticket.waves} waves cleared` : recap.killedBy ? `Down in wave ${recap.endWave}` : `Left in wave ${recap.endWave}`;
   const what = launch.mode === 'run' ? 'Homecoming' : launch.mode === 'daily' ? 'Daily clearing' : 'Daily clearing, practice';
-  const by = !r.won && recap.killedBy ? `Killed by ${article(recap.killedBy)} after ${clock(recap.seconds)}.` : `${clock(recap.seconds)} in the clearing.`;
+  const by = !r.won && recap.killedBy ? `${gotYou(recap.killedBy)} ${clock(recap.seconds)} in the clearing.` : `${clock(recap.seconds)} in the clearing.`;
 
   const out: Kid[] = [pageHead(`${what}. ${characterName(ticket.character)}`, title, el('span', 'note', by), soundControls())];
 
-  // ---- what came home ------------------------------------------------------
-  const came = el('section', 'section section--first', el('h2', '', 'Came home'));
+  // ---- how close, and the best so far ---------------------------------------
+  const marks = el('ul', 'recap-marks');
+  const mark = (tag: string, text: string, cls = ''): void => void marks.append(el('li', cls, el('span', 'label', tag), el('span', '', text)));
+  if (recap.nearMiss) mark('Close', recap.nearMiss, 'is-close');
+  const best = recap.best;
+  if (best) {
+    if (r.won && !best.wonBefore) mark('Best', best.before > 0 ? `First win. Before this your best was wave ${best.before}.` : 'First win.', 'is-new');
+    else if (r.won) mark('Best', `All ${ticket.waves} waves, again.`);
+    else if (best.beaten) mark('New best', `Wave ${best.now}. Before this it was wave ${best.before}.`, 'is-new');
+    else if (best.before <= 0) mark('Best', `Wave ${best.now}. That is the mark to beat.`);
+    else if (best.wonBefore) mark('Best', `All ${ticket.waves} waves. This run reached wave ${recap.endWave}.`);
+    else mark('Best', recap.endWave >= best.now ? `Wave ${best.now}. You matched it.` : `Wave ${best.now}. This run reached wave ${recap.endWave}.`);
+  }
+  // The next thing to aim for, said at the moment of loss.
+  if (!r.won && launch.mode === 'run') {
+    const nextAt = (Math.floor(r.wavesCleared / 4) + 1) * 4;
+    if (r.wavesCleared < 4) mark('Next', 'Clear wave 4 and one item from your build comes home with you.');
+    else if (nextAt <= ticket.waves) mark('Next', `Clear wave ${nextAt} and ${nextAt / 4} items come home.`);
+  }
+  if (marks.childElementCount) out.push(marks);
+
+  // ---- stamps: one press to the next run -------------------------------------
+  out.push(
+    el(
+      'div',
+      'stamps stamps--main recap-stamps',
+      stamp(launch.mode === 'run' ? 'Go again' : 'Go again, practice', { key: 'again', sound: 'waveStart', onClick: acts.again }),
+      stamp('To town', { cls: 'stamp--town', key: 'totown', onClick: acts.toTown }),
+      el('span', 'note', launch.mode === 'run' ? `${characterName(launch.character)}, ${launch.kit.length ? `same kit if it has charges left` : 'no kit'}.` : 'Practice is not scored.'),
+    ),
+  );
+
+  // ---- what is new, once -----------------------------------------------------
+  if (res && (res.unlockedFeature || res.unlockedCharacter)) {
+    const sec = el('section', 'section', el('h2', '', 'New in town'));
+    const list = el('ul', 'opened');
+    if (res.unlockedFeature) list.append(el('li', '', el('span', 'label', 'Opened'), el('span', '', FEATURE_OPENED[res.unlockedFeature])));
+    if (res.unlockedCharacter) {
+      const c = res.unlockedCharacter;
+      list.append(el('li', '', sprite(S.player[c].walk[0]), el('span', '', `${characterName(c)} will head out for you now. ${characterTwist(c)}`)));
+    }
+    sec.append(list);
+    out.push(sec);
+  }
+
+  // ---- what came home --------------------------------------------------------
+  const came = el('section', 'section', el('h2', '', 'Came home'));
   if (!report) {
     came.append(el('p', 'note', 'Counting at the gate.'));
   } else if (report.state === 'local') {
@@ -132,42 +190,36 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
   } else if (res) {
     const g = res.gained;
     const paid = g.marks > 0 || RAWS.some((raw) => g.raws[raw] > 0) || g.items.length > 0;
+    const anyRaw = RAWS.some((raw) => recap.rawsGathered[raw] > 0 || r.raws[raw] > 0 || r.mule[raw] > 0 || g.raws[raw] > 0);
     if (!paid && (practice || (res.daily && !res.daily.scored))) {
       came.append(el('p', 'note', 'Practice pays nothing. The scored attempt is the one that counts.'));
     } else {
+      // One table, one set of heads: gathered, sent by mule, held at the end, came home.
       const t = el('table', 'ledger came');
-      t.append(el('tr', '', el('th', '', 'Goods'), el('th', 'num wide', 'Held at the end'), el('th', 'num wide', 'Sent by mule'), el('th', 'num', 'Came home')));
-      for (const raw of RAWS) {
-        t.append(el('tr', '', el('td', '', thing(icon(S.icon.raw[raw]), RAW_NAME[raw])), el('td', 'num wide', fmt(r.raws[raw])), el('td', 'num wide', fmt(r.mule[raw])), el('td', 'num', `+${fmt(g.raws[raw])}`)));
+      const head = (text: string): HTMLElement => el('th', 'num wide', anyRaw ? text : '');
+      t.append(el('tr', '', el('th', '', anyRaw ? 'Raw' : 'Goods'), head('Gathered'), head('Sent by mule'), head('Held at the end'), el('th', 'num', 'Came home')));
+      if (anyRaw) {
+        for (const raw of RAWS) {
+          t.append(el('tr', '', el('td', '', thing(icon(S.icon.raw[raw]), RAW_NAME[raw])), el('td', 'num wide', fmt(recap.rawsGathered[raw])), el('td', 'num wide', fmt(r.mule[raw])), el('td', 'num wide', fmt(r.raws[raw])), el('td', 'num', `+${fmt(g.raws[raw])}`)));
+        }
       }
-      t.append(el('tr', 'total', el('td', '', thing(icon(S.icon.marks), 'Marks')), el('td', 'num wide', ''), el('td', 'num wide', ''), el('td', 'num', `+${fmt(g.marks)}`)));
+      t.append(el('tr', 'total', el('td', '', thing(icon(S.icon.marks), 'Marks')), el('td', 'num wide', ''), el('td', 'num wide', ''), el('td', 'num wide', ''), el('td', 'num', `+${fmt(g.marks)}`)));
       came.append(t);
-      if (!r.won && RAWS.some((raw) => r.raws[raw] > 0)) {
-        came.append(el('p', 'note', `A death keeps what the mule took and ${Math.round(DEATH_RAW_KEEP * 100)}% of what you held.`));
+      if (!anyRaw) came.append(el('p', 'note', 'No raws this time. Timber, ore and hide come from the trees, seams and carcasses in the clearing.'));
+      else if (!r.won && RAWS.some((raw) => r.raws[raw] > 0)) {
+        came.append(el('p', 'note', `Down in the clearing, you keep what the mule took and ${Math.round(DEATH_RAW_KEEP * 100)}% of the raws you held.`));
       }
+      if (g.marks > 0 && h.firstRun) came.append(el('p', 'note', 'Marks are what the town pays in: a few for every wave cleared, and one for every 10 scrip in hand at the end.'));
       if (g.items.length) {
         const list = el('ul', 'offers items');
         for (const it of g.items) list.append(itemRow(it, { actions: [el('span', 'charges', pips(KIT_CHARGES, KIT_CHARGES, 'charges'), el('span', 'label', 'Charges'))] }));
         came.append(list);
-      } else {
-        came.append(el('p', 'note', r.wavesCleared < 4 ? 'No item came home. One item can be carried for every four waves cleared.' : 'No item was carried home.'));
+      } else if (r.wavesCleared >= 4) {
+        came.append(el('p', 'note', 'No item was carried home.'));
       }
     }
   }
   out.push(came);
-
-  // ---- what opened, once ---------------------------------------------------
-  if (res && (res.unlockedFeature || res.unlockedCharacter)) {
-    const sec = el('section', 'section', el('h2', '', 'New in town'));
-    const list = el('ul', 'opened');
-    if (res.unlockedFeature) list.append(el('li', '', el('span', 'label', 'Opened'), el('span', '', FEATURE_OPENED[res.unlockedFeature])));
-    if (res.unlockedCharacter) {
-      const c = res.unlockedCharacter;
-      list.append(el('li', '', sprite(S.player[c].walk[0]), el('span', '', `${characterName(c)} will head out for you now. ${characterTwist(c)}`)));
-    }
-    sec.append(list);
-    out.push(sec);
-  }
 
   // ---- daily ---------------------------------------------------------------
   if (res?.daily) {
@@ -192,32 +244,22 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
   // ---- a relic, last and alone ----------------------------------------------
   if (res?.relic && relicShown) out.push(relicSection(res.relic));
 
-  // ---- stamps --------------------------------------------------------------
-  out.push(
-    el(
-      'div',
-      'stamps stamps--main',
-      stamp(launch.mode === 'run' ? 'Go again' : 'Go again, practice', { key: 'again', sound: 'waveStart', onClick: acts.again }),
-      stamp('To town', { cls: 'stamp--town', key: 'totown', onClick: acts.toTown }),
-      el('span', 'note', launch.mode === 'run' ? `${characterName(launch.character)}, ${launch.kit.length ? `same kit if it has charges left` : 'no kit'}.` : 'Practice is not scored.'),
-    ),
-  );
-
   // ---- the run in figures --------------------------------------------------
   const figures = el('dl', 'stats');
   const row = (name: string, value: string): void => void figures.append(el('div', '', el('dt', '', name), el('dd', 'num', value)));
   row('Waves cleared', `${r.wavesCleared} of ${ticket.waves}`);
+  row('Time in the clearing', clock(recap.seconds));
   row('Level', String(r.level));
   row('Kills', fmt(r.kills));
   row('Scrip earned', fmt(r.scripEarned));
-  row('Scrip in hand at the end', fmt(r.scripHeld));
+  if (r.scripHeld > 0) row('Scrip in hand at the end', fmt(r.scripHeld));
   row('Damage taken', fmt(recap.damageTaken));
   const top = [...recap.damageBy].sort((a, b) => b.damage - a.damage).slice(0, 4);
   for (const d of top) row(`Damage by ${d.name.toLowerCase()}`, fmt(d.damage));
   out.push(el('section', 'section', el('h2', '', 'The run in figures'), figures));
 
   if (h.firstRun && res) {
-    out.push(el('p', 'note foot', 'Your account is kept on this device. There is nothing to sign.'));
+    out.push(el('p', 'note foot', 'Your account is kept on this device. There is no sign-up and no password.'));
   }
   return out;
 }
@@ -226,9 +268,11 @@ function line(tag: string, text: string): HTMLElement {
   return el('div', 'notice', el('span', 'tag', tag), el('span', 'text', text));
 }
 
-function article(name: string): string {
+/** "A mite got you.", "Old Tusk got you.": the same words as the card the run ended on. */
+function gotYou(name: string): string {
   const n = name.trim();
-  if (/^(the|old) /i.test(n)) return n;
+  if (/^(the|old) /i.test(n)) return `${n} got you.`;
   const low = n.toLowerCase();
-  return `${/^[aeiou]/.test(low) ? 'an' : 'a'} ${low}`;
+  if (/s$/.test(low) || low === 'burn') return `${low[0]!.toUpperCase()}${low.slice(1)} got you.`;
+  return `${/^[aeiou]/.test(low) ? 'An' : 'A'} ${low} got you.`;
 }
