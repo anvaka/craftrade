@@ -1,6 +1,8 @@
 // The sheet shown after a run. What came home is first; what opened is said
 // once in one line; two stamps keep the player moving.
 
+import { TITLE } from '../../shared/almanac.ts';
+import { plural } from './dom.ts';
 import type { ItemSpec } from '../../shared/item.ts';
 import { DEATH_RAW_KEEP, KIT_CHARGES, type RunStartRes } from '../../shared/protocol.ts';
 import { RAWS } from '../../shared/vocab.ts';
@@ -142,6 +144,9 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
       }
       t.append(el('tr', 'total', el('td', '', thing(icon(S.icon.marks), 'Marks')), el('td', 'num wide', ''), el('td', 'num wide', ''), el('td', 'num', `+${fmt(g.marks)}`)));
       came.append(t);
+      if (res.paid === false) came.append(line('Town', 'This run was over the limit of paying runs for the hour or the day, or was over in seconds. It paid nothing and was not counted.'));
+      if (res.salvaged) came.append(line('Stash', `The stash was full. ${plural(res.salvaged.items, 'item')} did not fit and ${res.salvaged.items === 1 ? 'was' : 'were'} salvaged for ${plural(res.salvaged.marks, 'mark')}.`));
+      if (res.replay === 'mismatch') came.append(line('Report', 'The town played the run again from its log and came to a different result. The report was taken as unchecked.'));
       if (!r.won && RAWS.some((raw) => r.raws[raw] > 0)) {
         came.append(el('p', 'note', `A death keeps what the mule took and ${Math.round(DEATH_RAW_KEEP * 100)}% of what you held.`));
       }
@@ -157,9 +162,11 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
   out.push(came);
 
   // ---- what opened, once ---------------------------------------------------
-  if (res && (res.unlockedFeature || res.unlockedCharacter)) {
+  if (res && (res.unlockedFeature || res.unlockedCharacter || res.hazardOpened || res.titles?.length)) {
     const sec = el('section', 'section', el('h2', '', 'New in town'));
     const list = el('ul', 'opened');
+    if (res.hazardOpened) list.append(el('li', '', el('span', 'label', 'Hazard'), el('span', '', `Hazard ${res.hazardOpened} is open for the ${characterName(ticket.character)}. It pays more marks and lets a packed item bring more of itself.`)));
+    for (const id of res.titles ?? []) if (TITLE[id]) list.append(el('li', '', el('span', 'label', 'Title'), el('span', '', `Earned: "${TITLE[id].name}". ${TITLE[id].how} It can be worn from the almanac.`)));
     if (res.unlockedFeature) list.append(el('li', '', el('span', 'label', 'Opened'), el('span', '', FEATURE_OPENED[res.unlockedFeature])));
     if (res.unlockedCharacter) {
       const c = res.unlockedCharacter;

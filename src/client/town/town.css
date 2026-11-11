@@ -924,3 +924,169 @@ p.num,
     width: 52px;
   }
 }
+
+/* ---- hazard, shelves, almanac, raws between players ------------------------ */
+
+/* Six tabs do not fit a phone in one line: they take a second one. */
+@media (max-width: 520px) {
+  .tabs {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .tab {
+    min-height: 44px;
+  }
+}
+
+/* .hazards: six squares, 0 to 5. The one going is inked; a won one carries a
+   notch; a shut one is hatched. */
+.hazards {
+  display: flex;
+  gap: 6px;
+}
+.hazard {
+  appearance: none;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: var(--rule) solid var(--ink);
+  background: var(--bone);
+  color: var(--ink);
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hazard.is-on {
+  background: var(--ink);
+  color: var(--bone);
+}
+.hazard.is-won::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 7px;
+  height: 7px;
+  background: var(--ochre);
+  outline: 1px solid var(--ink);
+}
+.hazard:disabled {
+  cursor: default;
+  border-width: var(--hair);
+  background-image: var(--hatch);
+  color: var(--ink);
+}
+.hazard:not(:disabled):active {
+  transform: translate(var(--press), var(--press));
+}
+.bar--hazard .bar-text,
+.bar--shelf .bar-text,
+.bar--fund .bar-text {
+  font-size: 16px;
+}
+.packs {
+  display: block;
+  font-style: italic;
+}
+
+/* .almanac: a list name, a ruled meter, a figure. */
+.almanac {
+  border-top: var(--hair) solid var(--ink);
+  margin-top: 8px;
+}
+.almanac-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) 104px;
+  gap: 6px 14px;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.a-name {
+  font-weight: 700;
+}
+.a-fig {
+  text-align: right;
+  font-size: 17px;
+}
+.a-open {
+  font-size: 15px;
+}
+.ladder-pips i {
+  width: 16px;
+  height: 16px;
+}
+.titles .t-name {
+  display: block;
+  font-weight: 700;
+}
+.titles .t-how {
+  display: none;
+}
+.titles tr.is-shut .t-name {
+  font-weight: 400;
+}
+.titles td.act .stamp {
+  min-width: 64px;
+}
+.perks .label {
+  background: var(--woad);
+  color: var(--bone);
+  padding: 2px 7px;
+}
+
+/* .raw-form: post a lot or place an order. One ruled line per choice. */
+.raw-form {
+  margin-top: 10px;
+  border-top: var(--rule) solid var(--ink);
+}
+.raw-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.raw-form-row > .label {
+  flex: 0 0 92px;
+}
+.raw-form-row .post-terms {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 700px) {
+  .almanac-row {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+  .almanac-row .meter,
+  .almanac-row .a-open {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .titles .t-how {
+    display: block;
+  }
+}
+@media (pointer: coarse) {
+  .choice .stamp,
+  .raw-form .stamp,
+  .bar--shelf .stamp,
+  .bar--fund .stamp,
+  .titles td.act .stamp,
+  .items .buy .stamp {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

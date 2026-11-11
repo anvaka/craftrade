@@ -5,28 +5,83 @@ import type { RawBag, RawId } from '../src/shared/vocab.ts';
 
 /** Wave durations in seconds, DESIGN.md 3.1. */
 export const WAVE_SECONDS = [20, 25, 30, 35, 40, 45, 50, 55, 60, 60, 60, 90];
-/** Killing the boss ends wave 12 early, so it only counts this much. */
-export const BOSS_WAVE_MIN_SECONDS = 15;
-/** A run report may arrive this much sooner than its waves add up to. */
-export const DURATION_SLACK = { fraction: 0.1, seconds: 3 };
+
+/**
+ * Plausibility caps for a run report, by waves cleared (index 0..12).
+ * Each entry is 1.5 times the largest value any bot run produced by the end
+ * of the wave the run died in (the wave after the last one cleared), over all
+ * six characters: 1,800 expert runs, 720 average runs, and 720 runs each with
+ * tier 5 stations and with two cap-point kit items at full strength
+ * (`npx tsx tools/exp/meta/maxima.ts`, tables from maxima-report.ts).
+ * A report over a cap is refused. Re-measure whenever src/sim balance changes.
+ */
+export const REPORT_CAPS = {
+  /** Scrip earned over the whole run. */
+  scripEarned: [45, 135, 225, 390, 610, 945, 1320, 2050, 2950, 4165, 5560, 6445, 6445],
+  /** Enemies killed. */
+  kills: [40, 125, 200, 310, 455, 590, 820, 1395, 1915, 2665, 3380, 4765, 4765],
+  /** All raws, held plus mule, with every station at tier 1. */
+  rawsTotal: [18, 32, 60, 87, 122, 156, 185, 185, 210, 210, 210, 210, 210],
+  /** One raw, held plus mule, with its station at tier 1. */
+  rawsEach: [9, 18, 30, 42, 57, 71, 83, 84, 105, 113, 120, 120, 120],
+  /** Each station tier above 1 adds this share to the raw caps (measured at tier 5, then spread evenly). */
+  rawsPerStationTier: 0.69,
+  /** Fusions made in one run. */
+  fusions: 24,
+};
+/**
+ * Scrip held pays marks, and a forger can claim any amount up to what was
+ * earned. So the part that pays is clamped, not refused: 1.25 times the most
+ * any bot held at that point. An honest hoarder over it loses the excess.
+ */
+export const SCRIP_PAID_CAP = [35, 100, 115, 165, 225, 295, 385, 765, 1265, 1765, 2110, 3240, 3240];
+/**
+ * What a run that the server has not played again is paid for, at most: the
+ * 75th percentile of ordinary bot runs (no kit, tier 1 stations) at that
+ * point. With replay checking on, a report without a matching replay is still
+ * taken, but it cannot pay better than an ordinary run. Raws scale with
+ * station tier like the caps above.
+ */
+export const UNCHECKED_PAY = { scripHeld: [22, 56, 61, 88, 130, 156, 198, 392, 485, 722, 1019, 1244, 1244], rawsTotal: [9, 13, 21, 29, 39, 52, 55, 56, 56, 56, 56, 56, 56],
+  /** An unchecked run carries home one item for this many waves cleared (a checked one: every four), and none of tier 4. */
+  wavesPerItem: 6,
+};
+/** Shortest boss wave any bot managed (5.2 s, with two cap-point kit items), with slack taken off. Killing the boss ends wave 12 early. */
+export const BOSS_WAVE_MIN_SECONDS = 3;
+/** A report sooner than this pays nothing. The fastest death of a player who never moves, and of any bot, is 10.3 s. */
+export const MIN_REPORT_SECONDS = 6;
+/** The server times a run on its own clock from start to report, so only a little slack is needed. */
+export const DURATION_SLACK_SECONDS = 2;
 export const TICKET_TTL_MS = 6 * 3600 * 1000;
 
-/** Plausibility bounds for a run report, per wave attempted. */
-export const BOUNDS = {
-  rawPerWave: 40,
-  rawTotalPerWave: 90,
-  scripPerWave: 500,
-  killsPerWave: 600,
-  fusions: 60,
-};
+/**
+ * Paying runs per account, and per address, in a rolling window. A run over
+ * the limit can still be played and reported; it pays nothing and does not
+ * count. Twelve an hour is more than twice what a person can play.
+ */
+export const RUN_RATE = { perHour: 12, perDay: 80, ipMul: 3 };
 
 export const MARKS_PER_WAVE = 3;
-export const SCRIP_PER_MARK = 10;
+/** Scrip held at the end pays one mark for this much. It was 10: hoarding scrip on the last wave paid better than spending it. */
+export const SCRIP_PER_MARK = 20;
+
+// Hazard, the kit cap, the sinks and the market gates are shared with the town pages: src/shared/rules.ts.
+export {
+  HAZARD_MARKS, KIT_POINT_CAP, LISTING_MARKS_PER_POINT, LISTING_MIN_RUNS, MAX_HAZARD, MAX_LOT, NAME_REROLL_MS, RELIC_TRADE, REPAIR, STASH,
+  TOWN_FUND_PER_DAY, TOWN_FUSE_MARKS, TOWN_FUSE_RAW_MUL, kitPointCap, priceCeiling, repairCost, stashLimit, stashNextCost, townFuseCost,
+} from '../src/shared/rules.ts';
 
 export const CHARACTERS: CharacterId[] = ['greenhorn', 'sawyer', 'smith', 'trapper', 'tinker', 'clerk'];
 /** Feature unlocked by finishing run N (DESIGN.md 5.5). Run 2 unlocks a character. */
 export const FEATURE_AT: Record<Feature, number> = { workshop: 1, market: 3, daily: 4, town: 5 };
-export const LISTING_MIN_RUNS = 3;
+/**
+ * An account with fewer paid runs than this is new: what it may pay out and
+ * take in through other players in one day is capped, so marks cannot be
+ * funnelled through throwaway accounts.
+ */
+export const NEW_ACCOUNT = { runs: 30, marksPerDay: 600 };
+/** Untried pairs a day for an account with fewer than `runs` paid runs. */
+export const NOVICE_NOVEL = { runs: 5, perDay: 3 };
 
 export function featuresFor(runs: number): Feature[] {
   return (Object.keys(FEATURE_AT) as Feature[]).filter((f) => runs >= FEATURE_AT[f]);
@@ -43,17 +98,23 @@ export const FACTOR = {
   sellMul: 0.5, // the player receives this multiple of the reference
   drift: 0.0015, // reference moves by this fraction per unit of net trade
   clamp: 3, // reference stays within base / clamp .. base * clamp
-  revert: 0.1, // pull toward base at each day change
-  dailyBase: 150, // units per side per raw per day, times active players
+  revert: 0.25, // ease toward base at each day change
+  dailyBase: 150, // units per side per raw per day, for each player on their own
   maxQty: 100, // per request
 };
 export const LISTING = {
   maxPrice: 100_000,
   maxOpen: 20,
+  /** Open buy orders per player. */
+  maxOrders: 10,
   /** A relic has no price cap. This is only the largest whole number of marks the books will write down. */
   relicBookLimit: 1_000_000_000_000,
 };
-/** Share of sale tax, in marks, that turns into town project progress (1 mark = 1 raw). */
+/**
+ * Share of sale tax that goes to the town project. The town spends it at the
+ * Factor's selling price, so a mark of tax buys far less than a raw: trading
+ * an item back and forth is a worse way to build than buying raws and giving them.
+ */
 export const TAX_TO_TOWN = 0.5;
 
 // Town.
@@ -70,6 +131,21 @@ export const PROJECT_UNIT: Record<StationId, RawBag> = {
 /** Half the active players are assumed to give. Never below one player's worth. */
 export const projectScale = (activePlayers: number) => Math.max(1, Math.ceil(activePlayers * 0.5));
 export const ACTIVE_WINDOW_MS = 7 * 24 * 3600 * 1000;
+
+/**
+ * Works: what the town builds once every station is at its top tier, one
+ * after another, for ever. Each finished works gives everyone a small perk
+ * for a week. Targets are per assumed giver, like station projects.
+ */
+export type WorksId = 'fair' | 'beacon' | 'bridge' | 'granary';
+export const WORKS: { id: WorksId; name: string; perk: string; need: RawBag }[] = [
+  { id: 'fair', name: 'Hold a fair', perk: 'No listing fee', need: { timber: 140, ore: 60, hide: 100 } },
+  { id: 'beacon', name: 'Light the beacon', perk: 'Five more untried pairs a day', need: { timber: 160, ore: 80, hide: 60 } },
+  { id: 'bridge', name: 'Mend the bridge', perk: 'The Factor pays a fifth more for raws', need: { timber: 120, ore: 140, hide: 40 } },
+  { id: 'granary', name: 'Fill the granary', perk: 'Repairs cost a quarter less', need: { timber: 80, ore: 60, hide: 160 } },
+];
+export const WORKS_PERK_MS = 7 * 24 * 3600 * 1000;
+export const PERK = { beaconNovel: 5, bridgeSellMul: 1.2, granaryRepair: 0.75 };
 
 // Fusion.
 export const MODEL_TIMEOUT_MS = 8000;

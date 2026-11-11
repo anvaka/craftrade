@@ -23,6 +23,7 @@ export async function boot(): Promise<void> {
   const prefs = getPrefs();
   if (prefs.character) app.character = prefs.character;
   if (prefs.kit) app.kit = prefs.kit.slice(0, 2);
+  if (typeof prefs.hazard === 'number') app.hazard = prefs.hazard;
   if (prefs.tab) app.tab = prefs.tab;
 
   const first = await Promise.race([

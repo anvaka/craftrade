@@ -1,5 +1,6 @@
 // The daily tab: today's clearing, your result, the board, and a line to copy.
 
+import { nameWithTitle } from '../../shared/almanac.ts';
 import { DAILY_WAVES } from '../../shared/protocol.ts';
 import { copyText, el, empty, fmt, ordinal, plural, sprite, sprites, stamp } from './dom.ts';
 import { dailyLine } from './homecoming.ts';
@@ -76,7 +77,7 @@ export function renderDaily(root: HTMLElement): void {
     const t = el('table', 'ledger givers');
     t.append(el('tr', '', el('th', 'num rank', 'Place'), el('th', '', 'Name'), el('th', 'num', 'Waves'), el('th', 'num', 'Scrip')));
     d.top.forEach((r, i) => {
-      t.append(el('tr', '', el('td', 'num rank', ordinal(i + 1)), el('td', '', r.name === p.name ? el('span', 'own', r.name) : el('span', 'who', r.name)), el('td', 'num', `${r.waves} of ${DAILY_WAVES}`), el('td', 'num', fmt(r.scrip))));
+      t.append(el('tr', '', el('td', 'num rank', ordinal(i + 1)), el('td', '', r.name === p.name ? el('span', 'own', nameWithTitle(r.name, r.title)) : el('span', 'who', nameWithTitle(r.name, r.title))), el('td', 'num', `${r.waves} of ${DAILY_WAVES}`), el('td', 'num', fmt(r.scrip))));
     });
     board.append(t);
     if (d.mine && d.mine.rank > d.top.length) board.append(el('p', 'note num', `You are ${ordinal(d.mine.rank)} of ${fmt(d.players)}.`));

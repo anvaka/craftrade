@@ -29,6 +29,8 @@ const waves = num('waves', 12) === 8 ? 8 : 12;
 const profile: Profile = {
   name: 'Odd Hale', marks: 0, raws: { timber: 0, ore: 0, hide: 0 }, items: [], runs: 0, wins: 0, characters: [character],
   features: [], standing: 0, novelLeft: 20, daysPlayed: 1, finds: 0,
+  title: '', titles: [], stashUsed: 0, stashLimit: 24, stashBought: 0, nameChangeAt: 0,
+  hazard: Object.fromEntries(['greenhorn', 'sawyer', 'smith', 'trapper', 'tinker', 'clerk'].map((c) => [c, { open: 0, best: -1 }])) as Profile['hazard'],
 };
 const byId = new Map<string, ItemSpec>(BASE_ITEMS.map((i) => [i.id, i]));
 let live: Run | null = null;

@@ -2,11 +2,11 @@
 // redraw() after changing it. The server owns the truth; this is a copy.
 
 import type {
-  CharacterId, CodexRes, DailyRes, Feature, MarketRes, Profile, RelicsRes, StationId, TownRes, WorldNotice,
+  AlmanacRes, CharacterId, CodexRes, DailyRes, Feature, MarketRes, Profile, RelicsRes, StationId, TownRes, WorldNotice,
 } from '../../shared/protocol.ts';
 import { ApiFail, asFail } from './api.ts';
 
-export type TabId = 'stash' | Feature;
+export type TabId = 'stash' | Feature | 'almanac';
 export type NoticeKind = 'plain' | 'town' | 'danger';
 export interface Notice {
   tag: string;
@@ -26,6 +26,9 @@ export interface AppState {
   /** Choices for the next run. Kit entries are stash uids. */
   character: CharacterId;
   kit: string[];
+  /** Hazard level asked for. Clamped to what is open for the character when it is used. */
+  hazard: number;
+  almanac: AlmanacRes | null;
   market: MarketRes | null;
   town: TownRes | null;
   daily: DailyRes | null;
@@ -51,7 +54,17 @@ export const strangerProfile = (): Profile => ({
   novelLeft: 0,
   daysPlayed: 0,
   finds: 0,
+  title: '',
+  titles: [],
+  stashUsed: 0,
+  stashLimit: 24,
+  stashBought: 0,
+  hazard: { greenhorn: { open: 0, best: -1 }, sawyer: { open: 0, best: -1 }, smith: { open: 0, best: -1 }, trapper: { open: 0, best: -1 }, tinker: { open: 0, best: -1 }, clerk: { open: 0, best: -1 } },
+  nameChangeAt: 0,
 });
+
+/** The hazard the next run will be at: what was asked for, no higher than what is open for the character. */
+export const hazardNow = (): number => Math.max(0, Math.min(app.hazard, app.profile.hazard?.[app.character]?.open ?? 0));
 
 export const app: AppState = {
   met: false,
@@ -62,6 +75,8 @@ export const app: AppState = {
   notice: null,
   character: 'greenhorn',
   kit: [],
+  hazard: 0,
+  almanac: null,
   market: null,
   town: null,
   daily: null,
@@ -78,6 +93,7 @@ interface Prefs {
   tab?: TabId;
   character?: CharacterId;
   kit?: string[];
+  hazard?: number;
   /** Date of the last scored daily ticket taken on this device. */
   dailyTaken?: string;
 }
@@ -117,7 +133,7 @@ export function setProfile(p: Profile): void {
   if (!p.characters.includes(app.character)) app.character = p.characters[0] ?? 'greenhorn';
   const have = new Set(p.items.map((i) => i.uid));
   app.kit = app.kit.filter((uid) => have.has(uid));
-  if (app.tab !== 'stash' && !p.features.includes(app.tab)) app.tab = 'stash';
+  if (app.tab !== 'stash' && app.tab !== 'almanac' && !p.features.includes(app.tab)) app.tab = 'stash';
 }
 
 // ---- notices ---------------------------------------------------------------

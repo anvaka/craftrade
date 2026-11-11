@@ -4,9 +4,11 @@ import { BASE_ITEM } from '../../shared/content/items.ts';
 import { RELIC } from '../../shared/content/relics.ts';
 import { effectText, fusionBlock, fusionBudget, isRelic, itemTier, tierOf, type ItemSpec } from '../../shared/item.ts';
 import { KIT_CHARGES, type CodexRecipe, type FuseRes, type StashItem } from '../../shared/protocol.ts';
+import { canPay, townFuseCost } from '../../shared/rules.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
 import { effectList, el, empty, finder, fmt, itemIcon, pips, plural, stamp, thing, tier, type Kid } from './dom.ts';
+import { costText } from './home.ts';
 import { app, clearNotice, redraw, sayFail, setProfile } from './state.ts';
 
 // ---- anvil state -----------------------------------------------------------
@@ -15,7 +17,7 @@ let slotA: string | null = null;
 let slotB: string | null = null;
 let striking = false;
 let struckAt = 0;
-let result: { res: FuseRes; a: string; b: string } | null = null;
+let result: { res: FuseRes; a: string; b: string; charges: number } | null = null;
 let filter = '';
 
 const held = (uid: string | null): StashItem | undefined => (uid ? app.profile.items.find((i) => i.uid === uid) : undefined);
@@ -87,7 +89,7 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
         'slot-text',
         el('div', 'name', el('span', '', it.name), tier(itemTier(it))),
         effectList(it),
-        el('div', 'charges', pips(KIT_CHARGES, KIT_CHARGES, 'charges'), el('span', 'label', 'Charges, in your stash')),
+        el('div', 'charges', pips(result.charges, KIT_CHARGES, 'charges'), el('span', 'label', 'Charges, in your stash')),
       ),
       el('div', 'outcome-stamp', findStamp(result.res.by, result.res.first)),
     );
@@ -112,6 +114,10 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
   const budget = fusionBudget(a.item, b.item);
   const before = tried().get(pairKey(a.item.id, b.item.id));
   const made = before ? known(before.out) : undefined;
+  // The price is set by the tier of what comes off; before the strike only the most it can be is known.
+  const cost = townFuseCost(made ? itemTier(made) : tierOf(budget));
+  const short = !canPay(app.profile, cost);
+  const left = Math.min(a.charges, b.charges);
   box.append(
     el(
       'div',
@@ -119,8 +125,9 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
       el('span', 'label', 'Comes off'),
       el('div', 'budget', el('span', 'num', `${budget} points`), tier(tierOf(budget))),
       made ? el('span', '', 'You have made this pair: ', el('strong', '', made.name), '.') : el('span', 'note', app.codex ? 'You have not tried this pair.' : ''),
-      el('span', '', 'Both items are used up, whatever charges they have left.'),
-      stamp('Strike', { key: 'strike', sound: null, onClick: () => void strike(a, b) }),
+      el('span', 'num', `${made ? 'Costs' : 'Costs up to'} ${costText(cost)}.`),
+      el('span', '', `Both items are used up. The result has ${left} of ${KIT_CHARGES} charges: the fewer of the two.`),
+      stamp('Strike', { key: 'strike', sound: null, disabled: short, title: short ? `You have ${plural(app.profile.marks, 'mark')}, ${app.profile.raws.timber} timber, ${app.profile.raws.ore} ore, ${app.profile.raws.hide} hide` : undefined, onClick: () => void strike(a, b) }),
     ),
   );
   return box;
@@ -145,7 +152,7 @@ async function strike(a: StashItem, b: StashItem): Promise<void> {
     const [res] = await Promise.all([api.fuse({ a: a.item.id, b: b.item.id, ctx: 'town', uidA: a.uid, uidB: b.uid }), new Promise((r) => setTimeout(r, 900))]);
     settle();
     if (res.profile) setProfile(res.profile);
-    result = { res, a: a.item.name, b: b.item.name };
+    result = { res, a: a.item.name, b: b.item.name, charges: Math.min(a.charges, b.charges) };
     slotA = slotB = null;
     audio.play(res.first ? 'revealFirst' : 'reveal');
     redraw();
@@ -171,7 +178,7 @@ function anvil(): HTMLElement {
     el(
       'p',
       'note',
-      `Two different items go on and one new item comes off with ${KIT_CHARGES} charges. A pair nobody has tried is decided once, for everyone, and carries its finder's name. `,
+      'Two different items go on and one new item comes off, for a price in marks and raws set by its tier. A pair nobody has tried is decided once, for everyone, and carries its finder\'s name. ',
       el('span', 'num', `${plural(app.profile.novelLeft, 'untried pair')} left today.`),
     ),
   );
@@ -387,7 +394,7 @@ function codex(): HTMLElement {
     el(
       'div',
       'bar',
-      el('div', 'bar-text num', c ? `The world knows ${plural(c.worldRecipes, 'recipe')} and ${plural(c.worldItems, 'fused item')}.` : ''),
+      el('div', 'bar-text num', c ? `You have made ${fmt(c.myAuthored)} of ${fmt(c.authoredPairs)} authored pairs. The world has tried ${fmt(c.worldAuthored)} of them, and knows ${plural(c.worldRecipes, 'recipe')} and ${plural(c.worldItems, 'fused item')} in all.` : ''),
       el('label', 'field-wrap', el('span', 'label', 'Find'), search),
     ),
     box,

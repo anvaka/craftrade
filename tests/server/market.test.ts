@@ -14,9 +14,10 @@ const totals = (w: W) =>
   w.db.prepare('SELECT COALESCE(SUM(marks), 0) AS marks, COALESCE(SUM(timber), 0) AS timber, COALESCE(SUM(ore), 0) AS ore, COALESCE(SUM(hide), 0) AS hide FROM players').get() as Record<string, number>;
 
 /** A player with marks and raws, earned through a run. */
-async function trader(w: W, runs = 3) {
+async function trader(w: W, runs = 10) {
   const token = await w.player(runs);
-  await w.run(token, { wavesCleared: 12, won: true, scripEarned: 3000, scripHeld: 3000, raws: { timber: 150, ore: 150, hide: 150 } });
+  await w.run(token, { wavesCleared: 12, won: true, scripEarned: 3000, scripHeld: 1000, raws: { timber: 50, ore: 50, hide: 50 } });
+  w.fund(token, 500, 100);
   return token;
 }
 
@@ -114,7 +115,7 @@ describe('market', () => {
 
     // The Factor's book is finite per side per day, and refills the next day.
     const left = (await w.get<MarketRes>('/api/market', token)).body.factor.hide.sellLeft;
-    w.db.prepare(`UPDATE factor SET sold = sold + ? WHERE raw = 'hide'`).run(left - 3);
+    w.db.prepare(`UPDATE factor_day SET sold = sold + ? WHERE raw = 'hide'`).run(left - 3);
     const full = await trade('sell', 4);
     expect([full.status, full.body.code]).toEqual([400, 'factor_limit']);
     expect((await trade('sell', 3)).status).toBe(200);
@@ -125,16 +126,16 @@ describe('market', () => {
     expect(audit(w.db).ok).toBe(true);
   });
 
-  it('gates listings behind three runs', async () => {
+  it('gates listings behind ten runs', async () => {
     const w = world();
-    const token = await w.player();
-    const [item] = await w.grant(token, [A]); // one run
-    await w.run(token, { wavesCleared: 12, won: true, scripHeld: 500, scripEarned: 500 }); // two runs
+    const token = await w.player(7);
+    const [item] = await w.grant(token, [A]); // eight runs
+    await w.run(token, { wavesCleared: 12, won: true, scripHeld: 500, scripEarned: 500 }); // nine runs
     const early = await w.post<ApiError>('/api/market/list', token, { uid: item.uid, price: 30, idem: 'gate-key-1' });
     expect([early.status, early.body.code]).toEqual([403, 'listing_locked']);
     expect((await w.me(token)).items.length).toBe(1);
 
-    await w.run(token); // three runs
+    await w.run(token); // ten runs
     const ok = await w.post<MarketActionRes>('/api/market/list', token, { uid: item.uid, price: 30, idem: 'gate-key-2' });
     expect(ok.status).toBe(200);
     expect(ok.body.profile.items).toEqual([]);
@@ -220,12 +221,12 @@ describe('market', () => {
   });
 
   it('conserves marks and raws across a random sequence of trades, per the ledger', async () => {
-    const w = world();
+    const w = world({ rng: () => 0.9 }); // no relic turns up among the wins that stock the stashes
     const rnd = mulberry32(20261111);
     const pick = <T>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)];
     const tokens: string[] = [];
     for (let i = 0; i < 4; i++) {
-      const t = await trader(w, 5);
+      const t = await trader(w, 10);
       await w.grant(t, [A, B, C, A, B, C]);
       tokens.push(t);
     }
@@ -242,7 +243,7 @@ describe('market', () => {
       } else if (roll < 0.6) {
         const items = (await w.me(token)).items;
         path = '/api/market/list';
-        body = { uid: items.length ? pick(items).uid : 'none', price: 1 + Math.floor(rnd() * 300), idem: `rand-${step}-key` };
+        body = { uid: items.length ? pick(items).uid : 'none', price: 1 + Math.floor(rnd() * 150), idem: `rand-${step}-key` };
       } else if (roll < 0.75) {
         const listings = (await w.get<MarketRes>('/api/market', token)).body.listings;
         path = '/api/market/buy';
@@ -274,7 +275,7 @@ describe('market', () => {
         applied++;
         if ('idem' in body) keys.push({ path, token, body });
       } else {
-        expect(res.body.code).toMatch(/^(no_marks|no_raws|not_owned|listing_gone|own_listing|factor_limit|not_needed|no_project)$/);
+        expect(res.body.code).toMatch(/^(no_marks|no_raws|not_owned|listing_gone|own_listing|factor_limit|not_needed|price_cap|transfer_cap)$/);
         expect(totals(w)).toEqual(before); // a refused request moves nothing
       }
       if (step % 50 === 0) expect(audit(w.db).mismatches).toEqual([]);
