@@ -35,6 +35,13 @@ export function place(run: Run, id: string, dx: number, dy: number, hp?: number)
   return i;
 }
 
+/** A target that stands where it is put and never attacks. */
+export function dummy(run: Run, dx: number, dy: number, hp = 1e6, id = 'boar'): number {
+  const i = place(run, id, dx, dy, hp);
+  run.enemies[i].state = ES.Recover; run.enemies[i].t = 1e9;
+  return i;
+}
+
 export function ticks(run: Run, n: number, mx = 0, my = 0, each?: (run: Run) => void): void {
   for (let i = 0; i < n && run.phase === 'wave'; i++) { step(run, { mx, my }); if (each) each(run); clearEvents(run); }
 }

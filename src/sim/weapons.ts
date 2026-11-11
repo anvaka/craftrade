@@ -1,6 +1,6 @@
 // Player attacks: auto-targeting, melee shapes, shots.
 import {
-  BOUNCE_SEEK, BURN_SECONDS, DT, MAX_SHOTS, MIN_COOLDOWN, NATIVE_CHAIN, ARENA_H, ARENA_W,
+  BOUNCE_SEEK, BURN_SECONDS, DT, ELITE_FOCUS, SHOT_LEAD, TICK_HZ, MAX_SHOTS, MIN_COOLDOWN, NATIVE_CHAIN, ARENA_H, ARENA_W,
 } from './data/tuning.ts';
 import { ENEMIES } from './data/enemies.ts';
 import { WEAPONS, type WeaponDef } from './data/weapons.ts';
@@ -62,13 +62,19 @@ export function updateWeapons(run: Run): void {
       const reachTo = range + e.r;
       const d2 = dx * dx + dy * dy;
       if (d2 > reachTo * reachTo) continue;
-      // Prefer the nearest by edge distance, so big targets do not hide behind small ones.
-      const d = Math.sqrt(d2) - e.r;
+      // Nearest by edge distance, so big targets do not hide behind small ones; elites pull focus.
+      let d = Math.sqrt(d2) - e.r;
+      if (ENEMIES[e.type].rank > 0) d *= ELITE_FOCUS;
       if (d < bestD) { bestD = d; best = Q[k]; }
     }
     if (best < 0) continue;
     const t = es[best];
     let ax = t.x - p.x, ay = t.y - p.y;
+    if (def.kind === 'shot') {
+      // Lead the target by its last-tick movement, so shots meet strafing spitters and fleeing magpies.
+      const lead = (Math.sqrt(ax * ax + ay * ay) / def.shotSpeed!) * TICK_HZ * SHOT_LEAD;
+      ax += (t.x - t.px) * lead; ay += (t.y - t.py) * lead;
+    }
     const al = Math.sqrt(ax * ax + ay * ay) || 1;
     ax /= al; ay /= al;
     w.ax = ax; w.ay = ay; w.flip = !w.flip;

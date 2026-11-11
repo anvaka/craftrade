@@ -1,6 +1,6 @@
 // Shared plumbing: events, pools, the spatial grid, stat maths, damage.
 import { effectValue, type ItemSpec } from '../shared/item.ts';
-import { PRIM, PRIMITIVES, STATS, type RawId, type StatId } from '../shared/vocab.ts';
+import { PRIM, PRIMITIVES, STATS, type Primitive, type RawId, type StatId } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import { ENEMIES } from './data/enemies.ts';
 import {
@@ -8,7 +8,7 @@ import {
   KILL_BLAST_BASE, KILL_BLAST_HP_FRACTION, MAX_ENEMIES, MAX_EVENTS, MAX_PICKUPS, PLAYER_SPEED, SPAWN_TELL,
   SPECIAL_CAP, STAT_CAP,
 } from './data/tuning.ts';
-import { BLUNT_KNOCK, SET_BONUS, SRC_BURN, SRC_RECOIL, SRC_THORNS, WEAPONS, type WeaponClass } from './data/weapons.ts';
+import { BLUNT_KNOCK, SET_BONUS, SRC_BURN, SRC_BURST, SRC_RECOIL, SRC_THORNS, WEAPONS, type WeaponClass } from './data/weapons.ts';
 import { rnd, Stream } from './rng.ts';
 import {
   ES, PK_HIDE, PK_ORE, PK_SCRIP, PK_TIMBER,
@@ -27,6 +27,11 @@ const STAT_MIN = STATS.map((s) => STAT_CAP[s][0]);
 const STAT_MAX = STATS.map((s) => STAT_CAP[s][1]);
 export const CLASSES: readonly WeaponClass[] = ['edge', 'blunt', 'shot', 'tool'];
 export const RAW_OF_KIND: readonly (RawId | null)[] = [null, 'timber', 'ore', 'hide'];
+
+/** Vocabulary lookup that ignores inherited keys such as '__proto__'. */
+export function primOf(id: string): Primitive | undefined {
+  return typeof id === 'string' && Object.hasOwn(PRIM, id) ? PRIM[id] : undefined;
+}
 
 // ---- events --------------------------------------------------------------
 
@@ -99,7 +104,7 @@ export function rebuild(run: Run): void {
   let pierceMax = 0, bounceMax = 0;
   for (const item of p.items) {
     for (const e of item.effects) {
-      const prim = PRIM[e.p];
+      const prim = primOf(e.p);
       if (!prim) continue;
       const v = effectValue(e);
       if (prim.kind === 'stat') { flat[ST[prim.stat!]] += v; continue; }
@@ -159,7 +164,7 @@ export function refresh(run: Run): void {
   p.dmgMul = 1 + s[ST.damage] / 100;
   p.rateMul = 1 + s[ST.rate] / 100;
   p.critChance = s[ST.crit] / 100;
-  p.workRate = 1 + Math.max(0, s[ST.harvest]) / 20;
+  p.workRate = Math.max(0.25, 1 + s[ST.harvest] / 20);
   p.magnetR = BASE_MAGNET * (1 + sp[SP.magnet] / 100);
 }
 
@@ -318,10 +323,9 @@ export function runBursts(run: Run): void {
   }
   q.copyWithin(0, n * 3, run.burstN * 3);
   run.burstN -= n;
-  for (let b = 0; b < n; b++) blast(run, BURST_TMP[b * 3], BURST_TMP[b * 3 + 1], BLAST_RADIUS, BURST_TMP[b * 3 + 2], SRC_BURST_IDX, 6);
+  for (let b = 0; b < n; b++) blast(run, BURST_TMP[b * 3], BURST_TMP[b * 3 + 1], BLAST_RADIUS, BURST_TMP[b * 3 + 2], SRC_BURST, 6);
 }
 const BURST_TMP = new Float64Array(12);
-const SRC_BURST_IDX = WEAPONS.length + 2;
 
 /**
  * Hurt the player. `type` is the enemy type index for the recap; owner and

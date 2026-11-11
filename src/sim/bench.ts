@@ -3,12 +3,12 @@
 // action is not allowed, so a UI can call them straight from buttons.
 import { BASE_ITEMS } from '../shared/content/items.ts';
 import { basePrice, fusionBlock, fusionBudget, itemPoints, itemTier, tierOf, type ItemSpec } from '../shared/item.ts';
-import { emptyRaws, FUSE_RAW_COST, GLYPHS, PRIM, RAWS, STATS, type RawBag, type StatId } from '../shared/vocab.ts';
+import { emptyRaws, FUSE_RAW_COST, GLYPHS, RAWS, STATS, type RawBag, type StatId } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import { BENCH_ITEM_SHARE, RARITY, SAME_CLASS_BIAS, SAME_WEAPON_BIAS, SCRAP_SHARE } from './data/tuning.ts';
 import { UPGRADE_RARITY, UPGRADE_VALUE } from './data/upgrades.ts';
 import { WEAPONS, WEAPON_INDEX } from './data/weapons.ts';
-import { rebuild, SP, ST } from './core.ts';
+import { primOf, rebuild, SP, ST } from './core.ts';
 import { rnd, Stream } from './rng.ts';
 import type { Offer, Run, UpgradeChoice } from './types.ts';
 import { makeWeapon } from './weapons.ts';
@@ -88,7 +88,7 @@ function rollWeaponOffer(run: Run, o: Offer): void {
   const w = WEAPONS[def];
   o.kind = 'weapon'; o.id = w.id; o.tier = tier; o.item = null;
   o.price = weaponPrice(run, w.id, tier, b);
-  o.raws = recipeRaws(run, w.raws, tier);
+  o.raws = recipeRaws(run, w.raws, w.plainAtOne ? tier - 1 : tier);
 }
 
 function rollItemOffer(run: Run, o: Offer, slot: number): void {
@@ -306,7 +306,7 @@ export function fusionResultBlock(result: ItemSpec, budget: number): string | nu
   let pos = 0, neg = 0;
   const seen = new Set<string>();
   for (const e of result.effects) {
-    const prim = PRIM[e.p];
+    const prim = e ? primOf(e.p) : undefined;
     if (!prim || seen.has(e.p) || !Number.isInteger(e.l) || e.l < 1 || e.l > 5) return 'Bad effect.';
     seen.add(e.p);
     if (e.neg) { neg++; if (prim.kind !== 'stat') return 'Bad drawback.'; } else pos++;

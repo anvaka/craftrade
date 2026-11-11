@@ -15,7 +15,7 @@ export const TICKET_TTL_MS = 6 * 3600 * 1000;
 export const BOUNDS = {
   rawPerWave: 40,
   rawTotalPerWave: 90,
-  scripPerWave: 300,
+  scripPerWave: 500,
   killsPerWave: 600,
   fusions: 60,
 };

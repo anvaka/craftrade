@@ -6,7 +6,7 @@ import {
   MAX_SHOTS, NODE_RING, NODE_WORK, NODE_WORK_RICH, NODE_YIELD, NODE_YIELD_RICH, PICKUP_FLY_SPEED, PLAYER_R,
   RICH_CHANCE, RICH_FROM_WAVE, SHARD_DAMAGE, SHARD_DAMAGE_PER_WAVE, WORK_TICK,
 } from './data/tuning.ts';
-import { MULE_AFTER, WAVES } from './data/waves.ts';
+import { MULE_AFTER, PLAN_PACE, WAVES } from './data/waves.ts';
 import { SRC_SHARDS, WEAPONS } from './data/weapons.ts';
 import { openBench } from './bench.ts';
 import { damageEnemy, emit, gainScrip, killEnemy, RAW_OF_KIND, rebuild, SP, spawnPickup, ST, targetable } from './core.ts';
@@ -175,6 +175,7 @@ export function startWave(run: Run): void {
   run.phase = 'wave';
   run.waveTime = 0;
   run.waveSeconds = def.seconds;
+  run.pace = PLAN_PACE[run.totalWaves][run.wave - 1];
   run.eliteSpawned = false; run.eliteIdx = -1; run.bossDead = false;
   run.burstN = 0;
   for (let i = 0; i < MAX_ENEMIES; i++) run.enemies[i].alive = false;

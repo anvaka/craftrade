@@ -27,12 +27,19 @@ function report(character: CharacterId): void {
   const weaponBuys = new Map<string, number>(), statPicks = new Map<string, number>(), itemBuys = new Map<string, number>();
   const dmgShare = new Map<string, number>();
   let wBuys = 0, sPicks = 0, iBuys = 0, dmgTotal = 0, fusions = 0, hpEnd = 0;
+  let maxScripRate = 0, maxScripHeld = 0, maxRawRate = 0, maxKillRate = 0, secs = 0;
   for (let s = 1; s <= seeds; s++) {
     const t0 = performance.now();
     const run = playRun({ seed: s * 7919 + 13, character, waves });
     ms += performance.now() - t0; ticks += run.tick;
     const sum = summary(run);
     levels.push(sum.level);
+    const attempted = Math.min(run.totalWaves, sum.wavesCleared + 1);
+    maxScripRate = Math.max(maxScripRate, sum.scripEarned / attempted);
+    maxScripHeld = Math.max(maxScripHeld, sum.scripHeld);
+    maxKillRate = Math.max(maxKillRate, sum.kills / attempted);
+    for (const r of ['timber', 'ore', 'hide'] as const) maxRawRate = Math.max(maxRawRate, (sum.raws[r] + sum.mule[r]) / attempted);
+    if (sum.won) secs += sum.seconds;
     fusions += sum.fusions.length;
     for (let w = 1; w <= run.totalWaves; w++) {
       if (w > sum.wavesCleared) break;
@@ -64,6 +71,7 @@ function report(character: CharacterId): void {
   console.log(`winners: item buys (top 10 of ${itemBuys.size} bought): ${top(itemBuys, iBuys, 10)}`);
   console.log(`winners: damage share: ${top(dmgShare, dmgTotal, 17)}`);
   console.log(`winners end at ${wins ? ((100 * hpEnd) / wins).toFixed(0) : '-'}% HP on average; fusions per run ${(fusions / seeds).toFixed(2)}`);
+  console.log(`report bounds seen: scrip earned per wave attempted up to ${maxScripRate.toFixed(0)}, scrip held up to ${maxScripHeld}, one raw per wave up to ${maxRawRate.toFixed(1)}, kills per wave up to ${maxKillRate.toFixed(0)}; a won run lasts ${wins ? (secs / wins).toFixed(0) : '-'} s of waves`);
   console.log(`time per tick incl. bot: ${(ms / ticks).toFixed(4)} ms over ${ticks} ticks`);
 }
 
@@ -74,7 +82,8 @@ function stress(): void {
   const p = run.player;
   p.base[0] = 100000; p.hp = 100000;
   const input = { mx: 0, my: 0 };
-  let worst = 0, total = 0, n = 0, peakE = 0, peakS = 0, peakP = 0;
+  let worst = 0, total = 0, n = 0, peakE = 0, peakS = 0, peakP = 0, over = 0;
+  const times: number[] = [];
   for (let t = 0; t < 3600; t++) {
     for (let k = run.enemyCount; k < MAX_ENEMIES; k++) {
       const type = [ENEMY_INDEX.mite, ENEMY_INDEX.gnat, ENEMY_INDEX.boar, ENEMY_INDEX.spitter, ENEMY_INDEX.brute, ENEMY_INDEX.burrower][(t + k) % 6];
@@ -87,14 +96,15 @@ function stress(): void {
     step(run, input);
     const dt = performance.now() - t0;
     clearEvents(run);
-    if (t > 300) { total += dt; n++; if (dt > worst) worst = dt; }
+    if (t > 300) { total += dt; n++; if (dt > worst) worst = dt; if (dt > 2) over++; times.push(dt); }
     let s = 0, pk = 0;
     for (const x of run.shots) if (x.alive) s++;
     for (const x of run.pickups) if (x.alive) pk++;
     if (run.enemyCount > peakE) peakE = run.enemyCount; if (s > peakS) peakS = s; if (pk > peakP) peakP = pk;
   }
   console.log(`\n== stress: sim only, ${peakE} enemies, up to ${peakS} shots and ${peakP} pickups ==`);
-  console.log(`mean ${(total / n).toFixed(4)} ms per tick, worst ${worst.toFixed(3)} ms (budget 2 ms)`);
+  times.sort((x, y) => x - y);
+  console.log(`mean ${(total / n).toFixed(4)} ms per tick, 99th percentile ${times[Math.floor(n * 0.99)].toFixed(3)} ms, worst ${worst.toFixed(3)} ms, ${over} of ${n} ticks over the 2 ms budget`);
 }
 
 const list = who === 'all' ? CHARACTERS.map((c) => c.id) : who === 'stress' ? [] : [who as CharacterId];

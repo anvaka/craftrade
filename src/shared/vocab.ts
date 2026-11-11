@@ -100,7 +100,8 @@ export const PRIMITIVES: readonly Primitive[] = [
   special('secondWind', 'Once per wave, survive a killing blow with {v} HP', [1, 5, 10, 18, 30], [14, 18, 23, 29, 36], 'stubbornness, spare parts, luck'),
 ];
 
-export const PRIM: Record<string, Primitive> = Object.fromEntries(PRIMITIVES.map((p) => [p.id, p]));
+// Null prototype so keys like '__proto__' from untrusted input never resolve.
+export const PRIM: Record<string, Primitive> = Object.assign(Object.create(null), Object.fromEntries(PRIMITIVES.map((p) => [p.id, p])));
 
 /** Fraction of cost refunded by a drawback (a stat primitive taken negative). */
 export const DRAWBACK_REFUND = 0.6;

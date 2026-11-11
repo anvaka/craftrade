@@ -3,7 +3,6 @@
 // plain: step out of telegraphed attacks, keep a gap to whatever is closing,
 // pick up scrip, work a node when it is quiet, and buy whatever gives the
 // most build value per scrip.
-import { BASE_ITEMS } from '../shared/content/items.ts';
 import { effectPoints, fusedItemId, itemTier, repairEffects, type ItemSpec } from '../shared/item.ts';
 import { GLYPHS, PRIM, RAWS, STATS, type StatId } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
@@ -112,7 +111,8 @@ export function botInput(run: Run, b: BotState, out: StepInput): void {
         ex1 += e.dx * cs * t1; ey1 += e.dy * cs * t1; ex2 += e.dx * cs * t2; ey2 += e.dy * cs * t2;
       } else if (e.state === ES.Move && def.ai !== 'spit') {
         const dx = p.x - e.x, dy = p.y - e.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
-        const s1 = Math.min(def.speed * H1, d), s2 = Math.min(def.speed * H2, d);
+        const es0 = def.speed + def.speedW * (run.wave - 1);
+        const s1 = Math.min(es0 * H1, d), s2 = Math.min(es0 * H2, d);
         ex1 += (dx / d) * s1; ey1 += (dy / d) * s1; ex2 += (dx / d) * s2; ey2 += (dy / d) * s2;
       }
       if (def.dmg <= 0) continue;
@@ -210,7 +210,8 @@ function pickGoal(run: Run, b: BotState, nearest: number, nearestD: number, clos
     }
   }
   if (bestN >= 0 && p.workingNode === bestN) { b.goal = G_NODE; b.gx = run.nodes[bestN].x; b.gy = run.nodes[bestN].y; return; }
-  if (bestP >= 0 && bestPD < 300 * 300) { b.goal = G_PICKUP; b.gx = run.pickups[bestP].x; b.gy = run.pickups[bestP].y; return; }
+  const short = p.raws.timber + p.raws.ore + p.raws.hide < 4;
+  if (bestP >= 0 && bestPD < (short && bestN >= 0 ? 140 * 140 : 300 * 300)) { b.goal = G_PICKUP; b.gx = run.pickups[bestP].x; b.gy = run.pickups[bestP].y; return; }
   if (bestN >= 0) { b.goal = G_NODE; b.gx = run.nodes[bestN].x; b.gy = run.nodes[bestN].y; return; }
   if (bestP >= 0) { b.goal = G_PICKUP; b.gx = run.pickups[bestP].x; b.gy = run.pickups[bestP].y; return; }
   if (nearest >= 0) {
@@ -293,7 +294,7 @@ export function botBench(run: Run, b: BotState): void {
     }
     if (!pickUpgrade(run, best)) break;
   }
-  for (let round = 0; round < 6; round++) {
+  for (let round = 0; round < 7; round++) {
     let bought = true;
     while (bought) {
       bought = false;
@@ -318,19 +319,17 @@ export function botBench(run: Run, b: BotState): void {
         if (o.tier >= p.weapons[low].tier + 2 && RAWS.every((r) => p.raws[r] >= o.raws[r])) { scrapWeapon(run, low); buy(run, i); }
       }
     }
-    // Reroll while there is spare scrip and nothing left worth having.
-    const cost = rerollCost(run);
-    let wanted = false;
-    for (let i = 0; i < 4; i++) if (!bench.offers[i].sold && offerUtility(run, b, i) / Math.max(1, bench.offers[i].price) > 0.75) wanted = true;
-    if (wanted) {
-      // Something good we cannot pay for yet: hold it for the next bench.
-      for (let i = 0; i < 4; i++) {
-        const o = bench.offers[i];
-        if (!o.sold && !o.locked && offerUtility(run, b, i) / Math.max(1, o.price) > 1.1 && o.price <= p.scrip * 2 + 20) toggleLock(run, i);
-      }
-      break;
+    // Hold one good offer that only scrip stands in the way of, then reroll while there is scrip to spend.
+    let held = false;
+    for (let i = 0; i < 4; i++) if (bench.offers[i].locked) held = true;
+    for (let i = 0; i < 4 && !held; i++) {
+      const o = bench.offers[i];
+      if (o.sold || o.locked || o.price <= p.scrip || o.price > p.scrip * 2 + 20) continue;
+      if (offerUtility(run, b, i) / Math.max(1, o.price) < 1.1 || !RAWS.every((r) => p.raws[r] >= o.raws[r])) continue;
+      held = toggleLock(run, i);
     }
-    if (p.scrip < cost * 3 + 12 || round >= 3) break;
+    const cost = rerollCost(run);
+    if (round >= 5 || p.scrip < cost + 14 + 2 * bench.index) break;
     if (!reroll(run)) break;
   }
   if (b.fuse && p.items.length >= 2 && brnd(b) < 0.5) {
@@ -367,4 +366,4 @@ export function playRun(opts: RunOptions, botSeed = opts.seed ^ 0x5bd1e995, onTi
   }
   return run;
 }
-export const _ITEMS = BASE_ITEMS.length;
+

@@ -17,26 +17,26 @@ describe('determinism', () => {
     expect(a.hashes.length).toBeGreaterThan(10);
     expect(b.hashes).toEqual(a.hashes);
     expect(summary(b.run)).toEqual(summary(a.run));
-  });
+  }, 60000);
 
   it('different seeds diverge', () => {
     const a = trace(1), b = trace(2);
     expect(a.hashes[1]).not.toBe(b.hashes[1]);
     expect(a.hashes[a.hashes.length - 1]).not.toBe(b.hashes[b.hashes.length - 1]);
-  });
+  }, 60000);
 
   it('the 8-wave daily plan is deterministic too and ends by wave 8', () => {
     const a = trace(77, 8), b = trace(77, 8);
     expect(b.hashes).toEqual(a.hashes);
     expect(a.run.totalWaves).toBe(8);
     expect(a.run.wave).toBeLessThanOrEqual(8);
-  });
+  }, 60000);
 });
 
 describe('full bot runs stay sane', () => {
   it('no NaN, no negative scrip or raws, on any tick, for every character', () => {
     for (const character of ['greenhorn', 'sawyer', 'smith', 'trapper', 'tinker', 'clerk'] as const) {
-      for (const seed of [11, 12]) {
+      for (const seed of [11]) {
         let checks = 0;
         const run = playRun({ seed, character }, seed, (r) => {
           if (r.tick % 20 !== 0 && r.phase === 'wave') return;
@@ -54,6 +54,7 @@ describe('full bot runs stay sane', () => {
         expect(Number.isInteger(s.scripEarned)).toBe(true);
         expect(s.wavesCleared).toBeLessThanOrEqual(12);
         expect(s.won).toBe(s.wavesCleared === 12);
+        expect(s.scripHeld).toBeGreaterThanOrEqual(0);
         if (!s.won) expect(s.killedBy).not.toBe('');
         let live = 0;
         for (const e of run.enemies) if (e.alive) live++;

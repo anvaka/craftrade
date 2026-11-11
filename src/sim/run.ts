@@ -7,7 +7,7 @@ import {
   ARENA_H, ARENA_W, DT, GRID_CELL, MAX_ENEMIES, MAX_ESHOTS, MAX_EVENTS, MAX_HAZARDS, MAX_NODES, MAX_PICKUPS,
   MAX_SHOTS, PLAYER_BASE_HP,
 } from './data/tuning.ts';
-import { SHORT_PLAN_PACE, WAVE_PLAN, WAVES } from './data/waves.ts';
+import { WAVE_PLAN, WAVES } from './data/waves.ts';
 import { SOURCE_COUNT, SOURCE_IDS, WEAPON_INDEX } from './data/weapons.ts';
 import { newOffer } from './bench.ts';
 import { buildGrid, clampX, clampY, rebuild, refresh, runBursts, SPECIAL_COUNT, ST, xpForLevel } from './core.ts';
@@ -70,7 +70,7 @@ export function createRun(opts: RunOptions): Run {
     eliteIdx: -1, lanes: new Float64Array(16), laneCount: 0,
     groupNext: new Float64Array(Math.max(...WAVES.map((w) => w.groups.length))),
     eliteSpawned: false, burstQ: new Float64Array(64 * 3), burstN: 0, nextUid: 1, bossDead: false,
-    pace: totalWaves === DAILY_WAVES ? SHORT_PLAN_PACE : 1, summonN: 0,
+    pace: 1, summonN: 0,
     scripEarned: 0, kills: 0, mule: emptyRaws(), gathered: emptyRaws(), dmgBy: new Float64Array(SOURCE_COUNT),
     damageTaken: 0, fusions: [], carry: [], killedBy: '', deathWave: 0,
     scripByWave: new Array(totalWaves + 1).fill(0), rawsByWave: new Array(totalWaves + 1).fill(0),

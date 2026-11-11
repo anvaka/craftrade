@@ -5,16 +5,17 @@ import type { ItemSpec } from '../item.ts';
 // material or the idea, because tags are what the fusion model reasons about.
 // Above tier 1 nearly every item carries a drawback or a condition, so a
 // purchase is a trade and not a small free percentage.
+// A few tier 1 items cost scrip only, so the bench is never shut to empty pockets.
 // Tier follows from points (see itemTier); the comments mark where tiers start.
 export const BASE_ITEMS: readonly ItemSpec[] = [
   // Tier 1
   { id: 'whetstone', name: 'Whetstone', glyph: 'stone', tags: ['stone', 'edge'], effects: [{ p: 'crit', l: 2 }], price: 17, raws: { ore: 1 } },
   { id: 'tallow', name: 'Tallow', glyph: 'candle', tags: ['fat', 'grease'], effects: [{ p: 'rate', l: 2 }, { p: 'armor', l: 1, neg: true }], price: 14, raws: { hide: 1 } },
   { id: 'hobnails', name: 'Hobnail boots', glyph: 'boot', tags: ['iron', 'boots'], effects: [{ p: 'speed', l: 2 }, { p: 'knockback', l: 1 }], price: 20, raws: { ore: 1, hide: 1 } },
-  { id: 'saltpork', name: 'Salt pork', glyph: 'bowl', tags: ['food', 'salt'], effects: [{ p: 'maxHp', l: 2 }], price: 16, raws: { hide: 1 } },
+  { id: 'saltpork', name: 'Salt pork', glyph: 'bowl', tags: ['food', 'salt'], effects: [{ p: 'maxHp', l: 2 }], price: 16 },
   { id: 'pitch', name: 'Pine pitch', glyph: 'flask', tags: ['resin', 'fire'], effects: [{ p: 'burn', l: 1 }], price: 15, raws: { timber: 2 } },
   { id: 'lodestone', name: 'Lodestone', glyph: 'stone', tags: ['ore', 'pull'], effects: [{ p: 'magnet', l: 2 }], price: 11, raws: { ore: 1 } },
-  { id: 'tallybook', name: 'Tally book', glyph: 'sack', tags: ['paper', 'numbers'], effects: [{ p: 'interest', l: 1 }, { p: 'damage', l: 1, neg: true }], price: 9, raws: { hide: 1 } },
+  { id: 'tallybook', name: 'Tally book', glyph: 'sack', tags: ['paper', 'numbers'], effects: [{ p: 'interest', l: 1 }, { p: 'damage', l: 1, neg: true }], price: 9 },
   { id: 'burrs', name: 'Burr coat', glyph: 'pelt', tags: ['hide', 'spikes'], effects: [{ p: 'thorns', l: 2 }, { p: 'speed', l: 1, neg: true }], price: 13, raws: { hide: 2 } },
   { id: 'splint', name: 'Splint', glyph: 'bone', tags: ['wood', 'binding'], effects: [{ p: 'mend', l: 2 }], price: 16, raws: { timber: 1 } },
   { id: 'baitbag', name: 'Bait bag', glyph: 'sack', tags: ['meat', 'lure'], effects: [{ p: 'killScrip', l: 2 }], price: 17, raws: { hide: 1 } },
@@ -23,7 +24,7 @@ export const BASE_ITEMS: readonly ItemSpec[] = [
   { id: 'rabbitfoot', name: 'Rabbit foot', glyph: 'charm', tags: ['fur', 'charm'], effects: [{ p: 'luck', l: 2 }], price: 15, raws: { hide: 1 } },
   { id: 'leadshot', name: 'Lead shot', glyph: 'ring', tags: ['lead', 'shot'], effects: [{ p: 'ranged', l: 2 }, { p: 'speed', l: 1, neg: true }], price: 14, raws: { ore: 1 } },
   { id: 'rawhidegrip', name: 'Rawhide grip', glyph: 'rope', tags: ['hide', 'grip'], effects: [{ p: 'melee', l: 2 }], price: 16, raws: { hide: 1 } },
-  { id: 'slate', name: 'Slate and chalk', glyph: 'stone', tags: ['slate', 'notes'], effects: [{ p: 'xpGain', l: 2 }], price: 16, raws: { ore: 1 } },
+  { id: 'slate', name: 'Slate and chalk', glyph: 'stone', tags: ['slate', 'notes'], effects: [{ p: 'xpGain', l: 2 }], price: 16 },
   { id: 'oilcloth', name: 'Oilcloth', glyph: 'pelt', tags: ['cloth', 'oil'], effects: [{ p: 'waveShield', l: 2 }], price: 14, raws: { hide: 1 } },
   { id: 'fishhook', name: 'Fish hook', glyph: 'hook', tags: ['hook', 'barb'], effects: [{ p: 'pierce', l: 1 }], price: 15, raws: { ore: 1 } },
   { id: 'springsteel', name: 'Spring steel', glyph: 'cog', tags: ['steel', 'spring'], effects: [{ p: 'bounce', l: 1 }], price: 15, raws: { ore: 2 } },

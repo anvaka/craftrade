@@ -198,7 +198,7 @@ rule; different items merge by meaning.
 ### 4.1 Rules
 
 - An item is a name, a tier (1-4), tags, and up to 3 effects plus at most 1 drawback.
-- An effect is a primitive from a fixed vocabulary (about 30) at a level 1-5.
+- An effect is a primitive from a fixed vocabulary (37) at a level 1-5.
   A versioned price table in code turns (primitive, level) into points and into numbers.
 - Fusion budget = round((points(A) + points(B)) x 1.12). The result's tier follows from its budget.
 - The model receives the two items and the budget. It returns three candidate

@@ -317,7 +317,7 @@ export interface Run {
   burstN: number;
   nextUid: number;
   bossDead: boolean;
-  /** Spawn interval multiplier for this run's plan. */
+  /** Spawn interval multiplier for the current wave (see PLAN_PACE). */
   pace: number;
   /** Rotation counter for Old Tusk's summons. */
   summonN: number;

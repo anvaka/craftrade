@@ -121,7 +121,7 @@ function slamRing(run: Run, e: Enemy, idx: number, r0: number, r1: number, t: nu
 
 export function updateEnemies(run: Run): void {
   const es = run.enemies, p = run.player, g = run.grid;
-  const tick = run.tick;
+  const tick = run.tick, wv = run.wave - 1;
   for (let i = 0; i < MAX_ENEMIES; i++) {
     const e = es[i];
     if (!e.alive) continue;
@@ -144,7 +144,7 @@ export function updateEnemies(run: Run): void {
     const pdx = p.x - e.x, pdy = p.y - e.y;
     const pd = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
     const ux = pdx / pd, uy = pdy / pd;
-    const sp = def.speed * slow * DT;
+    const sp = (def.speed + def.speedW * wv) * slow * DT;
     let contact = 1;
 
     if (e.state === ES.Spawn) {
@@ -318,7 +318,11 @@ export function updateEnemies(run: Run): void {
         e.x += (ox / d) * push; e.y += (oy / d) * push;
       }
     }
-    if (e.state !== ES.Flee) { e.x = clampX(e.x); e.y = clampY(e.y); }
+    // Clamped by hand: a call that returns a float would box it once per enemy per tick.
+    if (e.state !== ES.Flee) {
+      if (e.x < ARENA_PAD) e.x = ARENA_PAD; else if (e.x > ARENA_W - ARENA_PAD) e.x = ARENA_W - ARENA_PAD;
+      if (e.y < ARENA_PAD) e.y = ARENA_PAD; else if (e.y > ARENA_H - ARENA_PAD) e.y = ARENA_H - ARENA_PAD;
+    }
 
     if (contact > 0 && def.dmg > 0 && p.iframes <= 0) {
       const cdx = p.x - e.x, cdy = p.y - e.y, rr = e.r + PLAYER_R - 3;
@@ -387,8 +391,11 @@ function thief(run: Run, e: Enemy, idx: number, sp: number): void {
 
 /** Old Tusk. Returns the contact damage multiplier for this tick. */
 function tusk(run: Run, e: Enemy, idx: number, pd: number, ux: number, uy: number, sp: number, slow: number): number {
-  const frac = e.hp / e.maxHp;
-  const phase = frac > AI.tuskPhase2 ? 1 : frac > AI.tuskPhase3 ? 2 : 3;
+  // Phases come with lost health, or with time if he is being ignored.
+  const frac = e.hp / e.maxHp, tw = run.waveTime;
+  const byHp = frac > AI.tuskPhase2 ? 1 : frac > AI.tuskPhase3 ? 2 : 3;
+  const byTime = tw < AI.tuskPhase2At ? 1 : tw < AI.tuskPhase3At ? 2 : 3;
+  const phase = byHp > byTime ? byHp : byTime;
   if (phase !== e.n) {
     e.n = phase; e.t3 = 1.5;
     emit(run, 'bossPhase', e.x, e.y, phase);
@@ -425,9 +432,14 @@ function tusk(run: Run, e: Enemy, idx: number, pd: number, ux: number, uy: numbe
   // Move.
   const walk = phase === 2 ? 0.6 : 1;
   e.x += ux * sp * walk; e.y += uy * sp * walk; e.dx = ux; e.dy = uy;
-  e.t2 -= DT; e.t3 -= DT;
-  if (phase === 2 && e.t3 <= 0) {
-    e.t3 = AI.tuskSummonEvery;
+  e.t2 -= DT; e.t3 -= DT; e.work -= DT;
+  if (phase === 3 && e.work <= 0 && e.t3 > 0.5) {
+    // The last phase keeps calling packs between rings (`work` is his second summon clock).
+    e.work = AI.tuskSummonEvery * 1.6 * run.pace;
+    e.state = ES.Summon; e.t = 0.9;
+    emit(run, 'tell', e.x, e.y, e.type, TELL_SUMMON);
+  } else if (phase === 2 && e.t3 <= 0) {
+    e.t3 = AI.tuskSummonEvery * run.pace;
     e.state = ES.Summon; e.t = 0.9;
     emit(run, 'tell', e.x, e.y, e.type, TELL_SUMMON);
   } else if (phase === 3 && e.t3 <= 0 && pd < AI.tuskRingW * AI.tuskRings) {
