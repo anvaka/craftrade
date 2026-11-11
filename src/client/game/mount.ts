@@ -174,7 +174,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       pauseSound?.dispose(); pauseSound = null;
       last = performance.now();
       acc = 0;
-      slowN = 0; slowBad = 0; slowSkip = 30;
+      slowT = 0; slowBadT = 0; slowSkip = 500;
     }
   }
   root.append(pausePanel);
@@ -298,24 +298,24 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   }
 
   // ---- slow devices -----------------------------------------------------------------
-  // Filling the canvas is the main cost of a frame. If most frames over two
-  // seconds of play run slower than 25 a second (so a phone capped at 30 is
-  // left alone), draw fewer pixels: device
-  // ratio x 0.75, then x 0.5. It only ever steps down, at most twice a run.
-  const SLOW_MS = 40, SLOW_WINDOW = 90;
-  let slowN = 0, slowBad = 0, slowSkip = 120;
+  // Filling the canvas is the main cost of a frame. If most of three seconds
+  // of play went on frames slower than 25 a second (so a phone capped at 30
+  // is left alone), draw fewer pixels: device ratio x 0.75, then x 0.5. It
+  // only ever steps down, at most twice a run.
+  const SLOW_MS = 40, SLOW_WINDOW_MS = 3000;
+  let slowT = 0, slowBadT = 0, slowSkip = 2000;
   function slowWatch(ms: number): void {
-    if (quality <= 0.5 || ms > 250) return;
-    if (slowSkip > 0) { slowSkip--; return; }
-    slowN++;
-    if (ms > SLOW_MS) slowBad++;
-    if (slowN < SLOW_WINDOW) return;
-    const bad = slowBad / slowN;
-    slowN = 0; slowBad = 0;
+    if (quality <= 0.5 || ms > 1500) return; // a stall that long is the tab coming back, not the device
+    if (slowSkip > 0) { slowSkip -= ms; return; }
+    slowT += ms;
+    if (ms > SLOW_MS) slowBadT += ms;
+    if (slowT < SLOW_WINDOW_MS) return;
+    const bad = slowBadT / slowT;
+    slowT = 0; slowBadT = 0;
     if (bad < 0.6) return;
     if (capDpr(window.devicePixelRatio || 1) * quality <= 1) { quality = 0.5; return; }
     quality = quality > 0.75 ? 0.75 : 0.5;
-    slowSkip = 90; // let the rebake and the resize settle before judging again
+    slowSkip = 1500; // let the rebake and the resize settle before judging again
     fit();
     (window as unknown as { __quality?: number }).__quality = quality;
   }

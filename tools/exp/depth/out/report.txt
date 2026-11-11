@@ -71,23 +71,23 @@ No gift (greenhorn, same seeds): 40% win.
 
 | item | tier | effects | runs that bought it | bought by bench 6 (reached wave 7) | win if bought early | win if not | z | win with it as a free kit | points vs no kit | mean end wave vs no kit |
 |---|---|---|---|---|---|---|---|---|---|---|
-| whetstone | 1 | crit2 | 26% | 213 | 45% | 39% | 1.6 | - | - | - |
-| tallow | 1 | rate2 armor1- | 35% | 312 | 46% | 38% | 2.6 | - | - | - |
-| hobnails | 1 | speed2 knockback1 | 17% | 144 | 40% | 40% | 0.0 | - | - | - |
-| saltpork | 1 | maxHp2 | 45% | 424 | 44% | 38% | 1.8 | - | - | - |
-| pitch | 1 | burn1 | 8% | 99 | 41% | 40% | 0.2 | - | - | - |
+| whetstone | 1 | crit2 | 26% | 213 | 45% | 39% | 1.6 | 46% | 8 | 0.05 |
+| tallow | 1 | rate2 armor1- | 35% | 312 | 46% | 38% | 2.6 | 54% | 16 | 0.40 |
+| hobnails | 1 | speed2 knockback1 | 17% | 144 | 40% | 40% | 0.0 | 52% | 14 | 0.42 |
+| saltpork | 1 | maxHp2 | 45% | 424 | 44% | 38% | 1.8 | 47% | 9 | 0.51 |
+| pitch | 1 | burn1 | 8% | 99 | 41% | 40% | 0.2 | 43% | 5 | 0.36 |
 | lodestone | 1 | magnet2 | 1% | 16 | 31% | 40% | -0.7 | 52% | 14 | 0.49 |
 | tallybook | 1 | interest1 damage1- | 0% | 0 | - | 40% | 0.0 | 18% | -20 | -1.06 |
 | burrs | 1 | thorns2 speed1- | 0% | 0 | - | 40% | 0.0 | 42% | 4 | 0.09 |
-| splint | 1 | mend2 | 27% | 227 | 38% | 41% | -0.8 | - | - | - |
-| baitbag | 1 | killScrip2 | 46% | 377 | 39% | 41% | -0.5 | - | - | - |
-| saptap | 1 | nodeHeal2 | 39% | 455 | 35% | 44% | -3.1 | - | - | - |
-| fellingwedge | 1 | harvest2 knockback1 | 16% | 150 | 41% | 40% | 0.1 | - | - | - |
+| splint | 1 | mend2 | 27% | 227 | 38% | 41% | -0.8 | 47% | 9 | 0.45 |
+| baitbag | 1 | killScrip2 | 46% | 377 | 39% | 41% | -0.5 | 49% | 11 | 0.30 |
+| saptap | 1 | nodeHeal2 | 39% | 455 | 35% | 44% | -3.1 | 45% | 7 | 0.22 |
+| fellingwedge | 1 | harvest2 knockback1 | 16% | 150 | 41% | 40% | 0.1 | 42% | 4 | 0.28 |
 | rabbitfoot | 1 | luck2 | 3% | 31 | 35% | 40% | -0.5 | 35% | -3 | -0.09 |
-| leadshot | 1 | ranged2 speed1- | 15% | 124 | 35% | 41% | -1.1 | - | - | - |
-| rawhidegrip | 1 | melee2 | 38% | 350 | 44% | 39% | 1.7 | - | - | - |
-| slate | 1 | xpGain2 | 49% | 410 | 38% | 42% | -1.3 | - | - | - |
-| oilcloth | 1 | waveShield2 | 45% | 383 | 47% | 37% | 3.4 | - | - | - |
+| leadshot | 1 | ranged2 speed1- | 15% | 124 | 35% | 41% | -1.1 | 39% | 1 | -0.07 |
+| rawhidegrip | 1 | melee2 | 38% | 350 | 44% | 39% | 1.7 | 44% | 6 | 0.17 |
+| slate | 1 | xpGain2 | 49% | 410 | 38% | 42% | -1.3 | 48% | 10 | 0.17 |
+| oilcloth | 1 | waveShield2 | 45% | 383 | 47% | 37% | 3.4 | 53% | 15 | 0.74 |
 | fishhook | 1 | pierce1 | 0% | 0 | - | 40% | 0.0 | 49% | 11 | 0.32 |
 | springsteel | 1 | bounce1 | 0% | 0 | - | 40% | 0.0 | 58% | 20 | 0.99 |
 | smellingsalts | 1 | lowHpRate3 maxHp1- | 0% | 0 | - | 40% | 0.0 | 35% | -3 | -0.32 |
@@ -95,25 +95,25 @@ No gift (greenhorn, same seeds): 40% win.
 | timbersledge | 2 | hoardTimber3 harvest1 dodge1- | 0% | 0 | - | 40% | 0.0 | 45% | 7 | 0.15 |
 | hidebundle | 2 | hoardHide3 maxHp1 speed1- | 8% | 38 | 34% | 40% | -0.8 | 48% | 10 | 0.13 |
 | tripod | 2 | stillDamage3 reach2 speed2- | 0% | 0 | - | 40% | 0.0 | 47% | 9 | -0.04 |
-| moccasins | 2 | movingDodge2 dodge2 armor1- | 50% | 172 | 37% | 41% | -0.9 | - | - | - |
-| powderhorn | 2 | killBlast2 ranged2 mend1- | 41% | 186 | 60% | 37% | 5.9 | - | - | - |
+| moccasins | 2 | movingDodge2 dodge2 armor1- | 50% | 172 | 37% | 41% | -0.9 | 39% | 1 | 0.18 |
+| powderhorn | 2 | killBlast2 ranged2 mend1- | 41% | 186 | 60% | 37% | 5.9 | 62% | 24 | 0.86 |
 | quarrycharge | 2 | nodeBurst2 harvest2 luck1- | 0% | 0 | - | 40% | 0.0 | 47% | 9 | 0.37 |
-| coiledspring | 2 | hurtBlast3 knockback2 rate1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
-| favourlist | 2 | rerollCut3 luck2 damage1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
-| gaffhook | 2 | eliteDamage3 melee2 rate1- | 48% | 214 | 40% | 40% | -0.2 | - | - | - |
-| prospectorpan | 2 | richNodes3 luck1 melee1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
-| boilerplate | 2 | armor4 thorns1 speed3- | 47% | 214 | 37% | 41% | -0.9 | - | - | - |
-| strongbox | 3 | interest4 waveShield2 luck1 speed2- | 38% | 73 | 34% | 41% | -1.1 | - | - | - |
-| horseshoe | 3 | secondWind3 luck3 damage2- | 18% | 47 | 34% | 41% | -0.9 | - | - | - |
-| emberjar | 3 | burn3 killBlast2 damage2 armor2- | 46% | 86 | 50% | 39% | 1.9 | - | - | - |
-| barbedquiver | 3 | pierce3 ranged3 crit1 melee2- | 11% | 28 | 50% | 40% | 1.1 | - | - | - |
-| drillbrace | 3 | rate4 harvest3 dodge2- | 27% | 44 | 59% | 39% | 2.6 | - | - | - |
-| surveyorglass | 3 | reach4 crit3 maxHp2- | 2% | 3 | 100% | 40% | 2.1 | - | - | - |
-| skippingstones | 3 | bounce3 ranged2 luck2 armor1- | 7% | 14 | 43% | 40% | 0.2 | - | - | - |
-| blastingkit | 4 | nodeBurst4 killBlast4 harvest4 armor3- | 1% | 0 | - | 40% | 0.0 | - | - | - |
-| anvil | 4 | armor5 stillDamage4 knockback5 speed3- | 2% | 0 | - | 40% | 0.0 | - | - | - |
-| factorseal | 4 | interest5 rerollCut5 killScrip3 damage2- | 0% | 0 | - | 40% | 0.0 | - | - | - |
-| forgebellows | 4 | burn4 rate4 damage5 dodge3- | 12% | 0 | - | 40% | 0.0 | - | - | - |
+| coiledspring | 2 | hurtBlast3 knockback2 rate1- | 0% | 0 | - | 40% | 0.0 | 45% | 7 | 0.61 |
+| favourlist | 2 | rerollCut3 luck2 damage1- | 0% | 0 | - | 40% | 0.0 | 25% | -13 | -0.88 |
+| gaffhook | 2 | eliteDamage3 melee2 rate1- | 48% | 214 | 40% | 40% | -0.2 | 45% | 7 | 0.11 |
+| prospectorpan | 2 | richNodes3 luck1 melee1- | 0% | 0 | - | 40% | 0.0 | 40% | 2 | 0.10 |
+| boilerplate | 2 | armor4 thorns1 speed3- | 47% | 214 | 37% | 41% | -0.9 | 49% | 11 | 0.73 |
+| strongbox | 3 | interest4 waveShield2 luck1 speed2- | 38% | 73 | 34% | 41% | -1.1 | 39% | 1 | 0.36 |
+| horseshoe | 3 | secondWind3 luck3 damage2- | 18% | 47 | 34% | 41% | -0.9 | 42% | 4 | 0.64 |
+| emberjar | 3 | burn3 killBlast2 damage2 armor2- | 46% | 86 | 50% | 39% | 1.9 | 68% | 30 | 0.97 |
+| barbedquiver | 3 | pierce3 ranged3 crit1 melee2- | 11% | 28 | 50% | 40% | 1.1 | 75% | 37 | 0.95 |
+| drillbrace | 3 | rate4 harvest3 dodge2- | 27% | 44 | 59% | 39% | 2.6 | 81% | 43 | 0.94 |
+| surveyorglass | 3 | reach4 crit3 maxHp2- | 2% | 3 | 100% | 40% | 2.1 | 52% | 14 | -1.59 |
+| skippingstones | 3 | bounce3 ranged2 luck2 armor1- | 7% | 14 | 43% | 40% | 0.2 | 77% | 39 | 1.12 |
+| blastingkit | 4 | nodeBurst4 killBlast4 harvest4 armor3- | 1% | 0 | - | 40% | 0.0 | 76% | 38 | 1.02 |
+| anvil | 4 | armor5 stillDamage4 knockback5 speed3- | 2% | 0 | - | 40% | 0.0 | 39% | 1 | -0.85 |
+| factorseal | 4 | interest5 rerollCut5 killScrip3 damage2- | 0% | 0 | - | 40% | 0.0 | 56% | 18 | 0.64 |
+| forgebellows | 4 | burn4 rate4 damage5 dodge3- | 12% | 0 | - | 40% | 0.0 | 91% | 53 | 1.40 |
 
 Item buys by tier 1/2/3/4: 47% / 33% / 19% / 1% of 14019 item buys; items per run 11.7; weapons bought per run 13.5
 
@@ -267,6 +267,11 @@ Shipped bot, all characters, by wave:
 | character | win with fusion (shipped bot) | win with fusion off | z | fusions per run |
 |---|---|---|---|---|
 | greenhorn | 40% | 41% | -0.2 | 1.09 |
+| sawyer | 52% | 54% | -0.3 | 1.79 |
+| smith | 40% | 39% | 0.1 | 1.52 |
+| trapper | 49% | 48% | 0.1 | 1.01 |
+| tinker | 34% | 24% | 1.6 | 3.33 |
+| clerk | 21% | 23% | -0.3 | 0.84 |
 
 
 ## 5. Characters
@@ -301,6 +306,9 @@ Win rate by strategy and character (default 200 seeds; greenhorn 200; other cell
 | glass | 63% | 61% | 68% | 64% | 49% | 42% |
 | meleeOnly | 30% | 39% | 27% | 35% | 32% | 30% |
 | rangedOnly | 10% | 9% | 3% | 19% | 24% | 1% |
+| toolsHeavy | 25% | 42% | 28% | 36% | 29% | 12% |
+| thorns | 11% | 15% | 18% | 20% | 17% | 13% |
+| nofuse | 41% | 54% | 39% | 48% | 24% | 23% |
 
 | character | best forced strategy | worst | spread (points) |
 |---|---|---|---|
@@ -308,7 +316,7 @@ Win rate by strategy and character (default 200 seeds; greenhorn 200; other cell
 | sawyer | glass 61% | rangedOnly 9% | 52 |
 | smith | glass 68% | rangedOnly 3% | 65 |
 | trapper | glass 64% | rangedOnly 19% | 45 |
-| tinker | glass 49% | rangedOnly 24% | 25 |
+| tinker | glass 49% | thorns 17% | 32 |
 | clerk | glass 42% | rangedOnly 1% | 41 |
 
 
@@ -372,4 +380,22 @@ circle: win 0%; deaths by wave 0 92 28 46 17 14 3 0 0 0 0 0; mean end wave 3.2
 every18: win 23%; deaths by wave 0 0 6 0 5 3 13 10 38 35 33 11; mean end wave 9.9
 noBuy: win 1%; deaths by wave 0 0 2 6 16 45 20 69 10 26 2 3; mean end wave 7.5
 
-Files read: 92
+## 8. Follow-ups
+
+| run | character | what | runs | win | 95% CI | kills in wave 1 | win if wave 12 reached | boss killed (of wins) | median boss kill time (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| default | greenhorn | reference | 200 | 40% | 33-46 | 23.0 | 90% | 92% | 30.6 |
+| add:damage_-4 | greenhorn | -4% Damage from the start (sling 4 x 0.96 no longer kills a 4 HP mite in one stone) | 200 | 19% | 14-24 | 13.4 | 67% | 89% | 28.6 |
+| kit:tallybook | greenhorn | Tally book as a free kit (interest 1, -4% Damage) | 100 | 18% | 12-27 | 13.5 | 69% | 100% | 34.8 |
+| default | clerk | reference (-8% Damage) | 200 | 24% | 18-30 | 13.4 | 78% | 89% | 29.7 |
+| add:damage_8 | clerk | clerk with the -8% Damage cancelled | 200 | 45% | 38-51 | 23.0 | 82% | 92% | 28.6 |
+| add:ranged_1 | clerk | clerk with +1 Ranged (sling back to a one-stone kill) | 200 | 38% | 31-44 | 23.0 | 80% | 91% | 29.9 |
+| whatif-tusk2.5 | greenhorn | Old Tusk health x2.5, shipped bot | 200 | 26% | 20-32 | 23.0 | 59% | 56% | 54.1 |
+| whatif-tusk4 | greenhorn | Old Tusk health x4, shipped bot | 200 | 22% | 17-28 | 23.0 | 50% | 27% | 55.6 |
+| glass | greenhorn | reference | 200 | 63% | 56-69 | 23.0 | 98% | 100% | 20.1 |
+| whatif-tusk4-glass | greenhorn | Old Tusk health x4, offence weights | 200 | 37% | 31-44 | 23.0 | 58% | 76% | 52.8 |
+| thorns | greenhorn | reference | 200 | 11% | 7-16 | 23.0 | 41% | 23% | 41.5 |
+| whatif-thorns3 | greenhorn | thorns values x3 (cap of 60 still applies), thorns policy | 200 | 15% | 10-20 | 23.0 | 52% | 24% | 38.7 |
+
+
+Files read: 144

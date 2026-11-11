@@ -363,4 +363,18 @@ h('7. Difficulty curve (shipped bot)');
     console.log(`${n}: win ${pc(wins(r), r.length)}; deaths by wave ${hist.slice(1).join(' ')}; mean end wave ${f1(mean(r.map((x) => x.endWave)))}`);
   }
 }
+h('8. Follow-ups');
+{
+  const rows: (string | number)[][] = [];
+  for (const [n, c, note] of [['default', 'greenhorn', 'reference'], ['add:damage_-4', 'greenhorn', '-4% Damage from the start (sling 4 x 0.96 no longer kills a 4 HP mite in one stone)'],
+    ['kit:tallybook', 'greenhorn', 'Tally book as a free kit (interest 1, -4% Damage)'], ['default', 'clerk', 'reference (-8% Damage)'], ['add:damage_8', 'clerk', 'clerk with the -8% Damage cancelled'],
+    ['add:ranged_1', 'clerk', 'clerk with +1 Ranged (sling back to a one-stone kill)'], ['whatif-tusk2.5', 'greenhorn', 'Old Tusk health x2.5, shipped bot'], ['whatif-tusk4', 'greenhorn', 'Old Tusk health x4, shipped bot'],
+    ['glass', 'greenhorn', 'reference'], ['whatif-tusk4-glass', 'greenhorn', 'Old Tusk health x4, offence weights'], ['thorns', 'greenhorn', 'reference'], ['whatif-thorns3', 'greenhorn', 'thorns values x3 (cap of 60 still applies), thorns policy']] as const) {
+    const r = load(n.replace('=', '_'), c);
+    if (!r) continue;
+    const w = r.filter((x) => x.won), at12 = r.filter((x) => x.endWave >= 12);
+    rows.push([n, c, note, r.length, pc(w.length, r.length), wilson(w.length, r.length), f1(mean(r.map((x) => x.kills[0]))), pc(w.length, at12.length), pc(w.filter((x) => x.bossKilled).length, w.length), median(w.filter((x) => x.bossKilled).map((x) => x.bossT))]);
+  }
+  table(['run', 'character', 'what', 'runs', 'win', '95% CI', 'kills in wave 1', 'win if wave 12 reached', 'boss killed (of wins)', 'median boss kill time (s)'], rows);
+}
 console.log(`\nFiles read: ${readdirSync(OUT).filter((f) => f.endsWith('.jsonl')).length}`);

@@ -1,0 +1,3 @@
+out/*.jsonl
+out/*.lock
+out/*.log
