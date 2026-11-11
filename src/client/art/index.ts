@@ -36,7 +36,7 @@
 
 import { GLYPHS, RAWS, STATS, type GlyphId, type RawId, type StatId } from '../../shared/vocab.ts';
 import { CHARACTER_IDS, boar, brute, burrower, gnat, magpie, mite, player, rotwood, spitter, stag, tusk, type CharacterId } from './creatures.ts';
-import { GLYPH_ICON, MISC_ICON, RAW_ICON, STATION_ICON, STATION_IDS, STAT_ICON, WEAPON_ICON, WEAPON_IDS, type StationId, type WeaponId } from './icons.ts';
+import { GLYPH_ICON, ICON_UNIT, MISC_ICON, RAW_ICON, STATION_ICON, STATION_IDS, STAT_ICON, WEAPON_ICON, WEAPON_IDS, type StationId, type WeaponId } from './icons.ts';
 import { INK, MADDER, OCHRE, SPRUCE, bake, capDpr, type Drawing, type Sprite } from './print.ts';
 import {
   NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chip, hidePickup, orePickup,
@@ -116,8 +116,8 @@ export function bakeAll(devicePixelRatio = 1): Sprites {
   const b = (seed: string, d: Drawing): Sprite => bake(dpr, seed, d);
   const two = (seed: string, d: (f: 0 | 1) => Drawing): Frames => [b(seed, d(0)), b(seed, d(1))];
   const icon = (seed: string, d: Drawing): Icon => ({
-    s: bake(dpr, seed, d, { k: 1, box: [ICON_S, ICON_S], jitter: 0.4 }),
-    l: bake(dpr, seed, d, { k: 2, box: [ICON_L, ICON_L], jitter: 0.6 }),
+    s: bake(dpr, seed, d, { k: ICON_S / ICON_UNIT, box: [ICON_S, ICON_S], jitter: 0.4 }),
+    l: bake(dpr, seed, d, { k: ICON_L / ICON_UNIT, box: [ICON_L, ICON_L], jitter: 0.6 }),
   });
   const icons = <K extends string>(ids: readonly K[], table: Record<K, Drawing>, prefix: string): Record<K, Icon> => {
     const out = {} as Record<K, Icon>;

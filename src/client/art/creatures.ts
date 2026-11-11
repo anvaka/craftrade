@@ -66,7 +66,7 @@ export function player(id: CharacterId, f: 0 | 1): Drawing {
         p.hatch([-10, -8, -12, -22, -8, -29, -3, -29, -4, -8], 62, 3.5);
       }
       if (id === 'smith') {
-        p.flat([-3, -29, 8, -28, 13, -4, -2, -5], INK);
+        p.flat([-3, -29, 8, -28, 14, -1, -4, -2], INK);
         p.cut([2, -16, 9, -15, 9, -11, 3, -11]);
       } else {
         p.line([-11, -15, 11, -14]);
@@ -98,9 +98,11 @@ export function player(id: CharacterId, f: 0 | 1): Drawing {
           p.flat([-5, -52, -1, -56, 3, -53, 1, -49, -4, -49], INK);
           break;
         case 'trapper':
-          p.shape([-9, -40, -10, -45, -7, -49, -4, -46, -1, -51, 2, -47, 5, -50, 8, -45, 9, -40], OCHRE);
-          p.shape([-9, -43, -15, -42, -18, -31, -14, -26, -11, -33], OCHRE);
-          p.hatch([-9, -43, -15, -42, -18, -31, -14, -26, -11, -33], 15, 3, INK, 2);
+          p.shape([-10, -39, -10, -46, -6, -49, 6, -49, 10, -45, 10, -40], OCHRE);
+          p.hatch([-10, -39, -10, -46, -6, -49, 6, -49, 10, -45, 10, -40], 80, 3);
+          p.flat([-10, -42, 11, -42, 11, -39, -10, -39], INK);
+          p.shape([-9, -44, -16, -41, -20, -29, -16, -23, -12, -30, -10, -37], OCHRE);
+          p.hatch([-9, -44, -16, -41, -20, -29, -16, -23, -12, -30, -10, -37], 20, 4, INK, 2.5);
           break;
         case 'tinker':
           p.at(0, -41, -9, () => {
@@ -112,8 +114,8 @@ export function player(id: CharacterId, f: 0 | 1): Drawing {
           break;
         case 'clerk':
           p.flat([-8, -42, 5, -42, 15, -39, 15, -37, 4, -39, -8, -39], INK);
-          p.shape([-6, -41, -15, -55, -9, -52, -3, -42], OCHRE);
-          p.line([-12, -52, -5, -42], true);
+          p.line([-5, -41, -11, -52]);
+          p.shape([-10, -50, -15, -58, -9, -56, -7, -51], OCHRE);
           break;
         default:
           break;
@@ -129,13 +131,16 @@ export function player(id: CharacterId, f: 0 | 1): Drawing {
           p.line([10, -13, 14, -17]);
           break;
         case 'sawyer':
-          p.line([11, -11, 21, -37]);
-          p.shape([17, -42, 29, -45, 31, -33, 22, -33], OCHRE);
-          p.line([27, -44, 29, -34], true);
+          p.at(12, -13, 20, () => {
+            p.line([0, 3, 0, -27]);
+            p.shape([-3, -30, 2, -30, 11, -33, 13, -18, 2, -22, -3, -22], OCHRE);
+            p.line([10, -31, 11, -20], true);
+          });
           break;
         case 'smith':
-          p.line([10, -12, 23, -21]);
-          p.flat([19, -30, 28, -27, 25, -15, 17, -19], INK);
+          p.line([14, -12, 17, -40]);
+          p.flat([8, -50, 27, -47, 26, -37, 8, -40], INK);
+          p.cut([11, -47, 13, -46.5, 13, -41, 11, -41.5]);
           break;
         case 'trapper':
           // skinning knife, low and forward
@@ -226,22 +231,32 @@ export const boar = (pose: 'walk' | 'windup', f: 0 | 1): Drawing => (p) => {
 };
 
 export const spitter = (pose: 'walk' | 'spit', f: 0 | 1): Drawing => (p) => {
-  lozenge(p, 16, 4);
+  lozenge(p, 17, 4);
   const s = f ? 1.5 : 0;
-  p.flat([-15, -3, -6, -6, -4, 0, -16 - s, 0], INK);
-  p.flat([4, -6, 13, -3, 16 + s, 0, 3, 0], INK);
+  p.flat([-16, -3, -7, -6, -5, 0, -17 - s, 0], INK);
+  p.flat([4, -6, 13, -3, 17 + s, 0, 3, 0], INK);
   if (pose === 'walk') {
-    p.shape([-13, -3, -16, -14, -11, -24, -4, -28, -1, -36, 5, -43, 14, -42, 13, -35, 8, -31, 11, -22, 15, -12, 12, -3], MADDER);
-    p.flat([5, -43, 14, -42, 13, -37, 7, -38], INK);
-    p.hatch([3, -28, 11, -22, 15, -12, 12, -3, 2, -3], -30, 3.5);
+    // squat sack, crooked neck, flared mouth held high and forward
+    p.flat([-16, -13, -22, -18, -14, -19], INK);
+    p.flat([-11, -22, -16, -29, -6, -24], INK);
+    p.shape([-14, -3, -17, -13, -12, -22, -3, -25, 3, -31, 4, -39, 0, -46, 19, -43, 13, -37, 11, -30, 14, -22, 16, -12, 13, -3], MADDER);
+    p.flat([0, -46, 19, -43, 14, -39, 5, -41], INK);
+    p.hatch([3, -25, 14, -22, 16, -12, 13, -3, 2, -3], -30, 3.5);
+    p.line([3, -31, 11, -30], true);
+    p.line([4, -36, 12, -35], true);
   } else {
-    p.shape([-13, -3, -16, -13, -10, -21, 0, -25, 8, -33, 17, -39, 23, -33, 17, -29, 12, -24, 12, -15, 11, -3], MADDER);
-    p.flat([17, -39, 23, -33, 19, -30, 14, -36], INK);
-    p.hatch([3, -22, 12, -24, 12, -15, 11, -3, 2, -3], -30, 5);
+    // sack squeezed flat, neck thrown forward
+    p.flat([-16, -11, -22, -15, -13, -17], INK);
+    p.flat([-10, -18, -14, -25, -4, -20], INK);
+    p.shape([-14, -3, -17, -11, -11, -18, 0, -20, 9, -25, 19, -33, 19, -42, 31, -27, 23, -26, 15, -17, 15, -10, 13, -3], MADDER);
+    p.flat([19, -42, 31, -27, 26, -27, 18, -37], INK);
+    p.hatch([3, -19, 12, -22, 15, -10, 13, -3, 2, -3], -30, 5);
+    p.line([10, -25, 15, -19], true);
+    p.line([14, -29, 19, -23], true);
   }
-  p.eye(-7, pose === 'walk' ? -21 : -17, 2.2);
-  p.dot(-10, -11);
-  p.dot(-4, -8, 1.3);
+  p.eye(-8, pose === 'walk' ? -17 : -13, 2.4);
+  p.dot(-11, -8);
+  p.dot(-4, -7, 1.3);
 };
 
 function magpieBody(p: Print, wingUp: boolean): void {
@@ -284,27 +299,29 @@ function mound(p: Print, front: boolean): void {
 export const burrower = (pose: 'mound' | 'emerged', f: 0 | 1): Drawing => (p) => {
   if (pose === 'mound') {
     mound(p, false);
-    // only the claw tips show
-    p.shape([-5, -11, -3, -18, 0, -12], MADDER);
-    p.shape([2, -12, 5, -17, 7, -11], MADDER);
+    // only the claws show
+    p.shape([-8, -11, -6, -21, -2, -12], MADDER);
+    p.shape([-2, -12, 1, -24, 5, -12], MADDER);
+    p.shape([5, -12, 9, -20, 11, -10], MADDER);
     return;
   }
-  const s = f ? 2 : 0;
-  // far paw
-  p.shape([-11, -20, -19, -25 - s, -23, -19 - s, -18, -13, -11, -14], MADDER);
-  p.flat([-21, -24 - s, -29, -27 - s, -24, -20 - s], INK);
-  p.flat([-23, -19 - s, -30, -17 - s, -22, -15 - s], INK);
-  // body rising out of the ground, snout up
-  p.shape([-10, -4, -12, -20, -8, -30, -1, -35, 10, -42, 10, -33, 12, -24, 11, -4], MADDER);
-  p.hatch([-10, -4, -12, -20, 12, -22, 11, -4], 4, 4.5);
-  p.flat([5, -39, 12, -44, 11, -36], INK);
-  p.dot(3, -31, 1.3);
-  p.line([-4, -27, 2, -25], true);
-  // near paw with three talons
-  p.shape([11, -22, 20, -27 + s, 25, -21 + s, 20, -14 + s, 12, -14], MADDER);
-  p.flat([22, -26 + s, 31, -29 + s, 25, -22 + s], INK);
-  p.flat([25, -21 + s, 33, -19 + s, 24, -17 + s], INK);
-  p.flat([21, -15 + s, 28, -10 + s, 18, -13 + s], INK);
+  const s = f ? 3 : 0;
+  // far claw, raised
+  p.shape([-9, -22, -17, -30 - s, -25, -27 - s, -24, -19 - s, -12, -14], MADDER);
+  p.flat([-17, -30 - s, -22, -41 - s, -21, -29 - s], INK);
+  p.flat([-22, -28 - s, -31, -35 - s, -25, -24 - s], INK);
+  p.flat([-25, -23 - s, -33, -22 - s, -24, -19 - s], INK);
+  // body: a fat grub of a mole, blunt head, snout forward
+  p.shape([-11, -4, -13, -22, -9, -33, 0, -38, 9, -36, 15, -31, 24, -29, 24, -25, 14, -23, 12, -14, 12, -4], MADDER);
+  p.hatch([-11, -4, -13, -20, 12, -18, 12, -4], 3, 4.5);
+  p.flat([19, -31, 26, -30, 26, -24, 19, -25], INK);
+  p.line([4, -32, 9, -30]);
+  p.line([-8, -27, -2, -24], true);
+  // near claw, three talons
+  p.shape([9, -17, 19, -20 + s, 25, -14 + s, 21, -7 + s, 11, -8], MADDER);
+  p.flat([20, -20 + s, 29, -25 + s, 25, -15 + s], INK);
+  p.flat([25, -15 + s, 34, -14 + s, 25, -10 + s], INK);
+  p.flat([23, -9 + s, 31, -3 + s, 20, -6 + s], INK);
   mound(p, true);
 };
 
@@ -315,7 +332,7 @@ export const brute = (pose: 'walk' | 'slam', f: 0 | 1): Drawing => (p) => {
   p.flat([4, -14, 13, -14, 16 + s, 0, 4 + s, 0], INK);
   const up = pose === 'slam';
   // far arm
-  if (up) p.shape([-20, -44, -27, -64, -19, -80, -6, -78, -5, -66, -12, -62, -10, -46], MADDER);
+  if (up) p.shape([-25, -42, -19, -78, -5, -78, -9, -48], MADDER);
   else p.shape([-24, -40, -32, -22, -31 + s, -6, -23 + s, -1, -17 + s, -8, -21, -24, -16, -36], MADDER);
   // torso
   p.shape([-22, -12, -26, -34, -20, -48, -8, -55, 8, -55, 20, -49, 26, -36, 22, -12], MADDER);
@@ -330,9 +347,12 @@ export const brute = (pose: 'walk' | 'slam', f: 0 | 1): Drawing => (p) => {
   else p.cut([9, -50, 11, -53, 12, -50]);
   // near arm
   if (up) {
-    p.shape([18, -46, 26, -64, 18, -81, 5, -79, 4, -67, 11, -62, 8, -48], MADDER);
-    p.line([8, -72, 14, -70], true);
-    p.line([-16, -72, -10, -71], true);
+    p.shape([24, -44, 19, -79, 5, -78, 9, -48], MADDER);
+    // both fists locked into one block over the head
+    p.shape([-22, -76, -17, -91, 16, -93, 23, -78, 17, -70, -16, -69], MADDER);
+    p.hatch([-22, -76, -17, -91, -6, -92, -8, -69, -16, -69], 62, 4);
+    p.line([0, -92, 1, -70]);
+    p.line([7, -84, 15, -83], true);
   } else {
     p.shape([18, -47, 29, -38, 33, -16, 31 - s, -4, 22 - s, -2, 19 - s, -10, 22, -20, 14, -36], MADDER);
     p.line([23 - s, -8, 29 - s, -9], true);
@@ -452,15 +472,17 @@ function tuskBody(p: Print, phase: 1 | 2 | 3): void {
     p.flat([40, -14, 58, -13, 62, -2, 46, -4], INK);
     p.cut([50, -13, 53, -19, 56, -13]);
   }
-  // tusks: bare, so they read pale against the hide
-  p.shape([36, -18, 46, -40, 54, -46, 51, -32, 47, -19], null);
+  // tusks: solid Ink, swept up past the snout
+  p.flat([34, -17, 42, -36, 52, -47, 50, -33, 45, -18], INK);
   if (wild) {
-    p.shape([45, -20, 55, -40, 62, -38, 57, -20], null);
-    p.line([55, -40, 58, -44], true);
+    // the near one snapped short
+    p.flat([46, -19, 56, -36, 60, -40, 63, -33, 59, -32, 58, -19], INK);
   } else {
-    p.shape([45, -20, 60, -50, 71, -60, 67, -44, 57, -20], null);
-    p.hatch([45, -20, 60, -50, 64, -52, 54, -20], 115, 3.5);
+    p.flat([46, -19, 58, -42, 68, -56, 76, -62, 72, -46, 64, -32, 58, -19], INK);
   }
+  // a cut along each tusk so it stands off the snout
+  p.cut([36, -19, 43, -35, 50, -44, 44, -33, 39, -19]);
+  if (!wild) p.cut([49, -20, 59, -41, 68, -54, 61, -40, 52, -20]);
   p.eye(40, -50, 3.6);
   p.dot(41, -50, 1.6);
   p.line([33, -58, 46, -55]);
@@ -480,13 +502,10 @@ export const tusk = (phase: 1 | 2 | 3, f: 0 | 1 = 0): Drawing => (p) => {
     lozenge(p, 46, 9, -10);
     p.flat([-44, -30, -28, -30, -24, 0, -44, 0], INK);
     p.flat([-22, -26, -8, -26, -4, 0, -20, 0], INK);
-    p.at(-30, -18, -52, () =>
-      p.at(30, 18, 0, () => {
-        p.flat([20, -14, 32, -14, 40, 8, 28, 10], INK);
-        p.flat([38, -16, 50, -16, 60, 4, 48, 8], INK);
-        tuskBody(p, 2);
-      }),
-    );
+    // forelegs hang from the chest, knees bent
+    p.flat([6, -62, 18, -58, 27, -44, 23, -31, 14, -33, 15, -44], INK);
+    p.flat([16, -76, 28, -72, 39, -58, 37, -45, 28, -47, 27, -58], INK);
+    p.at(-30, -18, -48, () => p.at(30, 18, 0, () => tuskBody(p, 2)));
   } else {
     // half reared, bristling, one tusk broken: about to come down
     lozenge(p, 56, 9);

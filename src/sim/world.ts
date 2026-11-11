@@ -182,14 +182,13 @@ export function startWave(run: Run): void {
   for (let i = 0; i < MAX_SHOTS; i++) run.shots[i].alive = false;
   for (let i = 0; i < MAX_ESHOTS; i++) run.eshots[i].alive = false;
   for (let i = 0; i < MAX_HAZARDS; i++) run.hazards[i].alive = false;
-  // Open lanes: a seeded pick of the eight mouths.
-  const order = [0, 1, 2, 3, 4, 5, 6, 7];
-  for (let i = 7; i > 0; i--) {
-    const j = Math.floor(rnd(run.rng, Stream.Spawn) * (i + 1));
-    const t = order[i]; order[i] = order[j]; order[j] = t;
-  }
+  // Open lanes: a seeded start, then evenly round the treeline so packs come from different sides.
+  const first = Math.floor(rnd(run.rng, Stream.Spawn) * 8);
   run.laneCount = def.lanes;
-  for (let i = 0; i < def.lanes; i++) { run.lanes[i * 2] = LANE_MOUTHS[order[i]][0]; run.lanes[i * 2 + 1] = LANE_MOUTHS[order[i]][1]; }
+  for (let i = 0; i < def.lanes; i++) {
+    const m = LANE_MOUTHS[(first + Math.round((i * 8) / def.lanes)) % 8];
+    run.lanes[i * 2] = m[0]; run.lanes[i * 2 + 1] = m[1];
+  }
   for (let gi = 0; gi < run.groupNext.length; gi++) {
     run.groupNext[gi] = gi < def.groups.length ? def.groups[gi].from * def.seconds + 0.5 + gi * 0.35 : 1e9;
   }

@@ -255,7 +255,7 @@ export function updateEnemies(run: Run): void {
           e.t -= DT;
           if (e.t <= 0) { e.state = ES.Charge; e.t = AI.stagChargeTime; e.t3 = 0; }
         } else if (e.state === ES.Charge) {
-          contact = 1.5;
+          contact = 1.25;
           e.t3 -= DT;
           if (e.t3 <= 0) {
             e.t3 = AI.stagShardEvery;
@@ -263,7 +263,7 @@ export function updateEnemies(run: Run): void {
           }
           if (charging(e, AI.stagChargeSpeed * slow)) {
             e.n--;
-            if (e.n > 0) startCharge(run, e, AI.stagTell * 0.75);
+            if (e.n > 0) startCharge(run, e, AI.stagTell * 0.85);
             else { e.state = ES.Recover; e.t = AI.stagRecover; }
           }
         } else {

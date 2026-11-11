@@ -2,9 +2,9 @@
 // off-register fills, straight segments only.
 //
 // Each icon is drawn on a 28 unit grid (-14..14) with the origin at the
-// centre. The small size bakes it at k = 1 (28 css px), the large at k = 2
-// (56 css px) with the line weight unchanged, so the large one is the same
-// cut with more room in it.
+// centre. bakeAll scales the grid to fill a 32 css px box (small) and a
+// 64 css px box (large) with the line weight unchanged, so the large one is
+// the same cut with more room in it.
 //
 // Colour jobs: weapons, item glyphs, raws and scrip are Ochre (things you
 // gather, make or spend in a run). Stats, lock and reroll are plain Ink.
@@ -35,11 +35,12 @@ const closed = (pts: number[]): number[] => [...pts, pts[0]!, pts[1]!];
 // -------------------------------------------------------------------- weapons
 
 export const WEAPON_ICON: Record<WeaponId, Drawing> = {
-  hatchet: (p) => {
-    p.line([-9, 12, 3, -7]);
-    p.shape([-2, -11, 8, -12, 12, -2, 5, -3, 1, -5], OCHRE);
-    p.line([8, -11, 10, -3], true);
-  },
+  hatchet: (p) =>
+    p.at(-1, 1, 25, () => {
+      p.line([0, 13, 0, -9]);
+      p.shape([-3, -12, 2, -12, 10, -14, 12, -1, 2, -4, -3, -4], OCHRE);
+      p.line([9, -13, 10, -3], true);
+    }),
   pick: (p) => {
     p.line([-8, 12, 3, -6]);
     p.shape([-9, -6, -3, -11, 6, -11, 12, -4, 12, 0, 6, -6, -1, -6, -7, -2], OCHRE);
@@ -49,22 +50,24 @@ export const WEAPON_ICON: Record<WeaponId, Drawing> = {
     p.shape([-5, 2, 0, -6, 9, -12, 11, -5, 6, 3, 0, 6], OCHRE);
     p.line([-1, -3, 8, -9], true);
   },
-  maul: (p) => {
-    p.line([-9, 12, 2, -2]);
-    p.shape([-5, -6, 4, -13, 12, -5, 4, 3], OCHRE);
-    p.line([-2, -3, 6, -10], true);
-    p.line([2, 1, 10, -6], true);
-  },
+  maul: (p) =>
+    p.at(-1, 1, 32, () => {
+      p.line([0, 13, 0, -3]);
+      p.shape([-10, -13, 10, -13, 10, -3, -10, -3], OCHRE);
+      p.line([-5, -13, -5, -3], true);
+      p.line([5, -13, 5, -3], true);
+    }),
   pike: (p) => {
     p.line([-12, 12, 5, -5]);
     p.shape([2, -6, 12, -13, 7, -1], OCHRE);
     p.line([-1, -5, 6, 2]);
   },
   sling: (p) => {
-    p.line([-9, -12, -1, 4]);
-    p.line([-2, -13, 6, 1]);
-    p.shape([-3, 4, 6, 0, 10, 6, 2, 11], OCHRE);
-    p.dot(4, 5.5, 2.4);
+    p.line([-9, -9, 0, 6], true);
+    p.line([-9, -9, 8, -1], true);
+    p.shape([-12, -9, -9, -13, -6, -9, -9, -6], null);
+    p.shape([-2, 5, 8, -3, 12, 3, 4, 11], OCHRE);
+    p.dot(5.5, 4, 2.6);
   },
   bow: (p) => {
     p.shape([-5, -13, 4, -8, 8, 0, 4, 8, -5, 13, 0, 7, 3, 0, 0, -7], OCHRE);
@@ -78,11 +81,13 @@ export const WEAPON_ICON: Record<WeaponId, Drawing> = {
     p.line([4, -2, 7, 1], true);
   },
   axe: (p) => {
-    p.line([-3, 11, 3, -3]);
-    p.shape([-7, -5, 1, -13, 11, -9, 9, 0, 3, -3], OCHRE);
-    p.line([-12, -3, -8, -8], true);
-    p.line([-12, 4, -9, 0], true);
-    p.line([7, -10, 7, -2], true);
+    p.at(1, 2, 35, () => {
+      p.line([0, 10, 0, -8]);
+      p.shape([-3, -11, 2, -11, 9, -14, 11, -1, 2, -4, -3, -4], OCHRE);
+      p.flat([-3, -10, -9, -7.5, -3, -5], INK);
+    });
+    p.line([-12, -6, -7, -10], true);
+    p.line([-13, 1, -9, -3], true);
   },
   brand: (p) => {
     p.line([-9, 12, 1, 0]);
@@ -156,11 +161,13 @@ export const GLYPH_ICON: Record<GlyphId, Drawing> = {
     p.line(closed(oct(3.4)), true);
   },
   rope: (p) => {
-    p.shape(oct(11), OCHRE);
-    p.hatch(oct(11), 50, 4.2, INK, 2);
-    p.cut(oct(4.5));
-    p.line(closed(oct(4.5)), true);
-    p.line([8, 8, 13, 13]);
+    // a hank: three turns and a loose end
+    for (const y of [-9, -2, 5]) {
+      const band = [-10, y + 1, 9, y - 2, 10, y + 4, -9, y + 7];
+      p.shape(band, OCHRE);
+      p.hatch(band, 62, 3.6);
+    }
+    p.line([9, 8, 13, 12, 10, 14]);
   },
   lantern: (p) => {
     p.line([-3, -9, 0, -13, 3, -9], true);
@@ -178,10 +185,10 @@ export const GLYPH_ICON: Record<GlyphId, Drawing> = {
     p.hatch([-7, -12, -2, -12, -2, 9, -7, 9], 62, 3);
   },
   horn: (p) => {
-    p.shape([-12, -6, -7, -11, 2, -5, 8, 3, 12, 12, 5, 10, -2, 4, -9, -1], OCHRE);
-    p.line([-5, -9, -8, -2], true);
-    p.line([0, -6, -4, 2], true);
-    p.flat([6, 4, 12, 12, 4, 10], INK);
+    p.shape([-12, -9, -5, -12, -4, -3, -1, 3, 5, 3, 9, -3, 12, -11, 13, -2, 9, 7, 2, 11, -6, 9, -11, 1], OCHRE);
+    p.flat([-14, -9, -4, -14, -3, -10, -13, -5], INK);
+    p.line([-9, 3, -3, 0], true);
+    p.hatch([5, 3, 9, -3, 12, -11, 13, -2, 9, 7, 4, 10], 62, 3);
   },
   sack: (p) => {
     p.shape([-8, 12, -11, 1, -5, -6, -2, -7, -5, -13, 5, -13, 2, -7, 6, -5, 11, 2, 8, 12], OCHRE);
@@ -209,9 +216,8 @@ export const GLYPH_ICON: Record<GlyphId, Drawing> = {
     p.line([2, -2, 9, -2], true);
   },
   tooth: (p) => {
-    p.shape([-7, -12, 7, -12, 9, -5, 5, 1, 1, 13, -3, 2, -9, -4], OCHRE);
-    p.line([-8, -7, 8, -7], true);
-    p.hatch([1, -7, 8, -7, 5, 1, 1, 13], 62, 3);
+    p.shape([-8, -12, -2, -10, 3, -12, 8, -11, 10, -3, 7, 2, 8, 13, 2, 5, 0, 2, -2, 5, -7, 13, -7, 2, -10, -3], OCHRE);
+    p.hatch([3, -12, 8, -11, 10, -3, 7, 2, 8, 13, 3, 6], 62, 3);
   },
   bell: (p) => {
     p.shape([-2, -13, 2, -13, 3, -8, 8, -2, 9, 6, -9, 6, -8, -2, -3, -8], OCHRE);
@@ -225,8 +231,12 @@ export const GLYPH_ICON: Record<GlyphId, Drawing> = {
       p.flat([-8, -13, 8, -13, 6, -8, -6, -8], INK);
     }),
   pelt: (p) => {
-    p.shape([-11, -11, -5, -7, 5, -7, 11, -11, 8, -1, 12, 9, 5, 6, 0, 12, -5, 6, -12, 9, -8, -1], OCHRE);
-    p.hatch([-6, -4, 6, -4, 5, 4, -5, 4], 80, 3.4);
+    p.shape([-11, -9, -5, -6, -3, -12, 3, -12, 5, -6, 11, -9, 8, 0, 12, 8, 5, 6, 2, 13, -2, 13, -5, 6, -12, 8, -8, 0], OCHRE);
+    p.line([-4, -3, 4, -3], true);
+    p.line([-5, 1, 5, 1], true);
+    p.line([-4, 5, 4, 5], true);
+    p.dot(-1.5, -9, 1);
+    p.dot(1.5, -9, 1);
   },
   bowl: (p) => {
     p.shape([-11, -1, 11, -1, 8, 7, 4, 11, -4, 11, -8, 7], OCHRE);
@@ -289,10 +299,10 @@ export const STAT_ICON: Record<StatId, Drawing> = {
     p.cut([-5, 2, 0, 4, 5, 2, 3, 5, 0, 8, -3, 5]);
   },
   dodge: (p) => {
-    p.line([-11, 10, -5, -3, 2, 5, 7, -5]);
-    p.flat([3, -8, 12, -13, 11, -2], INK);
-    p.line([-12, -8, -8, -8], true);
-    p.line([-12, -4, -9, -4], true);
+    // a body leaning out of the way of a stroke
+    p.line([-12, 12, 11, -12], true);
+    p.flat([-3, -13, 2, -11, 1, -6, -4, -7], INK);
+    p.flat([-5, -5, 1, -4, -3, 5, -1, 13, -5, 13, -9, 4], INK);
   },
   speed: (p) => {
     p.flat([-2, -10, 12, 0, -2, 10, 2, 0], INK);
@@ -392,16 +402,17 @@ export const MISC_ICON: Record<MiscIconId, Drawing> = {
     p.line([-8, 3, 8, -3], true);
   },
   mule: (p) => {
-    p.line([-8, 2, -9, 12]);
-    p.line([-4, 2, -4, 12]);
-    p.line([4, 2, 4, 12]);
-    p.line([8, 2, 9, 12]);
-    p.line([-11, -3, -13, 4], true);
-    p.shape([-11, -4, 6, -5, 9, -2, 9, 3, -11, 3], WOAD);
-    p.shape([4, -4, 6, -11, 12, -9, 13, -5, 9, -2], WOAD);
-    p.flat([5, -10, 5, -15, 8, -11], INK);
-    p.shape([-8, -10, 2, -10, 3, -4, -9, -4], OCHRE);
-    p.line([-3, -10, -3, 3], true);
+    p.flat([-10, 3, -7, 3, -8, 13, -10.5, 13], INK);
+    p.flat([-5, 3, -2.5, 3, -3, 13, -5.5, 13], INK);
+    p.flat([3, 3, 5.5, 3, 5.5, 13, 3, 13], INK);
+    p.flat([7, 3, 9.5, 2, 9.5, 13, 7, 13], INK);
+    p.line([-11, -3, -13, 5], true);
+    p.shape([-11, -4, 5, -4, 9, 0, 9, 4, -11, 4], WOAD);
+    p.shape([3, -3, 7, -10, 13, -5, 12, -1, 9, -2, 8, 2], WOAD);
+    p.flat([6, -9, 4, -15, 8, -11], INK);
+    p.flat([8, -10, 9, -15, 11, -9], INK);
+    p.shape([-9, -10, 1, -10, 2, -4, -10, -4], OCHRE);
+    p.line([-4, -10, -4, 4], true);
   },
   lock: (p) => {
     p.line([-5, -2, -5, -8, -2, -12, 2, -12, 5, -8, 5, -2]);
@@ -409,10 +420,11 @@ export const MISC_ICON: Record<MiscIconId, Drawing> = {
     p.cut([-1.5, 1, 1.5, 1, 1.5, 4, 1, 8, -1, 8, -1.5, 4]);
   },
   reroll: (p) => {
-    p.line([9, 4, 4, 10, -4, 10, -10, 4, -10, -4, -4, -10, 3, -10]);
-    p.flat([2, -14, 11, -9, 2, -5], INK);
-    p.dot(-2, -1, 1.8);
-    p.dot(3, 3, 1.8);
+    // out with these, in with those
+    p.line([-11, -1, -11, -7, 5, -7]);
+    p.flat([4, -13, 13, -7, 4, -1], INK);
+    p.line([11, 1, 11, 7, -5, 7]);
+    p.flat([-4, 1, -13, 7, -4, 13], INK);
   },
 };
 

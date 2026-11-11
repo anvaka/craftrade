@@ -258,7 +258,7 @@ function primWeight(run: Run, b: BotState, id: string): number {
 function itemUtility(run: Run, b: BotState, item: ItemSpec): number {
   let u = 0;
   for (const e of item.effects) u += effectPoints(e) * primWeight(run, b, e.p) * (e.neg ? 1.2 : 1);
-  return u * 1.45 + 4;
+  return (u * 1.45 + 4) * (1 + run.bench.index * 0.1);
 }
 
 function offerUtility(run: Run, b: BotState, i: number): number {

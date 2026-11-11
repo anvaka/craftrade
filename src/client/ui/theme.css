@@ -161,7 +161,6 @@ canvas.icon {
 }
 .own {
   font-weight: 700;
-  box-shadow: none;
   background: var(--ochre);
   padding: 0 4px;
 }
@@ -322,10 +321,21 @@ canvas.icon {
   white-space: nowrap;
   width: 1%;
 }
-/* Columns that a phone can live without. */
+/* Columns that a phone can live without; heads may wrap there. */
 @media (max-width: 560px) {
   .ledger .wide {
     display: none;
+  }
+  .ledger th {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding-right: 6px;
+  }
+  .ledger td {
+    padding-right: 6px;
+  }
+  .ledger .thing {
+    gap: 6px;
   }
 }
 
@@ -474,12 +484,12 @@ canvas.icon {
   width: 7px;
   border-top: var(--rule) solid var(--ink);
 }
-/* a drawback: a cost the item carries. Marked with a minus rule cut twice. */
+/* a drawback: a cost the item carries. Italic, with a hollow mark. */
 .offer .effects li.cost::before {
-  width: 3px;
-  box-shadow: none;
-  border-top-color: var(--ink);
-  left: 1px;
+  width: 7px;
+  height: 7px;
+  top: 0.42em;
+  border: var(--hair) solid var(--ink);
 }
 .offer .effects li.cost {
   font-style: italic;
@@ -776,6 +786,7 @@ canvas.icon {
   }
   .hud .wave {
     grid-area: 1 / 2;
+    justify-self: end;
   }
   .hud .hp {
     grid-area: 1 / 1;

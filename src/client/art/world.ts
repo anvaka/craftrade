@@ -171,9 +171,11 @@ export const carcass = (rich: boolean, d: NodeStage): Drawing => (p) => {
     }
     // the opened flank
     if (d === 1) {
-      p.cut([-10, -19, 0, -21, 3, -8, -8, -6]);
-      p.line([-10, -19, 0, -21, 3, -8, -8, -6, -10, -19]);
-      ribs(p, -5, 2);
+      const flap = [-9, -20, 2, -22, 6, -9, -3, -6];
+      p.cut(flap);
+      p.line([...flap, -9, -20]);
+      p.line([-3, -8, -5, -15, -1, -20]);
+      p.line([2, -8, 0, -15, 3, -20]);
     } else if (d === 2) {
       p.cut([-19, -18, 6, -20, 10, -7, -17, -5]);
       p.line([-19, -18, 6, -20, 10, -7, -17, -5, -19, -18]);
@@ -263,9 +265,11 @@ export const ballShot: Drawing = (p) => {
 
 /** Thrown axe. Drawn upright; the renderer spins it with drawSprite's rot. */
 export const axeShot: Drawing = (p) => {
-  p.line([-8, 8, 4, -5]);
-  p.shape([-1, -12, 9, -11, 12, -1, 6, -3, 1, -4], OCHRE);
-  p.line([8, -10, 10, -3], true);
+  p.at(0, 0, 25, () => {
+    p.line([0, 11, 0, -9]);
+    p.shape([-3, -11, 2, -11, 10, -13, 12, -1, 2, -4, -3, -4], OCHRE);
+    p.line([9, -12, 10, -3], true);
+  });
 };
 
 export const bolaShot: Drawing = (p) => {
