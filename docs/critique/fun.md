@@ -11,7 +11,7 @@ Everything below is measured or read from code. Nothing in `src/`, `server/` or 
 | Mid-run fun (waves 3-9) | **5 / 10** | Enemy behaviours are distinct and telegraphs are the best thing in the build, but only a frame-perfect bot gets to see them. Scrip stops mattering after wave 8. |
 | Pull to replay | **4 / 10** | Restart is fast (2 presses), unlocks are steady, but the death screen is two ledgers of zeros, there is no personal best, and the whole carry-home loop needs wave 4, which novices reach in 1.5% of runs. |
 
-The single most important number: **a novice dies in wave 2 in 94% of runs, and nobody below bot-level reactions ever wins** (0 wins in 800 runs across four human-like policies; the shipped expert bot drops from 39.5% to 2.5% when its inputs are delayed by 250 ms).
+The single most important number: **a novice dies in wave 2 in 94% of runs, and nobody below bot-level reactions ever wins** (0 wins in 1,000 runs across five human-like policies; the shipped expert bot drops from 39.5% to 2.5% when its inputs are delayed by 250 ms). A constants-only retune measured here takes novice wave 1-2 deaths to 0 of 100 and the delayed bot to 51%.
 
 The game underneath is good. The difficulty curve in front of it is tuned for a player that does not exist.
 
@@ -39,7 +39,7 @@ Policies:
 - **expert-lag250**: the shipped bot with its output delayed 250 ms. Same brain, human hands.
 - **avg-novbench / avg-expbench / expert-novbench**: cross-overs to separate movement skill from bench skill.
 
-Caveats. The policies are models, not people. The novice is deliberately naive, so read novice and novice+ as a floor and average as "a genre player on run 5-10". Baselines are 200 seeds each; tuning variants are 100 seeds each (binomial 95% interval about +-10 points at 50%), because the machine was shared and heavily loaded. Baselines and variants a-c were run on the working tree before commit `32eee1c` (relics); variant d and a re-check of the novice baseline were run on a copy of HEAD `b6df934`. Relics only enter through a kit, and these runs carry no kit.
+Caveats. The policies are models, not people. The novice is deliberately naive, so read novice and novice+ as a floor and average as "a genre player on run 5-10". Baselines are 200 seeds each; tuning variants are 100 seeds each (binomial 95% interval about +-10 points at 50%), because the machine was shared and heavily loaded. Baselines and variants a-c were run on the working tree before commit `32eee1c` (relics); variant d and a re-check of the novice baseline were run on a copy of HEAD `b6df934`. Relics only enter through a kit, and these runs carry no kit: the novice baseline re-run on HEAD gave the identical histogram (188 / 9 / 3).
 
 One harness note: `play.html` is not served by the built server (`/play.html` on port 8803 returns the town `index.html`). It only works through Vite dev, so I ran `npx vite --port 8804` alongside the game server.
 
@@ -131,12 +131,48 @@ What this shows:
 
 ### 1.5 Variant d: aim the relief at reaction load, not at damage
 
-@@D_SECTION@@
+Variant d keeps the early set from c, restores most late damage, and cuts what a slow hand cannot answer. Built from HEAD `b6df934`.
+
+| Constant | Now | d |
+|---|---|---|
+| `PLAYER_BASE_HP` (`tuning.ts`) | 10 | 16 |
+| `IFRAMES` (`tuning.ts`) | 0.45 | 0.75 |
+| Wave 1 groups (`waves.ts`) | `g('mite', 1.5, 2)` | `g('mite', 1.25, 2)` |
+| Wave 2 groups | `g('mite', 1.5, 2), g('gnat', 8.5, 8, 0.12)` | `g('mite', 2.4, 2), g('gnat', 8.5, 5, 0.3)` |
+| Mite (`enemies.ts`) | `hpW 2.2, dmgW 0.85` | `hpW 1.9, dmgW 0.45` |
+| Gnat `dmgW` | 0.55 | 0.4 |
+| Spitter `dmgW` | 0.8 | 0.65 |
+| Boar, burrower `dmgW` | 0.9 | 0.7 |
+| Brute `dmgW` | 1.05 | 1.05 (unchanged) |
+| `AI.spitSpeed` | 200 | 170 |
+| `AI.spitEvery` | 2.3 | 3.0 |
+| Wave 7 spitters | `g('spitter', 3.5, 2, 0.1)` | `g('spitter', 5, 2, 0.1)` |
+| Wave 9 spitters | `g('spitter', 2.5, 2, 0.1)` | `g('spitter', 4, 2, 0.1)` |
+| Wave 11 spitters | `g('spitter', 2.4, 2, 0.05)` | `g('spitter', 3.6, 2, 0.05)` |
+| Wave 12 spitters | `g('spitter', 2.4, 2, 0.15)` | `g('spitter', 3.6, 2, 0.15)` |
+
+Measured (100 seeds each):
+
+| Policy | Win | Dead in 1-2 | Reached 4 | Reached 5 | Reached 7 | Median death | Top killers |
+|---|---|---|---|---|---|---|---|
+| novice | 0% | **0%** | **66%** | 46% | 3% | 4 | mite 40, boar 24, gnat 13 |
+| average | 0% | 0% | 99% | 94% | 52% | 7 | spitter 27, mite 21, stag 18 |
+| expert-lag250 | **51%** | 0% | 100% | 100% | 100% | 9 | brute 15, spitter 15, burrower 9 |
+| expert (bot) | 83% | 0% | 100% | 100% | 99% | 11 | brute 5, mite 4 |
+
+Reading it against the targets:
+
+- Novice almost never dies in waves 1-2: **met** (0 of 100; 94% before).
+- Novice usually reaches wave 4-6 on a first run: **met** (66% reach wave 4, median death wave 4).
+- Expert wins 50-70%: **met for an expert with human hands** (51%), overshot for the zero-latency bot (83%). I would accept this. If the bot must also read under 70%, add health and density in waves 10-12 (brute `hpW` 11 -> 13, wave 10 `g('brute', 3.8, 1, 0.04)` -> `3.2`), which costs a bot and a person about equally, and re-measure. That was not run.
+- A learner wins inside 5-15 runs: **not shown.** The average policy still wins 0 of 100 in every variant. It now gets to waves 6-9 (median death 7, 52% reach wave 7) and dies to the stag (18, up from 14 of 200), spitters and mites. Either that policy is weaker than a real player on run 10 or waves 6-9 need their own pass. I would look at the stag first: `AI.stagTell` 0.7 with the follow-up charges at 0.85 x that, three in a row at 610 px/s, is the tightest reaction check before the boss and it lands on the wave where a learner first has something to lose.
+
+The two interval estimates that matter: 0 of 100 novice deaths in waves 1-2 gives an upper bound of about 3.6%; 51 of 100 for expert-lag250 is 41-61%.
 
 ### 1.6 What I would ship, in order
 
-1. The early set (waves 1-2 composition, mite and gnat `dmgW`, `PLAYER_BASE_HP` 16, `IFRAMES` >= 0.6). Measured: novice wave 1-2 deaths 94% -> 2%.
-2. The spitter set (`AI.spitEvery`, `AI.spitSpeed`, spitter spawn intervals in waves 7, 9, 11, 12). Measured in d.
+1. The early set (waves 1-2 composition, mite and gnat `dmgW`, `PLAYER_BASE_HP` 16, `IFRAMES` 0.75). Measured: novice wave 1-2 deaths 94% -> 0-2%.
+2. The spitter set (`AI.spitEvery`, `AI.spitSpeed`, spitter spawn intervals in waves 7, 9, 11, 12). Measured in d: the 250 ms bot goes from 2.5% to 51%.
 3. Then retune late-wave pressure for the expert with health and density, which a zero-latency bot feels, and not with damage per hit or shot count, which only humans feel.
 
 Two changes need code and so were not simulated, but the data argues for them:
@@ -183,17 +219,17 @@ Driven in the real client with the keyboard. Stills are 1280x720 at deviceScaleF
 
 ### 3.1 What the frames show
 
-- **Hit and kill** (`.../shots/seq-kill.png`, 8 consecutive frames at 1/6 speed; built from `b02-kill-0..7.png`): the mite turns solid ink for 2 ticks, a small "4" floats, one madder chip, then an 85 ms ghost, 3 chips and a coin. It is correct and it is quiet. A wave 1 kill is about 12 pixels of feedback. No hit-stop, no scale pop, no flash on the shooter, no recoil worth seeing on a sling.
-- **Getting hurt** (`.../shots/a08-first-hurt.png`, `.../shots/c02-hurt-0.png`): player turns solid ink, a madder "-1", 5 ochre chips, 60 ms hit-stop, shake (trauma 0.42), HP bar flashes for 80 ms. Readable. What is missing is **who did it**: no flash on the attacker, no direction mark, and in a crowd several mites overlap the player. On the recap the killer is named ("Killed by: Mite"), which is good.
-- **Telegraphs** (`.../shots/d06-wave8-raid.png`): boar charge lanes are hatched madder strips that fill as the windup runs, slam rings fill the same way, spawn marks are madder diamonds on the ground, lane mouths have chevrons. These are the best-executed thing in the client. One boar lane is unmistakable. Six overlapping lanes plus gnats plus magpies in wave 8 is a red carpet, not a warning.
-- **Spit** (`.../shots/d02-wave4-spitters-magpie.png`): enemy shots are 14 px dark-red dots, the same hue as every enemy, drawn under the same crowd. The design rule "the only madder round shapes" holds, but they are small and low-contrast against moss. Given that spitters are the top killer of human-latency players, this is the readability bug that costs the most runs.
-- **Player in a crowd** (`.../shots/d08-wave12-tusk.png`): the player is ochre, scrip is ochre, raws are ochre, crit numbers are ochre. In wave 12 there are about 80 coins on screen and I could not find the player in the still without the HP bar. The player and enemy numbers also slide under the top-left HUD panel, which is opaque.
-- **Pickups, nodes, enemies at a glance** (`.../shots/a07-raws-on-ground.png`, `.../shots/d05-wave7-brutes.png`): the three families separate cleanly by colour: madder is danger, ochre is yours, spruce and ink are terrain. Nodes with their dashed ring are obvious. This palette discipline works.
+- **Hit and kill** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/seq-kill.png`, 8 consecutive frames at 1/6 speed; built from `b02-kill-0..7.png`): the mite turns solid ink for 2 ticks, a small "4" floats, one madder chip, then an 85 ms ghost, 3 chips and a coin. It is correct and it is quiet. A wave 1 kill is about 12 pixels of feedback. No hit-stop, no scale pop, no flash on the shooter, no recoil worth seeing on a sling.
+- **Getting hurt** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a08-first-hurt.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/c02-hurt-0.png`): player turns solid ink, a madder "-1", 5 ochre chips, 60 ms hit-stop, shake (trauma 0.42), HP bar flashes for 80 ms. Readable. What is missing is **who did it**: no flash on the attacker, no direction mark, and in a crowd several mites overlap the player. On the recap the killer is named ("Killed by: Mite"), which is good.
+- **Telegraphs** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/d06-wave8-raid.png`): boar charge lanes are hatched madder strips that fill as the windup runs, slam rings fill the same way, spawn marks are madder diamonds on the ground, lane mouths have chevrons. These are the best-executed thing in the client. One boar lane is unmistakable. Six overlapping lanes plus gnats plus magpies in wave 8 is a red carpet, not a warning.
+- **Spit** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/d02-wave4-spitters-magpie.png`): enemy shots are 14 px dark-red dots, the same hue as every enemy, drawn under the same crowd. The design rule "the only madder round shapes" holds, but they are small and low-contrast against moss. Given that spitters are the top killer of human-latency players, this is the readability bug that costs the most runs.
+- **Player in a crowd** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/d08-wave12-tusk.png`): the player is ochre, scrip is ochre, raws are ochre, crit numbers are ochre. In wave 12 there are about 80 coins on screen and I could not find the player in the still without the HP bar. The player and enemy numbers also slide under the top-left HUD panel, which is opaque.
+- **Pickups, nodes, enemies at a glance** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a07-raws-on-ground.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/d05-wave7-brutes.png`): the three families separate cleanly by colour: madder is danger, ochre is yours, spruce and ink are terrain. Nodes with their dashed ring are obvious. This palette discipline works.
 - **Level-up**: read from code (`render.ts` `case 'levelup'`): one 46 px ochre ring for 0.16 s and the `levelUp` sound. No text, no HUD count of picks owed, no pause. I could not capture it standing still because an idle player never collects 16 scrip. For the main reward beat of the genre it is close to invisible.
-- **Death** (`.../shots/seq-death.png`, from `c04-death-0..2.png`): the sprite goes to ink, 20 chips, shake 0.7, 120 ms freeze, then the scene holds for 1.5 s and cuts to a ledger. No slow-motion, no zoom, no fall, no ring. Measured death to end screen: **1575 ms**.
-- **Run end** (`.../shots/c05-end-screen.png`, then `.../shots/g05-homecoming-first-death.png`): two screens in a row with nearly the same tables. Screen 1 says "Down in wave 2", screen 2 says "Died on wave 2". On a first death both are tables of zeros.
+- **Death** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/seq-death.png`, from `c04-death-0..2.png`): the sprite goes to ink, 20 chips, shake 0.7, 120 ms freeze, then the scene holds for 1.5 s and cuts to a ledger. No slow-motion, no zoom, no fall, no ring. Measured death to end screen: **1575 ms**.
+- **Run end** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/c05-end-screen.png`, then `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/g05-homecoming-first-death.png`): two screens in a row with nearly the same tables. Screen 1 says "Down in wave 2", screen 2 says "Died on wave 2". On a first death both are tables of zeros.
 - **Death to next run**: 1.5 s beat, Enter ("Head back to town"), Enter ("Go again", which has focus). **2 presses, about 3 s** for someone who knows. Second run started 212 ms after the press. That is as fast as anything in the reference set. The redundancy is the cost: the first screen exists only to pick the carry, and when the carry limit is 0 (every run that ends before wave 4) it has nothing to ask.
-- **Phone** (`.../shots/f01-phone-wave5.png`, `.../shots/f02-phone-bench4.png`): the bench reflows well. Not audited further.
+- **Phone** (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/f01-phone-wave5.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/f02-phone-bench4.png`): the bench reflows well. Not audited further.
 
 ### 3.2 Juice checklist
 
@@ -247,18 +283,18 @@ Walk-through with `?first=1`, then the real app with a fresh device.
 
 | Moment | What the player gets | Screenshot | Verdict |
 |---|---|---|---|
-| Town, before the run | "You only move: WASD or the arrow keys, or drag anywhere on a touch screen. Weapons fire on their own." A movement key starts the run. 144 words on the page. | `.../shots/g01-first-page.png` | Good. No modal, one press. But five locked characters and an Account block compete with it. |
-| Move | One line under the player: "Move with WASD or the arrow keys", gone after 0.7 s of movement. | `.../shots/a01-first-frame.png` | Good. |
-| Auto-fire | Nothing in the run. First kill at about 4 s with no input. | `.../shots/a09-wave1-04.png` | Fine, self-evident. |
-| Work ring | "Stand in a ring to work the tree", a planted tree 255 px from the start, shown until a node breaks. | `.../shots/a03-after-move-work-line.png`, `.../shots/a04-in-ring-working.png`, `.../shots/a05-working-progress.png`, `.../shots/a06-node-break.png` | Good, and 100% of simulated runs break a node in wave 1. The progress arc on the ring is thin; a first-timer cannot tell 30% from 80%. |
-| That enemies hurt, keep moving | Nothing. | `.../shots/a08-first-hurt.png` | **Gap.** The work line tells the player to stand still in a ring. The first hit lands at about 13-15 s. Nothing says move. |
+| Town, before the run | "You only move: WASD or the arrow keys, or drag anywhere on a touch screen. Weapons fire on their own." A movement key starts the run. 144 words on the page. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/g01-first-page.png` | Good. No modal, one press. But five locked characters and an Account block compete with it. |
+| Move | One line under the player: "Move with WASD or the arrow keys", gone after 0.7 s of movement. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a01-first-frame.png` | Good. |
+| Auto-fire | Nothing in the run. First kill at about 4 s with no input. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a09-wave1-04.png` | Fine, self-evident. |
+| Work ring | "Stand in a ring to work the tree", a planted tree 255 px from the start, shown until a node breaks. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a03-after-move-work-line.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a04-in-ring-working.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a05-working-progress.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a06-node-break.png` | Good, and 100% of simulated runs break a node in wave 1. The progress arc on the ring is thin; a first-timer cannot tell 30% from 80%. |
+| That enemies hurt, keep moving | Nothing. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a08-first-hurt.png` | **Gap.** The work line tells the player to stand still in a ring. The first hit lands at about 13-15 s. Nothing says move. |
 | Scrip is also experience | Nothing. The bar under HP says "Level 1". | | Gap, minor. |
-| The bench | One italic line: "Scrip and raws buy these. Spend what you can, then start the next wave." Keys 1-4 and Enter are on the buttons. | `.../shots/a10-bench-1.png` | Adequate. But the first bench shows 13 stat rows that all read 0, two identical slings, and two items struck out for want of 1 ore. With 10-19 scrip the "choice" is one sling. |
-| Upgrade pick | "Level 3: pick one", four rows with "Now 0, then 15". The Wave and Reroll buttons are struck through until you pick; the reason only appears if you press them. | `.../shots/e-bench-2.png` | Adequate. "+15 Reach" has no unit and no picture of what changes. |
-| Fusion | "Needs two different items. They are used up and one new item comes out." | `.../shots/e-bench-2.png`, `.../shots/e-bench-8.png` | **Not taught, and mostly not reachable.** A novice holds two items in almost no run before dying. The one LLM mechanic, the reason this game is different, is not in the first session. |
-| Mule | Appears after wave 4 with three sentences. | `.../shots/e-bench-4.png` | Fine when reached. Novices reach bench 4 in 0% of baseline runs. |
-| Carry home | End screen: "No items go home this time. Clear wave 4 and you carry 1." | `.../shots/c05-end-screen.png` | Good. This is the best line in the game: a concrete next goal at the moment of loss. |
-| Second run | No teaching at all. `firstRun` is `profile.runs === 0`. | `.../shots/g06-second-run.png` | **Bug in spirit.** I died at 0:29 without moving or working a node, and run 2 showed nothing. Teach lines should persist until the action has been done, not until a run has ended. |
+| The bench | One italic line: "Scrip and raws buy these. Spend what you can, then start the next wave." Keys 1-4 and Enter are on the buttons. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a10-bench-1.png` | Adequate. But the first bench shows 13 stat rows that all read 0, two identical slings, and two items struck out for want of 1 ore. With 10-19 scrip the "choice" is one sling. |
+| Upgrade pick | "Level 3: pick one", four rows with "Now 0, then 15". The Wave and Reroll buttons are struck through until you pick; the reason only appears if you press them. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/e-bench-2.png` | Adequate. "+15 Reach" has no unit and no picture of what changes. |
+| Fusion | "Needs two different items. They are used up and one new item comes out." | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/e-bench-2.png`, `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/e-bench-8.png` | **Not taught, and mostly not reachable.** A novice holds two items in almost no run before dying. The one LLM mechanic, the reason this game is different, is not in the first session. |
+| Mule | Appears after wave 4 with three sentences. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/e-bench-4.png` | Fine when reached. Novices reach bench 4 in 0% of baseline runs. |
+| Carry home | End screen: "No items go home this time. Clear wave 4 and you carry 1." | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/c05-end-screen.png` | Good. This is the best line in the game: a concrete next goal at the moment of loss. |
+| Second run | No teaching at all. `firstRun` is `profile.runs === 0`. | `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/g06-second-run.png` | **Bug in spirit.** I died at 0:29 without moving or working a node, and run 2 showed nothing. Teach lines should persist until the action has been done, not until a run has ended. |
 
 Where a new player is confused, in order of cost:
 
@@ -331,9 +367,9 @@ Generic or filler:
 UI that reads as a default:
 
 - Nothing looks like a framework template. The ledger rules, stamp buttons and tier pips are bespoke and hold together across the bench, end screen and town. No gradients, cards or emoji anywhere I looked.
-- What reads as unfinished is **density without hierarchy**: the bench at 720p shows offers and a 13-row stat table that is all zeros, with weapons, sets, items, the anvil and the mule below the fold (`.../shots/a10-bench-1.png`, full page in `.../shots/a10-bench-1-full.png`). The first bench should not show thirteen zeros.
-- The end screen is a spreadsheet at the emotional peak of the run (`.../shots/c05-end-screen.png`). On-style, but a death deserves one large line before the ledger.
-- The top-left HUD panel is opaque and the camera lets the player and damage numbers go under it (`.../shots/d08-wave12-tusk.png`).
+- What reads as unfinished is **density without hierarchy**: the bench at 720p shows offers and a 13-row stat table that is all zeros, with weapons, sets, items, the anvil and the mule below the fold (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a10-bench-1.png`, full page in `/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/a10-bench-1-full.png`). The first bench should not show thirteen zeros.
+- The end screen is a spreadsheet at the emotional peak of the run (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/c05-end-screen.png`). On-style, but a death deserves one large line before the ledger.
+- The top-left HUD panel is opaque and the camera lets the player and damage numbers go under it (`/tmp/claude-0/-home-user-craftrade/f25dc36b-8df5-594a-b0f7-efca5aaf75e4/scratchpad/shots/d08-wave12-tusk.png`).
 
 ## 7. Ranked changes
 
@@ -341,8 +377,8 @@ Ranked by expected effect on "a new player is still here in ten minutes". Each h
 
 | # | Change | Where | Measured reason |
 |---|---|---|---|
-| 1 | Make waves 1-2 survivable: mite `dmgW` 0.85 -> 0.45, gnat `dmgW` 0.55 -> 0.3-0.4, `PLAYER_BASE_HP` 10 -> 16, `IFRAMES` 0.45 -> 0.6+, wave 2 groups `g('mite', 2.4, 2), g('gnat', 8.5, 5, 0.3)`, wave 1 `g('mite', 1.25, 2)` | `src/sim/data/enemies.ts`, `tuning.ts`, `waves.ts` | Novice deaths in waves 1-2: 94% -> 2% (variant c). Reached wave 4: 1.5% -> 65%. |
-| 2 | Cut reaction load from spitters: `AI.spitEvery` 2.3 -> 3.0, `AI.spitSpeed` 200 -> 170, spitter intervals in waves 7, 9, 11, 12 x1.4-1.6; draw enemy shots larger with an ink outline | `src/sim/data/enemies.ts`, `waves.ts`, `src/client/game/render.ts` | 250 ms of latency takes the bot from 39.5% to 2.5%; 81 of those deaths are wave 7; spitters are 47% of its deaths. 163-338 telegraphs per wave. @@D_ONE_LINE@@ |
+| 1 | Make waves 1-2 survivable: mite `dmgW` 0.85 -> 0.45, gnat `dmgW` 0.55 -> 0.4, `PLAYER_BASE_HP` 10 -> 16, `IFRAMES` 0.45 -> 0.75, wave 2 groups `g('mite', 2.4, 2), g('gnat', 8.5, 5, 0.3)`, wave 1 `g('mite', 1.25, 2)` | `src/sim/data/enemies.ts`, `tuning.ts`, `waves.ts` | Novice deaths in waves 1-2: 94% -> 0% (variant d, 100 seeds). Reached wave 4: 1.5% -> 66%. |
+| 2 | Cut reaction load from spitters: `AI.spitEvery` 2.3 -> 3.0, `AI.spitSpeed` 200 -> 170, spitter intervals in waves 7, 9, 11, 12 to 5, 4, 3.6, 3.6; draw enemy shots larger with an ink outline | `src/sim/data/enemies.ts`, `waves.ts`, `src/client/game/render.ts` | 250 ms of latency takes the bot from 39.5% to 2.5%; 81 of those deaths are wave 7; spitters are 47% of its deaths. 163-338 telegraphs per wave. Variant d: the 250 ms bot goes 2.5% -> 51%. |
 | 3 | Stop integer rounding of damage; show one decimal less often, or keep HP as a float and round only the display | `hurtPlayer` in `src/sim/core.ts` | Wave 2 mite damage 1.85 rounds to 2: a 100% jump at 10 HP. Variant a (15 HP, mites still 2) still loses 30% of novices in wave 2. |
 | 4 | Guarantee the first bench can sell a weapon the player can afford and use (no raws, price <= scrip held) | `rollOffers` in `src/sim/bench.ts` | Scrip at bench 1 is 19-22; novices enter wave 2 with 1.5 weapons; wave 2 needs about 10.5 damage a second and one sling gives 7.3. |
 | 5 | Give run 2 something new: let the first item come home at wave 2 or 3 on the first few runs, or grant one starter stash item with the workshop unlock; add "Best: wave N" to the profile and both recap screens | `carryLimit` in `src/sim/run.ts`, `server/config.ts`, `Profile` in `src/shared/protocol.ts`, `end.ts`, `homecoming.ts` | Carry needs wave 4 cleared: 0% of novice runs, 36.5% of average runs. Workshop opens after run 1 with an empty stash. No personal best exists anywhere. |
@@ -352,5 +388,5 @@ Ranked by expected effect on "a new player is still here in ten minutes". Each h
 | 9 | Keep the player findable: ink outline or a contrasting marker under the player, cap coin draw density, keep the camera from putting the player under the HUD, make the HUD panel translucent to the player sprite | `render.ts`, `game.css` | Wave 12 still: about 80 ochre coins and an ochre player under the HP panel. |
 | 10 | Teach the two missing things and stop un-teaching: "Keep moving. Touch hurts." after the first hit; keep teach lines until the action is done and not until `runs > 0`; say "raws" once ("Timber, ore and hide are raws"); merge the two recap screens when the carry limit is 0 | `mount.ts teach()`, `firstRun` in `src/client/town/run.ts`, `bench.ts`, `end.ts` | Idle player dies at 0:29 and run 2 shows no teaching. First hit lands at 13-15 s while the only instruction on screen says to stand in a ring. |
 | 11 | Replace flat stat picks with picks that have a hook ("+15 Reach, shots fly 15% further"; or pair every pick with a small cost) and hide zero rows in the stat panel until they are non-zero | `src/sim/data/upgrades.ts`, `bench.ts` | Violates the project's own ship rule 11. First bench shows 13 zeros. |
-| 12 | Retune the expert band after 1-4 using enemy health and density, not damage per hit | `enemies.ts` `hpW`, `waves.ts` | Variant c: bot 86%, human-latency policy 0%. Damage softening helps the bot more than people. |
+| 12 | Give waves 6-9 their own pass for mid-skill players (start with `AI.stagTell` and the stag's chained charges), and if the bot must read under 70%, add late health and density, not damage per hit | `enemies.ts`, `waves.ts` | Variant d: bot 83%, 250 ms bot 51%, average policy still 0% with the stag at 18 of 100 deaths. |
 | 13 | Names and words: rename Spitter, Brute, Burrower; give wave 11 a brief; one verb for death; give the Greenhorn a line; better fallback fusion names | `enemies.ts`, `waves.ts`, `end.ts`, `homecoming.ts`, `characters.ts`, `server/provider.ts` | Section 6. |
