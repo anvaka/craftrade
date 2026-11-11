@@ -100,6 +100,8 @@ interface Recorder {
   /** The stretch of ticks being written: (qx + Q, qy + Q, count) triples. */
   bytes: number[];
   kills: Record<string, number>;
+  /** What each fusion in this run made, by id: needed to play the log again. */
+  items: Record<string, ItemSpec>;
 }
 
 const RECORDERS = new WeakMap<Run, Recorder>();
@@ -107,7 +109,7 @@ const QUANT: StepInput = { mx: 0, my: 0 };
 
 /** Start logging this run. Call straight after createRun, before the first step. */
 export function record(run: Run): void {
-  RECORDERS.set(run, { ops: [], bytes: [], kills: {} });
+  RECORDERS.set(run, { ops: [], bytes: [], kills: {}, items: {} });
 }
 
 const quant = (v: number): number => {
@@ -165,7 +167,11 @@ export const rec = {
   combineWeapons(run: Run, i: number): boolean { const ok = simCombine(run, i); if (ok) logOp(run, ['k', i]); return ok; },
   applyFusion(run: Run, a: number, b: number, result: ItemSpec): string | null {
     const why = simApplyFusion(run, a, b, result);
-    if (why === null) logOp(run, ['f', a, b, result.id]);
+    if (why === null) {
+      logOp(run, ['f', a, b, result.id]);
+      const r = RECORDERS.get(run);
+      if (r) r.items[result.id] = result;
+    }
     return why;
   },
   sendMule(run: Run, load: Partial<RawBag>): boolean {
@@ -194,6 +200,60 @@ export function replayOf(run: Run): string | undefined {
 export function killsOf(run: Run): Record<string, number> | undefined {
   const r = RECORDERS.get(run);
   return r ? { ...r.kills } : undefined;
+}
+
+/** What the fusions in a recorded run made, by id. Kept with a saved run so resumeInto can make them again. */
+export function fusedOf(run: Run): Record<string, ItemSpec> {
+  return { ...(RECORDERS.get(run)?.items ?? {}) };
+}
+
+/**
+ * Bring a fresh, recorded run (createRun then record, nothing else) to where a log stops, so play can go on
+ * from there. The log is rebuilt as it is played, so the report at the end covers the whole run.
+ * True if every op was accepted and the run now stands at a bench. On false the run is not usable.
+ */
+export function resumeInto(run: Run, replay: string, items: Record<string, ItemSpec>): boolean {
+  const log = parseReplay(replay);
+  if (!log || !RECORDERS.has(run) || run.tick !== 0) return false;
+  const move: StepInput = { mx: 0, my: 0 };
+  for (const op of log.o) {
+    const [k, a, b, c] = op;
+    const i = typeof a === 'number' ? a : -1;
+    let ok = true;
+    switch (k) {
+      case 's': {
+        const bytes = typeof a === 'string' ? fromBase64(a) : null;
+        if (!bytes || bytes.length % 3 !== 0) return false;
+        for (let n = 0; n < bytes.length; n += 3) {
+          move.mx = (bytes[n] - Q) / Q; move.my = (bytes[n + 1] - Q) / Q;
+          for (let t = bytes[n + 2]; t > 0; t--) {
+            if (run.phase !== 'wave') return false;
+            rec.step(run, move);
+            clearEvents(run);
+          }
+        }
+        break;
+      }
+      case 'u': ok = rec.pickUpgrade(run, i); break;
+      case 'b': ok = rec.buy(run, i); break;
+      case 'r': ok = rec.reroll(run); break;
+      case 'l': ok = rec.toggleLock(run, i); break;
+      case 'w': ok = rec.scrapWeapon(run, i); break;
+      case 'i': ok = rec.scrapItem(run, i); break;
+      case 't': ok = rec.tierUp(run, i); break;
+      case 'k': ok = rec.combineWeapons(run, i); break;
+      case 'f': {
+        const out = typeof c === 'string' && Object.hasOwn(items, c) ? items[c] : undefined;
+        ok = !!out && typeof b === 'number' && rec.applyFusion(run, i, b, out) === null;
+        break;
+      }
+      case 'm': ok = rec.sendMule(run, { timber: Number(a), ore: Number(b), hide: Number(c) }); break;
+      case 'n': ok = rec.nextWave(run); break;
+      default: return false; // a log that ends the run ('q', 'c') is not one to resume
+    }
+    if (!ok) return false;
+  }
+  return run.phase === 'bench';
 }
 
 // ---- playing back -------------------------------------------------------------

@@ -3,8 +3,8 @@
 
 import type { CharacterId, RunEndRes, RunStartRes } from '../../shared/protocol.ts';
 import { audio } from '../audio/index.ts';
-import type { FuseOutcome, MountRun, RunHandle, RunRecap } from '../seam.ts';
-import { ApiFail, api, asFail } from './api.ts';
+import type { FuseOutcome, MountRun, RunHandle, RunRecap, RunSave } from '../seam.ts';
+import { ApiFail, api, asFail, currentWorld } from './api.ts';
 import { sprites } from './dom.ts';
 import { showHomecoming } from './homecoming.ts';
 import { loadTab, showRun, showTown, watchReach } from './shell.ts';
@@ -50,6 +50,69 @@ export function loadMountRun(): Promise<MountRun> {
     return (await import('./stubrun.ts')).mountRun;
   })();
   return mountPromise;
+}
+
+// ---- a run kept at the bench -------------------------------------------------
+
+// A run is written to this device at every bench, so a closed page, a refresh or a phone that
+// drops the tab does not lose it. One per world. It is gone once the run is reported or left.
+
+/** A ticket is good for six hours on the server; a save older than this is let go. */
+const SAVE_TTL_MS = 5.5 * 3600 * 1000;
+const saveKey = (): string => `scrip.run.${currentWorld() ?? 'town'}`;
+
+export interface SavedRun { v: 1; at: number; ticket: RunStartRes; launch: Launch; firstRun: boolean; save: RunSave }
+
+/** The run waiting at a bench on this device, if there is one. */
+export function savedRun(): SavedRun | null {
+  try {
+    const raw = localStorage.getItem(saveKey());
+    if (!raw) return null;
+    const s = JSON.parse(raw) as SavedRun;
+    if (s?.v === 1 && s.ticket && s.save?.replay && Date.now() - s.at < SAVE_TTL_MS) return s;
+    localStorage.removeItem(saveKey());
+  } catch {
+    // unreadable or storage blocked: there is no saved run
+  }
+  return null;
+}
+
+function keepRun(s: SavedRun): void {
+  try {
+    localStorage.setItem(saveKey(), JSON.stringify(s));
+  } catch {
+    // storage full or blocked: the run goes on, it is just not kept
+  }
+}
+
+/** Let the saved run go. */
+export function dropSavedRun(): void {
+  try {
+    localStorage.removeItem(saveKey());
+  } catch {
+    // nothing to drop
+  }
+}
+
+/** Go back to the bench of the saved run. */
+export async function resumeRun(): Promise<void> {
+  const s = savedRun();
+  if (!s || starting || handle) return;
+  starting = true;
+  app.busy.add('run');
+  app.notice = null;
+  redraw();
+  let mount: MountRun;
+  try {
+    mount = await loadMountRun();
+  } catch (e) {
+    starting = false;
+    app.busy.delete('run');
+    sayFail('Run', e);
+    showTown();
+    return;
+  }
+  play(mount, s.ticket, s.launch, s.firstRun, s.save);
 }
 
 // ---- starting --------------------------------------------------------------
@@ -130,7 +193,14 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
     return;
   }
 
-  const t = ticket;
+  // A new run takes the place of one left at a bench.
+  dropSavedRun();
+  play(mount, ticket, launch, firstRun);
+}
+
+/** Hand the screen to the game half for this ticket, from the start or from a saved bench. */
+function play(mount: MountRun, t: RunStartRes, launch: Launch, firstRun: boolean, resume?: RunSave): void {
+  const mode = launch.mode;
   const local = t.runId === 'local';
   let ended = false;
   let quit = false;
@@ -152,9 +222,12 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
     }
   };
 
+  const onSave = (save: RunSave): void => keepRun({ v: 1, at: Date.now(), ticket: t, launch, firstRun, save });
+
   const onEnd = (recap: RunRecap): void => {
     if (ended) return;
     ended = true;
+    dropSavedRun();
     report = local ? Promise.resolve<Report>({ state: 'local' }) : sendReport(t.runId, recap);
     // Let the game half finish its own callback before it is torn down.
     setTimeout(() => {
@@ -175,6 +248,7 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
 
   const onQuit = (): void => {
     quit = true;
+    dropSavedRun();
     if (!ended) {
       // The seam says onEnd comes first. If it did not, leave without a report.
       ended = true;
@@ -192,11 +266,12 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
   };
 
   try {
-    handle = mount({ root, sprites: sprites(), ticket: t, mode, firstRun, fuse, onEnd, onQuit });
+    handle = mount({ root, sprites: sprites(), ticket: t, mode, firstRun, fuse, onEnd, onQuit, onSave, resume });
   } catch (e) {
     console.error(e);
     handle = null;
-    say('Run', 'The run could not start on this device.');
+    if (resume) dropSavedRun();
+    say('Run', resume ? 'The saved run could not be picked up. It has been let go.' : 'The run could not start on this device.');
     showTown();
   }
 }

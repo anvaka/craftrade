@@ -21,7 +21,7 @@ import {
   DT, ENEMIES, HAZARD_RULES, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
   createBot, createRun, nextWave, setCarry, step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
-import { killsOf, rec, record, replayOf } from '../../shared/replay.ts';
+import { fusedOf, killsOf, rec, record, replayOf, resumeInto } from '../../shared/replay.ts';
 import type { RunHandle, RunHost, RunRecap } from '../seam.ts';
 import { createBench } from './bench.ts';
 import { el, loadShake, saveShake, stamp } from './dom.ts';
@@ -74,6 +74,17 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0 } as Parameters<typeof createRun>[0]);
   // The input log the town checks the report against. A run driven by the dev harness is not a real one and is not logged.
   if (!Object.keys(dev).length) record(run);
+  // A run saved at a bench: play its log forward (a second or two) and stand at that bench again.
+  if (host.resume && !resumeInto(run, host.resume.replay, host.resume.items)) throw new Error('The saved run could not be played forward.');
+  /** Write the run down while it stands at a bench, so closing the page does not lose it. */
+  const saveAtBench = (): void => {
+    if (run.phase !== 'bench' || !host.onSave) return;
+    const replay = replayOf(run);
+    if (replay) host.onSave({ replay, items: fusedOf(run), wave: run.wave });
+  };
+  // A phone may close the page without a word once it is in the background.
+  const onHidden = (): void => { if (document.visibilityState === 'hidden') saveAtBench(); };
+  document.addEventListener('visibilitychange', onHidden);
   const bot = dev.bot || dev.wave || dev.bench ? createBot((t.seed ^ 0x5bd1e995) >>> 0) : null;
   const botIn = { mx: 0, my: 0 };
 
@@ -152,10 +163,13 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     teach: teachOn,
     fuse: (a, b) => host.fuse(a, b),
     next: startNext,
+    changed: saveAtBench,
     pause: () => setPaused(true),
   });
 
   function startNext(): void {
+    // What was bought at this bench is part of the save.
+    saveAtBench();
     if (!rec.nextWave(run)) return;
     bench.close();
     state = 'wave';
@@ -557,7 +571,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
         state = 'bench';
         hud.card('', '', '', 'plain', 0);
         if (bot && dev.autoBench) { botBench(run, bot); startNext(); }
-        else { bench.open(); return; }
+        else { saveAtBench(); bench.open(); return; }
       }
     } else if (state === 'beat') {
       // The scene holds; only the debris keeps moving.
@@ -644,6 +658,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       window.removeEventListener('resize', fit);
       window.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener('visibilitychange', onHidden);
       window.removeEventListener('keydown', onKey);
       audio.setBed(null);
       pauseSound?.dispose();

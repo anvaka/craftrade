@@ -35,6 +35,11 @@ After the first visit the whole game is cached (`src/client/sw.js`), so it
 opens and plays with no connection, and it can be added to a phone's home
 screen. The solo save lives in the browser's storage on that device.
 
+A run is written to the device at every bench (`resumeInto` in
+`src/shared/replay.ts`), in solo and in the shared town. Closing the page
+mid-run offers "Back to the bench" next time; at most the wave in progress
+is lost.
+
 A device that meets a game server plays in the shared town instead. The
 Account section switches between the two; they are separate saves.
 `VITE_SOLO=1 npm run build` makes a build that is always solo.

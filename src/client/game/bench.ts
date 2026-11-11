@@ -31,6 +31,8 @@ export interface BenchDeps {
   fuse(a: string, b: string): Promise<FuseOutcome>;
   /** Start the next wave. */
   next(): void;
+  /** Something at the bench was done: the run should be written down again. */
+  changed?(): void;
   pause(): void;
 }
 
@@ -175,6 +177,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     prevArm = scrapArm;
     scrapArm = '';
     fn();
+    deps.changed?.();
     render();
     if (fk) (root.querySelector(`[data-fk="${fk}"]`) as HTMLElement | null)?.focus();
     else if (ev) (document.activeElement as HTMLElement | null)?.blur();

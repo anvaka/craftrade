@@ -33,6 +33,16 @@ export type FuseOutcome =
   | { ok: true; res: FuseRes }
   | { ok: false; code: string; message: string };
 
+/** A run written down at a bench: enough to stand at that bench again after the page is closed. */
+export interface RunSave {
+  /** The input log up to the bench (src/shared/replay.ts). */
+  replay: string;
+  /** What the run's fusions made, by id. */
+  items: Record<string, ItemSpec>;
+  /** The wave just cleared. */
+  wave: number;
+}
+
 export interface RunHost {
   /** Element to fill. The game half owns everything inside it until destroy(). */
   root: HTMLElement;
@@ -42,6 +52,10 @@ export interface RunHost {
   mode: 'run' | 'daily' | 'practice';
   /** True on the player's very first run: teach by play, no modal. */
   firstRun: boolean;
+  /** Pick the run up at the bench this save was made at. mountRun throws if the save cannot be played. */
+  resume?: RunSave;
+  /** Called at every bench, and again as the player leaves it, with the run so far. */
+  onSave?(save: RunSave): void;
   /** Ask the server what a pair becomes. Never throws. */
   fuse(a: string, b: string): Promise<FuseOutcome>;
   /** The run is over and the carry is chosen. Called exactly once. */

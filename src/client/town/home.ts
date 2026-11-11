@@ -8,7 +8,7 @@ import { HAZARD_MARKS, MAX_HAZARD, REPAIR, canPay, kitPointCap, packItem, repair
 import { audio } from '../audio/index.ts';
 import { SOLO_ONLY, api, isSolo } from './api.ts';
 import { charges, el, empty, finder, fmt, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
-import { headOut } from './run.ts';
+import { dropSavedRun, headOut, resumeRun, savedRun } from './run.ts';
 import { switchWorld } from './shell.ts';
 import { act, app, getPrefs, hazardNow, redraw, savePrefs, say, setProfile } from './state.ts';
 import { GLOSS } from '../ui/glossary.ts';
@@ -53,6 +53,22 @@ function nextRun(): HTMLElement {
       stamp(app.busy.has('run') ? 'Heading out' : 'Head out', { key: 'headout', sound: 'waveStart', onClick: () => void headOut('run') }),
     ),
   );
+  const kept = savedRun();
+  if (kept) {
+    sec.append(
+      el(
+        'div',
+        'bar bar--kept',
+        el('div', 'bar-text', el('span', 'label', 'Waiting'), ' ', `A ${kept.launch.mode === 'run' ? 'run' : 'daily clearing'} as ${characterName(kept.ticket.character)} stands at the bench after wave ${kept.save.wave}. `, el('span', 'note', 'Heading out afresh lets it go.')),
+        el(
+          'div',
+          'stamps',
+          stamp('Back to the bench', { cls: 'stamp--small', key: 'run:resume', sound: 'waveStart', title: 'Pick the run up at the bench you left it at. It takes a second or two to get there.', onClick: () => void resumeRun() }),
+          stamp('Let it go', { cls: 'stamp--small stamp--plain', key: 'run:drop', title: 'Give the run up. Nothing from it comes home.', onClick: () => { dropSavedRun(); redraw(); } }),
+        ),
+      ),
+    );
+  }
   if (first) sec.append(el('p', 'controls', CONTROLS));
   else sec.append(hazardRow());
   if (app.profile.features.includes('daily')) sec.append(dailyRow());
