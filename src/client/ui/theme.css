@@ -1,0 +1,974 @@
+/*
+  Blockprint Almanac: the ledger UI kit.
+
+  Rules this file keeps (docs/DESIGN.md 7.1 and 10):
+    - seven colours, each with one job. No tints, no opacity, no other colour.
+    - one type family, Zilla Slab, self-hosted. Numbers are tabular.
+    - two rule weights: 3px (heavy) and 1px (hair). Nothing else draws a line.
+    - rows and rules, not cards. No border-radius, box-shadow, blur or
+      colour blends anywhere. Hatch is a tiled SVG of straight Ink lines.
+    - nothing animates for longer than 80 ms. prefers-reduced-motion removes
+      what little there is.
+    - 16px gutters, no horizontal scroll from 360px up.
+
+  Hierarchy comes from weight, size, caps and rules, never from grey text.
+
+  Components (each documented where it is defined):
+    .page .page-head            page frame with a ruled header
+    .tabs .tab                  ledger index tabs
+    .ledger                     table of ruled rows, .num for figures
+    .stamp                      stamp button (+ --plain, --small, --town)
+    .offer                      bench offer row
+    .price .cost                price with raw icons
+    .tier                       tier pips I-IV
+    .stats                      stat list with dot leaders
+    .tip                        tooltip
+    .notice                     toast / notice line
+    .find-stamp                 first-find stamp
+    .hud .hp .wave .counter     HUD pieces
+    .stick                      touch stick
+    .mute .vol                  sound controls
+    .meter                      hatched progress bar (town project)
+    .label .note .who .own      small text helpers
+*/
+
+@font-face {
+  font-family: 'Zilla Slab';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../../node_modules/@fontsource/zilla-slab/files/zilla-slab-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Zilla Slab';
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../../node_modules/@fontsource/zilla-slab/files/zilla-slab-latin-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Zilla Slab';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('../../../node_modules/@fontsource/zilla-slab/files/zilla-slab-latin-700-normal.woff2') format('woff2');
+}
+
+:root {
+  --ink: #1b2226; /* outlines, text */
+  --bone: #d9d3bd; /* paper: UI ground only */
+  --moss: #7c8c5a; /* clearing floor */
+  --spruce: #2f4a3c; /* treeline, shade */
+  --ochre: #d99a2b; /* the player, raws, crafted goods, scrip */
+  --madder: #b8402e; /* enemies and danger only */
+  --woad: #3e6c8a; /* town, market, other players */
+
+  --rule: 3px;
+  --hair: 1px;
+  --gutter: 16px;
+  --cut: 9px; /* size of a cut corner */
+  --press: 2px; /* how far a stamp moves when pressed */
+
+  /* 45 degree Ink hatch, 6px pitch. Straight lines, hard edges. */
+  --hatch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M-1 1L1 -1M0 6L6 0M5 7L7 5' stroke='%231b2226' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bone);
+  color: var(--ink);
+  font-family: 'Zilla Slab', serif;
+  font-size: 17px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums lining-nums;
+  overflow-x: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 30px;
+  line-height: 1.05;
+  font-weight: 700;
+}
+h2 {
+  font-size: 21px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+h3 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+:focus-visible {
+  outline: var(--rule) solid var(--ink);
+  outline-offset: 2px;
+}
+
+canvas.icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex: none;
+}
+
+/* ---- small text helpers ------------------------------------------------ */
+
+/* .label: column heads and field names. Small bold caps, tracked. */
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+/* .note: an aside in the margin. Italic, same ink. */
+.note {
+  font-style: italic;
+  font-size: 15px;
+}
+/* .num: any figure. Tabular, right aligned in tables. */
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+/* .who: another player's name. .own: the reader's own name or goods. */
+.who {
+  color: var(--woad);
+  font-weight: 700;
+}
+.own {
+  font-weight: 700;
+  box-shadow: none;
+  background: var(--ochre);
+  padding: 0 4px;
+}
+
+/* ---- page frame --------------------------------------------------------- */
+
+/* .page: one sheet, centred, 16px gutters. */
+.page {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 var(--gutter) 48px;
+}
+
+/* .page-head: title left, meta right, on a heavy rule over a hair rule. */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 18px 0 8px;
+  border-bottom: var(--rule) solid var(--ink);
+  position: relative;
+  margin-bottom: 14px;
+}
+.page-head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -7px;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.page-head .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 18px;
+  align-items: center;
+}
+
+/* .section: a block under a hair rule with its heading. */
+.section {
+  margin-top: 28px;
+}
+.section > h2 {
+  padding-bottom: 5px;
+  border-bottom: var(--rule) solid var(--ink);
+  margin-bottom: 0;
+}
+.section > .note {
+  margin-top: 6px;
+}
+
+/* ---- tabs ---------------------------------------------------------------- */
+
+/* .tabs: ledger index tabs standing on a heavy rule. The open tab is cut
+   from the sheet (bone, no foot rule); the others are inked. */
+.tabs {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  border-bottom: var(--rule) solid var(--ink);
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+.tab {
+  appearance: none;
+  border: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-weight: 700;
+  padding: 7px 14px 6px 12px;
+  margin-top: 6px;
+  cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  min-width: 0;
+  white-space: nowrap;
+}
+.tab[aria-selected='true'] {
+  color: var(--ink);
+  margin-top: 0;
+  padding-top: 11px;
+  padding-bottom: 8px;
+}
+.tab[aria-selected='true']::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--rule) var(--rule) 0 var(--rule);
+  background: var(--bone);
+  clip-path: polygon(0 0, calc(100% - 7.5px) 0, 100% 7.5px, 100% 100%, 0 100%);
+}
+.tab .count {
+  font-weight: 400;
+  margin-left: 6px;
+}
+@media (max-width: 420px) {
+  .tab {
+    padding-left: 8px;
+    padding-right: 10px;
+    font-size: 15px;
+  }
+}
+
+/* ---- ledger rows --------------------------------------------------------- */
+
+/* .ledger: a table of hair-ruled rows under a heavy-ruled head. Figures go
+   in td.num and line up on the right. .total marks a summed row. */
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ledger th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 8px 10px 4px 0;
+  border-bottom: var(--rule) solid var(--ink);
+  vertical-align: bottom;
+}
+.ledger td {
+  padding: 6px 10px 6px 0;
+  border-bottom: var(--hair) solid var(--ink);
+  vertical-align: middle;
+}
+.ledger th:last-child,
+.ledger td:last-child {
+  padding-right: 0;
+}
+.ledger .num {
+  text-align: right;
+}
+.ledger td.num {
+  font-size: 18px;
+}
+.ledger tr.total td {
+  border-top: var(--rule) solid var(--ink);
+  border-bottom: 0;
+  font-weight: 700;
+}
+.ledger .thing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ledger .thing > span {
+  min-width: 0;
+}
+.ledger .act {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+/* Columns that a phone can live without. */
+@media (max-width: 560px) {
+  .ledger .wide {
+    display: none;
+  }
+}
+
+/* ---- stamp buttons ------------------------------------------------------- */
+
+/* .stamp: an inked block with one cut corner. Pressed, it shifts 2px and
+   inverts. Disabled, its label is struck through; it is never faded.
+   --plain: bone face, for the second choice. --small: for rows.
+   --town: Woad, for anything that happens in town. */
+.stamp {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 16px 6px 14px;
+  border: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+.stamp::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--rule);
+  background: var(--ink);
+  clip-path: polygon(0 0, calc(100% - 7.5px) 0, 100% 7.5px, 100% 100%, 0 100%);
+}
+.stamp:active:not(:disabled),
+.stamp.is-pressed {
+  transform: translate(var(--press), var(--press));
+  color: var(--ink);
+}
+.stamp:active:not(:disabled)::before,
+.stamp.is-pressed::before {
+  background: var(--bone);
+}
+.stamp--plain {
+  color: var(--ink);
+}
+.stamp--plain::before {
+  background: var(--bone);
+}
+.stamp--plain:active:not(:disabled),
+.stamp--plain.is-pressed {
+  color: var(--bone);
+}
+.stamp--plain:active:not(:disabled)::before,
+.stamp--plain.is-pressed::before {
+  background: var(--ink);
+}
+.stamp--town {
+  background: var(--woad);
+}
+.stamp--town::before {
+  background: var(--woad);
+}
+.stamp--town:active:not(:disabled),
+.stamp--town.is-pressed {
+  color: var(--woad);
+}
+.stamp--small {
+  min-height: 32px;
+  padding: 3px 12px 3px 10px;
+  font-size: 15px;
+}
+.stamp:disabled,
+.stamp[aria-disabled='true'] {
+  cursor: not-allowed;
+  color: var(--ink);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+.stamp:disabled::before,
+.stamp[aria-disabled='true']::before {
+  background: var(--bone);
+}
+.stamp canvas.icon {
+  margin: -6px 0;
+}
+
+/* ---- bench offers -------------------------------------------------------- */
+
+/* .offers: the list. .offer: one recipe as a ruled row:
+   icon | name, tier, effect lines | price and actions.
+   .is-locked keeps a lock mark in the margin and a heavy side rule.
+   .is-sold strikes the row through. */
+.offers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: var(--rule) solid var(--ink);
+}
+.offer {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: start;
+  padding: 10px 0 10px 0;
+  border-bottom: var(--hair) solid var(--ink);
+  position: relative;
+}
+.offer > canvas.icon {
+  grid-row: 1 / span 2;
+}
+.offer .name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.offer .kind {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.offer .effects {
+  list-style: none;
+  margin: 3px 0 0;
+  padding: 0;
+  grid-column: 2;
+}
+.offer .effects li {
+  padding-left: 14px;
+  position: relative;
+}
+.offer .effects li::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 0.62em;
+  width: 7px;
+  border-top: var(--rule) solid var(--ink);
+}
+/* a drawback: a cost the item carries. Marked with a minus rule cut twice. */
+.offer .effects li.cost::before {
+  width: 3px;
+  box-shadow: none;
+  border-top-color: var(--ink);
+  left: 1px;
+}
+.offer .effects li.cost {
+  font-style: italic;
+}
+.offer .buy {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 150px;
+}
+.offer .buy .acts {
+  display: flex;
+  gap: 6px;
+}
+.offer.is-locked {
+  border-left: 6px solid var(--ink);
+  padding-left: 8px;
+}
+.offer.is-sold .name,
+.offer.is-sold .effects {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+@media (max-width: 620px) {
+  .offer {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .offer .buy {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    margin-top: 4px;
+  }
+}
+
+/* .price: scrip and raws on one line. Each .cost is icon + figure.
+   .lack marks a part the player cannot pay: underlined twice, not coloured. */
+.price {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  font-weight: 700;
+  font-size: 19px;
+}
+.cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+.cost canvas.icon {
+  margin: -3px 0;
+}
+.cost.lack {
+  text-decoration: underline double;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* ---- tier mark ----------------------------------------------------------- */
+
+/* .tier: four leaning tally notches; data-tier="1".."4" inks that many.
+   Ink only: tier is a count, not a colour.
+   Markup: <span class="tier" data-tier="3" aria-label="tier 3"><i></i><i></i><i></i><i></i></span> */
+.tier {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  vertical-align: middle;
+  padding: 0 3px;
+}
+.tier i {
+  display: block;
+  width: 6px;
+  height: 15px;
+  border: 1px solid var(--ink);
+  transform: skewX(-14deg);
+}
+.tier[data-tier='1'] i:nth-child(-n + 1),
+.tier[data-tier='2'] i:nth-child(-n + 2),
+.tier[data-tier='3'] i:nth-child(-n + 3),
+.tier[data-tier='4'] i:nth-child(-n + 4) {
+  background: var(--ink);
+}
+
+/* ---- stat list ----------------------------------------------------------- */
+
+/* .stats: one stat per line, name and figure joined by a dot leader.
+   Markup: <dl class="stats"><div><dt><canvas class="icon">Armor</dt><dd>4</dd></div>...</dl>
+   .up / .down on the row put a mark before the figure for a change this bench. */
+.stats {
+  margin: 0;
+  padding: 0;
+  border-top: var(--rule) solid var(--ink);
+}
+.stats > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.stats dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.stats dt::after {
+  content: '';
+  flex: 1 1 12px;
+  align-self: flex-end;
+  margin-bottom: 9px;
+  border-bottom: 2px dotted var(--ink);
+}
+.stats dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 18px;
+  text-align: right;
+  min-width: 3ch;
+}
+.stats .up dd::before {
+  content: '+';
+}
+.stats .up dd,
+.stats .down dd {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+@media (min-width: 420px) and (max-width: 899px) {
+  .stats {
+    column-count: 2;
+    column-gap: 24px;
+    column-rule: var(--hair) solid var(--ink);
+  }
+  .stats > div {
+    break-inside: avoid;
+  }
+}
+
+/* ---- tooltip ------------------------------------------------------------- */
+
+/* .tip: a plain ruled box. Heavy rule on top, hair rules on the rest.
+   Says what the thing does with its number and nothing else. */
+.tip {
+  display: inline-block;
+  max-width: 280px;
+  background: var(--bone);
+  border: var(--hair) solid var(--ink);
+  border-top: var(--rule) solid var(--ink);
+  padding: 6px 10px 8px;
+  font-size: 16px;
+}
+.tip .label {
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* ---- notice line --------------------------------------------------------- */
+
+/* .notice: a toast is one ruled line with an inked tag in front.
+   --town: Woad tag (market and town news). --danger: Madder tag. */
+.notice {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  border-top: var(--hair) solid var(--ink);
+  border-bottom: var(--hair) solid var(--ink);
+  background: var(--bone);
+  min-height: 34px;
+}
+.notice + .notice {
+  border-top: 0;
+}
+.notice .tag {
+  flex: none;
+  display: flex;
+  align-items: center;
+  background: var(--ink);
+  color: var(--bone);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.notice .text {
+  padding: 6px 0;
+  min-width: 0;
+}
+.notice--town .tag {
+  background: var(--woad);
+}
+.notice--danger .tag {
+  background: var(--madder);
+}
+
+/* ---- first-find stamp ---------------------------------------------------- */
+
+/* .find-stamp: a crooked inked stamp with the finder's name. Woad for
+   another player. .is-yours: an Ochre block. .thud plays the 80 ms landing. */
+.find-stamp {
+  display: inline-block;
+  transform: rotate(-5deg);
+  color: var(--woad);
+  border: var(--rule) solid currentColor;
+  outline: var(--hair) solid currentColor;
+  outline-offset: -6px;
+  padding: 8px 14px 7px;
+  text-align: center;
+  line-height: 1.05;
+  background: transparent;
+}
+.find-stamp .label {
+  display: block;
+}
+.find-stamp .name {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+}
+.find-stamp.is-yours {
+  color: var(--ink);
+  background: var(--ochre);
+  transform: rotate(4deg);
+}
+.find-stamp.thud {
+  animation: thud 80ms steps(2, end) 1;
+}
+@keyframes thud {
+  from {
+    transform: rotate(-9deg) scale(1.35);
+  }
+}
+
+/* ---- HUD ----------------------------------------------------------------- */
+
+/* .hud: overlay on the game canvas. Pieces are bone slips with heavy rules.
+   Layout: health top left, wave top centre, counters top right, sound
+   bottom right, stick bottom left. pointer-events pass through the gaps. */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+}
+.hud > * {
+  pointer-events: auto;
+}
+.hud .hp {
+  grid-area: 1 / 1;
+  justify-self: start;
+}
+.hud .wave {
+  grid-area: 1 / 2;
+}
+.hud .counters {
+  grid-area: 1 / 3;
+  justify-self: end;
+}
+.hud .sound {
+  grid-area: 3 / 3;
+  justify-self: end;
+  align-self: end;
+}
+.hud .stick {
+  grid-area: 3 / 1;
+  align-self: end;
+}
+.hud .notices {
+  grid-area: 2 / 1 / 3 / 4;
+  align-self: end;
+  justify-self: center;
+  max-width: 100%;
+}
+@media (max-width: 560px) {
+  .hud {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .hud .wave {
+    grid-area: 1 / 2;
+  }
+  .hud .hp {
+    grid-area: 1 / 1;
+  }
+  .hud .counters {
+    grid-area: 2 / 1 / 3 / 3;
+    justify-self: start;
+    align-self: start;
+  }
+  .hud .sound {
+    grid-area: 3 / 2;
+  }
+}
+
+/* .hp: health as a segmented ruled bar plus the figure. Fill segments with
+   <i class="on">. Ochre while healthy; .is-low turns what is left Madder. */
+.hp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bone);
+  border: var(--rule) solid var(--ink);
+  padding: 4px 8px 4px 4px;
+  max-width: 100%;
+}
+.hp .bar {
+  display: flex;
+  gap: 2px;
+  background: var(--ink);
+  border: 2px solid var(--ink);
+  min-width: 0;
+}
+.hp .bar i {
+  display: block;
+  width: 9px;
+  height: 16px;
+  background: var(--bone);
+  flex: 0 1 9px;
+}
+.hp .bar i.on {
+  background: var(--ochre);
+}
+.hp.is-low .bar i.on {
+  background: var(--madder);
+}
+.hp .num {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* .wave: wave number over the time left. */
+.wave {
+  background: var(--bone);
+  border: var(--rule) solid var(--ink);
+  padding: 2px 12px 3px;
+  text-align: center;
+  line-height: 1;
+}
+.wave .label {
+  display: block;
+  padding-bottom: 2px;
+  border-bottom: var(--hair) solid var(--ink);
+  margin-bottom: 2px;
+}
+.wave .time {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+/* .counters: scrip and the three raws. Each .counter is icon + figure. */
+.counters {
+  display: inline-flex;
+  background: var(--bone);
+  border: var(--rule) solid var(--ink);
+}
+.counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 8px 1px 3px;
+  font-weight: 700;
+  font-size: 18px;
+}
+.counter + .counter {
+  border-left: var(--hair) solid var(--ink);
+}
+.counter.is-scrip {
+  border-right: 2px solid var(--ink);
+}
+
+/* .stick: touch stick. An eight-sided dashed ring and a solid Ink knob.
+   Move the knob by setting --x and --y (px) on .stick. */
+.stick {
+  --x: 0px;
+  --y: 0px;
+  width: 112px;
+  height: 112px;
+  position: relative;
+  touch-action: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 112 112'%3E%3Cpath d='M34 3H78L109 34V78L78 109H34L3 78V34Z' fill='none' stroke='%231b2226' stroke-width='3' stroke-dasharray='10 7'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.stick .knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  background: var(--ink);
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  transform: translate(var(--x), var(--y));
+}
+
+/* .sound: mute button and volume slider, on screen from the first frame.
+   .mute is a small plain stamp whose word is struck through when muted
+   (aria-pressed="true"). .vol is a range input drawn as a rule and a block. */
+.sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bone);
+  border: var(--rule) solid var(--ink);
+  padding: 4px 10px 4px 4px;
+}
+.mute[aria-pressed='true'] {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+.vol {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 110px;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.vol::-webkit-slider-runnable-track {
+  height: 3px;
+  background: var(--ink);
+}
+.vol::-moz-range-track {
+  height: 3px;
+  background: var(--ink);
+}
+.vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 24px;
+  margin-top: -10.5px;
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+}
+.vol::-moz-range-thumb {
+  width: 12px;
+  height: 24px;
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+}
+
+/* ---- meter ---------------------------------------------------------------- */
+
+/* .meter: progress as hatch filling a ruled box (town project, fusion wait).
+   Set --v from 0 to 1. --town hatches over Woad. */
+.meter {
+  --v: 0;
+  height: 18px;
+  border: var(--rule) solid var(--ink);
+  position: relative;
+  background: var(--bone);
+}
+.meter::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--v) * 100%);
+  background-image: var(--hatch);
+  border-right: var(--hair) solid var(--ink);
+}
+.meter--town::before {
+  background-color: var(--woad);
+}
+
+/* ---- motion --------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
