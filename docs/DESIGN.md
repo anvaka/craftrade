@@ -1,0 +1,369 @@
+# Scrip (working title; repo: craftrade)
+
+A wave-arena roguelite where the arena is also the mine. You fight through
+12 short waves in a wilderness clearing, work resource nodes under fire,
+build your kit at a bench between waves, and carry a small part of it home
+to a town every player shares.
+
+This document is the source of truth for the build. Numbers are starting
+values to be tuned by the headless bot and by play, not final.
+
+## 1. What the research said, and what we took from it
+
+Six research briefs fed this design (arena combat, crafting economies,
+LLM mechanics, AI-made tells, retention, web tech). Page fetches were
+blocked for all six researchers, so their evidence is search extracts, not
+full reads. Treat borrowed numbers as hypotheses.
+
+Decisions taken:
+
+| Question | Decision | Why |
+|---|---|---|
+| Where does gathering live? | Inside the wave, as a place you stand | The only praised precedent is spatial and concurrent with combat. A separate gathering mode would slow the loop. |
+| What replaces the shop? | A bench that sells recipes priced in scrip plus raw materials | Keeps the 45 s fight / 30 s decide rhythm and gives every raw an in-run use. |
+| How much do New World's 17 trades shrink? | 3 raw families, tools as weapons, 4 town stations | Interdependence survives; the tier treadmill and the chores do not. |
+| Random perks on crafted gear? | No. Bench recipes are fixed. Fusion is unknown once, then known forever | New World's most hated feature was RNG after a costly pipeline. |
+| What does the LLM do? | Chooses the theme of a fused item from a fixed effect vocabulary. Code owns every number | The mechanic lands when the answer becomes a small, permanent, legible fact. |
+| What persists between runs? | Knowledge (codex), options (characters), consumable kit, raws, marks | Permanent stat power makes wins hollow. Researchers disagreed on a cap (10-35%); we use a slot cap instead of a percentage. |
+| Is there real-time multiplayer? | No. Shared market, shared town, shared recipe book, daily board | Live lobbies die at low concurrency. Async still works with one player. |
+| Look | "Blockprint Almanac": daylit relief print, 7 colours with fixed jobs | Positive rules, not just a list of things to avoid. |
+
+Cut on purpose: haggling with an LLM merchant, AI flavour text, AI enemies,
+free-text naming, energy timers, login streaks, loot boxes, a tutorial modal,
+achievements for trivial actions.
+
+## 2. The loop
+
+```
+        +--------------------- RUN (about 13 min) ----------------------+
+        |  wave (20-60 s)  ->  bench  ->  wave  ->  bench ... -> wave 12 |
+        |  fight + work nodes   spend scrip and raws, fuse, level up     |
+        +-----------------------------+----------------------------------+
+                                      | carry home: raws, 0-3 items, marks
+                                      v
+   TOWN:  stash  ->  workshop (fuse)  ->  market (sell, buy)  ->  town project
+                                      |
+                                      v  pack a kit of up to 2 items
+                                    next run
+```
+
+- 5 minute player: the daily clearing (8 waves, fixed character, no kit, one scored try).
+- 20 minute player: one run and a stop in town.
+- 2 hour player: several characters, recipe hunting, market play.
+
+Time targets: control within 10 s of page load, no sign-up, first 1-of-3
+choice by 30 s. The town is skippable; "Go again" restarts in one press.
+
+## 3. The run
+
+### 3.1 Waves
+
+12 waves. Durations in seconds: 20, 25, 30, 35, 40, 45, 50, 55, 60, 60, 60, 90.
+Wave 6 and wave 9 bring an elite. Wave 12 is the boss; killing it ends the
+wave early. The arena is one fixed clearing about 2.2 screens wide, ringed
+by treeline. The camera follows the player.
+
+You only move. Weapons fire on their own at the nearest target in range.
+Keyboard (WASD / arrows) or a touch stick.
+
+### 3.2 Scrip
+
+Enemies drop scrip. Scrip is both money and experience, as in Brotato.
+XP to next level = (level + 3)^2. Each level gives +1 Max HP and one
+upgrade pick at the bench. Scrip left on the ground at wave end is banked
+and pays double on later pickups until repaid.
+
+### 3.3 Nodes and raws
+
+Three node types stand in the clearing: **trees** (timber), **ore seams**
+(ore), **carcasses** (hide). Standing inside a node's work ring works it;
+you keep firing while you work. Work rate = 1 + Harvest/20, doubled if you
+hold the matching tool. A node takes about 3 s at base rate and bursts into
+raw pickups. Nodes are placed toward the edges and near enemy spawn lanes,
+so the good ones cost you position. Richer nodes (more raws, longer work)
+appear from wave 5.
+
+Tools are weapons. They take a weapon slot, fight worse than a pure weapon
+of the same tier, and double work rate on their node: hatchet for trees,
+pick for seams, skinning knife for carcasses. This is the New World tool
+rule turned into a build choice.
+
+Raws have three competing uses: pay for bench recipes now, pay for a fusion
+now, or carry home.
+
+### 3.4 Sending the mule
+
+After waves 4 and 8 you may send the mule. Everything you choose to load
+(raws only) is safe at home whatever happens next, and is gone from the run.
+If you die, you keep the mule loads plus 30% of the raws you held. If you
+win, you keep it all.
+
+### 3.5 Stats
+
+Thirteen stats. Every one must have a build that wants it.
+
+| Stat | Effect |
+|---|---|
+| Max HP | Health. |
+| Mend | HP per second: 0.2 for the first point, +0.09 after. |
+| Armor | Damage taken = 1 / (1 + armor/15). |
+| Dodge | Chance to avoid a hit, cap 60%. |
+| Speed | Move speed %. |
+| Damage | All damage %. |
+| Melee | Flat damage for melee weapons, scaled per weapon. |
+| Ranged | Flat damage for ranged weapons, scaled per weapon. |
+| Rate | Attack speed %. |
+| Crit | Crit chance %, crits deal x2. |
+| Reach | Weapon range. Melee gets half. |
+| Harvest | Work rate, and +1 raw per node for every 10 points. |
+| Luck | Rarity of bench offers and upgrade picks. |
+
+Against a pure-damage meta: enemy threat comes from behaviour (charges,
+spit, theft, burrowing), not from health inflation; several weapons and
+effects scale with Armor, Max HP, Harvest, Speed or raws held.
+
+### 3.6 Weapons
+
+Six slots. Two of the same weapon and tier combine into the next tier
+(up to 4). Classes give a small set bonus at 2/4/6 held.
+
+| Weapon | Class | Notes |
+|---|---|---|
+| Hatchet | Edge, Tool | Sweep. Works trees x2. |
+| Pick | Blunt, Tool | Thrust. Works seams x2. |
+| Skinning knife | Edge, Tool | Fast, high crit. Works carcasses x2. |
+| Maul | Blunt | Slow, wide, heavy knockback. Scales with Max HP. |
+| Pike | Edge | Long thrust. Scales with Reach. |
+| Sling | Shot | Cheap, fast, weak. |
+| Bow | Shot | Pierces 1. |
+| Musket | Shot | Slow, heavy, pierces 2. |
+| Throwing axe | Edge, Shot | Bounces 1. Scales with Melee and Ranged. |
+| Firebrand | Blunt | Sweep that sets burn. |
+| Bola | Shot | Low damage, slows. |
+| Buckler | Blunt | Short bash. Scales with Armor. |
+
+Set bonuses: Edge +crit, Blunt +knockback and Max HP, Shot +reach,
+Tool +harvest.
+
+### 3.7 Enemies
+
+Health = base + perWave x (wave - 1), linear, as in the genre. Each enemy
+is defined by what it makes you do.
+
+| Enemy | From wave | Behaviour |
+|---|---|---|
+| Mite | 1 | Walks at you. Fodder. |
+| Gnat cloud | 2 | Fast, weak, arrives in packs of 8. |
+| Boar | 3 | Paws the ground (0.7 s tell), then charges in a line. |
+| Spitter | 4 | Keeps distance, lobs slow shots. |
+| Magpie | 4 | Ignores you, grabs scrip and raws off the ground and runs for the treeline. Kill it to get them back. |
+| Burrower | 5 | Surfaces next to a node you are working. |
+| Brute | 7 | Slow, tough, ground slam with a visible ring. |
+| Stag (elite, wave 6) | - | Charges, leaves antler shards that linger. |
+| Rotwood (elite, wave 9) | - | A walking tree. Sheds mites. Can be worked like a node while it lives. |
+| Old Tusk (boss, wave 12) | - | Three phases: charge, summon, slam rings. |
+
+Live enemy cap 300. Enemy shots are the only madder-coloured round shapes
+on screen.
+
+### 3.8 The bench
+
+After every wave. No timer.
+
+1. **Upgrades.** One pick of 4 per level gained, each raising one stat, tier I-IV.
+2. **Offers.** Four recipes. Each is a weapon or an item with a price in scrip
+   and usually one or two raws. Price = floor((base + wave + 0.1 x base x wave) x modifiers).
+   Offers are 65% item / 35% weapon; the first two benches show 2 weapons + 2 items.
+   Weapon offers lean toward what you hold (20% same weapon, 15% same class).
+   Rarity: tier 2 from bench 2, tier 3 from bench 4, tier 4 from bench 8; caps 60 / 25 / 8%, scaled by Luck.
+3. **Reroll.** First reroll floor(0.5 x wave) + 1, each further one + max(1, floor(0.4 x wave)). Resets each bench. Buying all four gives one free reroll.
+4. **Lock.** Free. A locked offer stays and its price freezes.
+5. **Scrap.** Sell a weapon or item for 25% of its current price.
+6. **Fuse.** See below.
+
+Items do not take slots. About 40 authored items at launch, each with a
+clear effect in the fixed vocabulary, most with a cost as well as a gain.
+
+## 4. Fusion: the one LLM mechanic
+
+Put two different items on the anvil. They are consumed and one new item
+comes out. The first time anyone in the world tries a pair, a model decides
+what the pair becomes. After that the pair is a fact: every player gets the
+same result, the codex shows it, and the first finder's name is stamped on
+the item for good.
+
+This is Brotato's combine extended sideways: identical weapons merge by
+rule; different items merge by meaning.
+
+### 4.1 Rules
+
+- An item is a name, a tier (1-4), tags, and up to 3 effects plus at most 1 drawback.
+- An effect is a primitive from a fixed vocabulary (about 30) at a level 1-5.
+  A versioned price table in code turns (primitive, level) into points and into numbers.
+- Fusion budget = round((points(A) + points(B)) x 1.12). The result's tier follows from its budget.
+- The model receives the two items and the budget. It returns three candidate
+  names and a list of (primitive, level) picks that suits the pair. Nothing a
+  player typed reaches the model.
+- Code validates the picks against the vocabulary, repairs them to the exact
+  budget by a fixed deterministic procedure, checks names (letters and spaces,
+  3-22 chars, blocklist, no duplicate of an existing item name) and stores the result.
+- The cache stores levels, not numbers. A balance patch changes the price
+  table and every recipe follows without being regenerated.
+- Recipe key = hash(ruleset version, sorted input item ids). Item id = hash of
+  the repaired spec, so different pairs can converge on one item.
+- Tier 4 results are finished: they cannot be fused again.
+- In a run, a fusion costs raws by output tier (for example tier 2: 3 timber, 2 ore, 2 hide) and, for a pair nobody has tried, takes a second or two.
+- In town, the workshop does the same from your stash.
+- Each account gets 20 untried pairs a day (raised by the Assay Office). Known pairs are unlimited.
+- If the model is unreachable, known recipes still work. An untried pair is refused and nothing is consumed.
+- With no model configured at all (local development), a deterministic
+  procedural generator stands in so the game is fully playable.
+- Multiplicative stacking is held back in combat code with per-stat caps, since a point budget cannot do it.
+
+### 4.2 Why it should work
+
+Curiosity with a permanent payoff: the codex shows silhouettes for pairs
+adjacent to what you know; a find is yours by name; a good find is worth
+money because others must either make it in a run or buy it.
+
+## 5. Town (persistent, shared)
+
+One page styled as a ledger. Four tabs.
+
+- **Stash.** Unlimited. Raws, items, marks. Nothing to sort.
+- **Workshop.** Fuse from the stash. Browse the codex: known recipes, who found them, silhouettes of near neighbours.
+- **Market.** Items are posted at a price by players (2% listing fee, 5% sale tax, both destroyed). Raws trade against the Factor, an NPC who buys at about half and sells at about double a slow reference price that follows trade volume, with a daily volume limit. No auctions. No empty list: the Factor always quotes.
+- **Town.** One project at a time, for example "Raise the sawmill to tier 2". Anyone donates raws; a share of market tax also counts. Targets scale with active players. Stations: Sawmill (+timber per tree), Smelter (+ore), Tannery (+hide), Assay Office (+untried pairs per day). Your standing with the town is a count of what you gave.
+
+### 5.1 What you carry home
+
+- Raws: mule loads, plus held raws (all on a win, 30% on a death).
+- Items: you may carry floor(waves cleared / 4) items from your build, your choice.
+- Marks: 1 per 10 scrip held at the end, plus a per-wave payout.
+
+### 5.2 Kit
+
+Pack up to 2 stash items for a run. A packed item has 3 charges; one is
+spent per run started, then the item is gone. That wear is the main item
+sink and the reason the market keeps moving. The daily clearing ignores
+kits. Everyone can always run with no kit.
+
+### 5.3 Characters
+
+Unlocked by playing, win or lose, one per run for the first runs.
+
+| Character | Twist |
+|---|---|
+| Greenhorn | No twist. |
+| Sawyer | Hatchets cost half. +1% Damage per 4 timber held. Starts with a hatchet. |
+| Smith | Bench recipes need 1 less ore. +Armor, -Speed. |
+| Trapper | +Dodge, +Ranged. Carcasses appear twice as often. -Max HP. |
+| Tinker | Fusions cost no raws. 4 weapon slots. |
+| Factor's clerk | Earns interest on scrip at wave end. -Damage. |
+
+### 5.4 The daily clearing
+
+Same seed, character and offers for everyone, 8 waves, one scored attempt
+a day, unlimited practice. Score = waves cleared, then scrip earned. The
+board shows your percentile and a copyable result line. Cumulative days
+played are counted; there is no streak to lose.
+
+### 5.5 First five runs
+
+Each of the first five runs unlocks one thing, win or lose: workshop,
+second character, market, daily clearing, town project. Before that those
+tabs are not shown.
+
+## 6. Economy guard rails
+
+- Every faucet and sink writes to a ledger table. A check sums it.
+- Runs start with a server ticket. The end-of-run report is checked against
+  bounds (raws per wave, items that exist, carry limits). Replay
+  verification of the deterministic sim is the next step, not in the first build.
+- Trades are single transactions with an idempotency key.
+- A global switch turns trading off.
+- New accounts can sell to the Factor at once but post listings only after 3 runs.
+
+## 7. Look, sound and words
+
+### 7.1 Blockprint Almanac
+
+Seven colours, each with one job. No other colour appears anywhere.
+
+| Name | Hex | Job |
+|---|---|---|
+| Ink | #1B2226 | Outlines, text |
+| Bone | #D9D3BD | Paper: UI ground only |
+| Moss | #7C8C5A | Clearing floor |
+| Spruce | #2F4A3C | Treeline, shade |
+| Ochre | #D99A2B | The player, raws, crafted goods, scrip |
+| Madder | #B8402E | Enemies and danger only |
+| Woad | #3E6C8A | Town, market, other players' names |
+
+- Shapes: chunky silhouettes of 5-9 segments with cut corners. One outline
+  weight (3 px at 1x). Shade is hatching or a flat second shape. Fills sit
+  1-2 px off their outlines, seeded per sprite, like a print out of register.
+- Type: Zilla Slab only (self-hosted, licence to be confirmed at install), tabular figures.
+- UI: ledger rows and ink rules. No cards, no rounded rectangles, no shadows,
+  no gradients, no blur, no glow, no emoji. Buttons are stamps that shift 2 px and invert when pressed.
+- Feedback: white-less hit flash (the sprite turns solid ink for 2 frames),
+  hit-stop only when you are hurt or an elite dies, angular chips for debris,
+  trauma-based shake with a toggle. Damage numbers are aggregated per target.
+
+### 7.2 Sound
+
+Synthesised in WebAudio. Each node type has its own work sound (chop, clink,
+scrape) because gathering audio was the most loved part of the source
+pipeline. Pickup sounds rise in pitch in a streak. A mute button and a
+volume slider are on screen from the first frame.
+
+### 7.3 Words
+
+Dry, practical, short. Sentence case. No exclamation marks in system text.
+No em dashes. Tooltips say what a thing does with its number and nothing
+else. Names are plain trade words (hatchet, tallow, whetstone), not
+invented fantasy words. Enemy and place names are things a tired person
+would call them.
+
+## 8. Technology
+
+- TypeScript, Vite, Vitest, Playwright.
+- `src/sim`: pure deterministic simulation. Fixed 60 Hz tick, seeded RNG,
+  spatial grid, pooled entities, no DOM. The bench and fusion logic live here too.
+- `src/client`: Canvas2D renderer with sprites baked to offscreen canvases at
+  boot, DPR capped at 2, interpolation between ticks, WebAudio, DOM for the
+  bench and town. Canvas2D was chosen over PixiJS because the print style
+  needs no blending or filters and the entity cap is 300; revisit if phones struggle.
+- `server`: one Node process, Hono, SQLite. Anonymous device token.
+  Endpoints for fusion, codex, stash, market, town, daily board.
+- Claude on Bedrock for untried pairs, small fast model, structured output.
+  The key stays on the server.
+
+## 9. First build and later
+
+First build (this branch): the full run, the bench, fusion with global
+recipes and first-finder credit, stash, kit, Factor and listings, one town
+project, the daily clearing, six characters.
+
+Later: replay verification, seasons, order book for raws, contracts graded
+by the model, more clearings, friends board.
+
+## 10. Do not ship if
+
+1. Any gradient, glow, blur, soft shadow, glass panel or purple.
+2. Any emoji.
+3. A colour outside the seven, or one used outside its job.
+4. Rounded cards, nested boxes, three identical tiles in a row.
+5. A second type family or a system font showing.
+6. A title screen that is a centred logo, tagline and big button.
+7. Em dashes, "delve", "tapestry", "testament", "it's not X, it's Y", triplet lists.
+8. Invented fantasy names.
+9. A tooltip that restates its label. Title Case. Exclamation marks.
+10. A first-launch modal or an achievement for a first click.
+11. An upgrade that is only a small percentage on one stat with no cost and no hook.
+12. Any of arena, bench or town removable without the others noticing.
+13. Wave 10 being wave 2 with bigger numbers.
+14. More first-session time in menus than in play.
+15. A hit with no flash, knockback or sound. No mute.
+16. Resize, tab blur, pause or pixel-ratio change breaking layout, timing or input.
+17. Dead buttons. Frame drops in a full wave. Progress lost on refresh.
