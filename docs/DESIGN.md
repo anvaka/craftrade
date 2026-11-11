@@ -172,8 +172,12 @@ Set bonuses at 2 / 4 / 6:
 |---|---|
 | Edge | +3 / 7 / 12% Crit, +0 / 1 / 3 Melee |
 | Blunt | +3 / 8 / 15 Max HP, +1 / 2 / 4 Armor, +3 / 6 / 10 knockback |
-| Shot | +15 / 35 / 60 Reach, +0 / 1 / 3 Ranged, every shot pierces 1 / 2 / 3 more |
+| Shot | +15 / 35 / 60 Reach, +0 / 1 / 3 Ranged, +0 / 0 / 6% Speed, every shot pierces 1 / 2 / 3 more |
 | Tool | +6 / 12 / 20 Harvest, +0 / 5 / 10% Damage |
+
+Shots spread: a shot weapon does not fire at an enemy that shots already
+in the air will kill, unless every target in range is spoken for. Six
+slings take six gnats, not one.
 
 The bench leans toward what is held (3.8). Measured: a player who buys only
 one class holds 5.3 to 5.9 of it at the bench after wave 8, and one who buys

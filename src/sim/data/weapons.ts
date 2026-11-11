@@ -64,7 +64,7 @@ export const WEAPONS: readonly WeaponDef[] = [
   { id: 'pike', name: 'Pike', classes: ['edge'], kind: 'thrust', dmg: [6, 9, 13, 19], cd: [1.3, 1.22, 1.14, 1.05],
     range: 172, width: 30, scale: { melee: 0.8, reach: 0.06 }, crit: 5, knock: 7, pierce: 0, bounce: 0, fullReach: true,
     price: [16, 32, 62, 120], raws: { timber: 2 }, note: 'Long thrust. Scales with Reach.' },
-  { id: 'sling', name: 'Sling', classes: ['shot'], kind: 'shot', dmg: [5, 7, 10, 14], cd: [0.55, 0.5, 0.46, 0.42],
+  { id: 'sling', name: 'Sling', classes: ['shot'], kind: 'shot', dmg: [4, 6, 9, 13], cd: [0.6, 0.55, 0.5, 0.46],
     range: 330, width: 0, scale: { ranged: 0.9 }, crit: 3, knock: 2, pierce: 0, bounce: 0, shotSpeed: 560,
     price: [9, 18, 35, 68], plainAtOne: true, raws: { hide: 1 }, note: 'Cheap, fast, weak.' },
   { id: 'bow', name: 'Bow', classes: ['shot'], kind: 'shot', dmg: [8, 12, 17, 25], cd: [0.88, 0.83, 0.78, 0.72],
@@ -94,7 +94,7 @@ export const WEAPON_INDEX: Record<string, number> = Object.fromEntries(WEAPONS.m
 export const SET_BONUS: Record<WeaponClass, { stat: StatId; v: readonly [number, number, number] }[]> = {
   edge: [{ stat: 'crit', v: [3, 7, 12] }, { stat: 'melee', v: [0, 1, 3] }],
   blunt: [{ stat: 'maxHp', v: [3, 8, 15] }, { stat: 'armor', v: [1, 2, 4] }],
-  shot: [{ stat: 'reach', v: [15, 35, 60] }, { stat: 'ranged', v: [0, 1, 3] }],
+  shot: [{ stat: 'reach', v: [15, 35, 60] }, { stat: 'ranged', v: [0, 1, 3] }, { stat: 'speed', v: [0, 0, 6] }],
   tool: [{ stat: 'harvest', v: [6, 12, 20] }, { stat: 'damage', v: [0, 5, 10] }],
 };
 /** Blunt also adds knockback at 2 / 4 / 6. */

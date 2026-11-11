@@ -59,7 +59,8 @@ export function updateWeapons(run: Run): void {
     const def = WEAPONS[w.def];
     const range = weaponRange(p, def);
     const n = queryGrid(run, p.x, p.y, range + 48);
-    let best = -1, bestD = 1e12;
+    const shot = def.kind === 'shot';
+    let best = -1, bestD = 1e12, spare = -1, spareD = 1e12;
     for (let k = 0; k < n; k++) {
       const e = es[Q[k]];
       if (!targetable(e)) continue;
@@ -70,8 +71,12 @@ export function updateWeapons(run: Run): void {
       // Nearest by edge distance, so big targets do not hide behind small ones; elites pull focus.
       let d = Math.sqrt(d2) - e.r;
       if (ENEMIES[e.type].rank > 0) d *= ELITE_FOCUS;
+      // A shot is not wasted on an enemy that shots already in the air will kill: six slings
+      // take six gnats, not one. If every target in range is spoken for, the nearest is shot anyway.
+      if (shot && run.tick <= e.pendTick && e.pend >= e.hp) { if (d < spareD) { spareD = d; spare = Q[k]; } continue; }
       if (d < bestD) { bestD = d; best = Q[k]; }
     }
+    if (best < 0) best = spare;
     if (best < 0) continue;
     const t = es[best];
     let ax = t.x - p.x, ay = t.y - p.y;
@@ -92,6 +97,10 @@ export function updateWeapons(run: Run): void {
     const knock = def.knock + p.knockAdd;
     emit(run, 'attack', p.x, p.y, w.def, wi);
     if (def.kind === 'shot') {
+      // Mark the damage as on its way until the shot has had time to arrive.
+      const lands = run.tick + Math.ceil((Math.sqrt((t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y)) / def.shotSpeed!) * TICK_HZ) + 2;
+      t.pend = (run.tick <= t.pendTick ? t.pend : 0) + dmg;
+      if (lands > t.pendTick) t.pendTick = lands;
       fireShot(run, p.x + ax * 12, p.y + ay * 12, ax, ay, def.shotSpeed!, dmg, w.def, range, def.pierce, def.bounce,
         rnd(run.rng, Stream.Combat) < crit, knock, burn, def.slow ? def.slow[w.tier - 1] : 0, true);
       continue;

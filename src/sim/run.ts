@@ -25,7 +25,7 @@ const fill = <T>(n: number, make: () => T): T[] => Array.from({ length: n }, mak
 
 const newEnemy = (): Enemy => ({
   alive: false, uid: 0, type: 0, x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0, hp: 0, maxHp: 0, dmg: 0, r: 0, state: 0,
-  t: 0, t2: 0, t3: 0, dx: 1, dy: 0, tx: 0, ty: 0, burnDps: 0, burnT: 0, slowT: 0, slowF: 0, flash: 0, n: 0,
+  t: 0, t2: 0, t3: 0, dx: 1, dy: 0, tx: 0, ty: 0, burnDps: 0, burnT: 0, slowT: 0, slowF: 0, pend: 0, pendTick: 0, flash: 0, n: 0,
   loot0: 0, loot1: 0, loot2: 0, loot3: 0, work: 0, seed: 0, called: false,
 });
 const newShot = (): Shot => ({

@@ -54,6 +54,8 @@ export interface Enemy {
   tx: number; ty: number;
   burnDps: number; burnT: number;
   slowT: number; slowF: number;
+  /** Shot damage already in the air for this enemy, and the tick after which it no longer counts (the shots have landed or missed). */
+  pend: number; pendTick: number;
   /** Ticks left of hit flash. */
   flash: number;
   /** Boss phase 1-3, charges left for the stag, loot count for a magpie. */

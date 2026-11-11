@@ -272,7 +272,7 @@ export function spawnEnemy(run: Run, type: number, x: number, y: number, tell = 
   e.r = def.r;
   e.state = ES.Spawn; e.t = tell; e.t2 = 0; e.t3 = 0;
   e.dx = 1; e.dy = 0; e.tx = e.x; e.ty = e.y;
-  e.burnDps = 0; e.burnT = 0; e.slowT = 0; e.slowF = 0; e.flash = 0; e.n = 0;
+  e.burnDps = 0; e.burnT = 0; e.slowT = 0; e.slowF = 0; e.pend = 0; e.pendTick = 0; e.flash = 0; e.n = 0;
   e.loot0 = e.loot1 = e.loot2 = e.loot3 = 0; e.work = 0; e.called = false;
   e.seed = rnd(run.rng, Stream.Ai) * 6.283185307179586;
   run.enemyCount++;
