@@ -53,24 +53,24 @@ const dev = process.argv[2] || 'se';
   await page.waitForTimeout(50);
   out.liftStops = { speedAfterLift: Math.round((await speed(300)).v), stickHidden: (await stick()) === null };
   out.audioAfterFirstLift = await audioState();
-  // d. second finger
+  // d. second finger (steering left: the earlier steps may have run the player into the right-hand treeline)
   await L.touch(cdp, 'touchStart', [{ x: x0, y: y0, id: 0 }]);
-  await L.touch(cdp, 'touchMove', [{ x: x0 + 44, y: y0, id: 0 }]); await page.waitForTimeout(150);
+  await L.touch(cdp, 'touchMove', [{ x: x0 - 44, y: y0, id: 0 }]); await page.waitForTimeout(150);
   const before = await speed(300);
-  await L.touch(cdp, 'touchStart', [{ x: x0 + 44, y: y0, id: 0 }, { x: W * 0.8, y: H * 0.6, id: 1 }]);
-  await L.touch(cdp, 'touchMove', [{ x: x0 + 44, y: y0, id: 0 }, { x: W * 0.8, y: H * 0.6 - 60, id: 1 }]); await page.waitForTimeout(100);
+  await L.touch(cdp, 'touchStart', [{ x: x0 - 44, y: y0, id: 0 }, { x: W * 0.8, y: H * 0.6, id: 1 }]);
+  await L.touch(cdp, 'touchMove', [{ x: x0 - 44, y: y0, id: 0 }, { x: W * 0.8, y: H * 0.6 - 60, id: 1 }]); await page.waitForTimeout(100);
   const during = await speed(300);
   await L.touch(cdp, 'touchEnd', [{ x: W * 0.8, y: H * 0.6 - 60, id: 1 }]); await page.waitForTimeout(100); // second finger lifts (touchEnd lists the released points)
   const after2 = await speed(300);
   // now the first finger lifts while a second is still down
-  await L.touch(cdp, 'touchStart', [{ x: x0 + 44, y: y0, id: 0 }, { x: W * 0.8, y: H * 0.6, id: 1 }]); await page.waitForTimeout(60);
-  await L.touch(cdp, 'touchEnd', [{ x: x0 + 44, y: y0, id: 0 }]); await page.waitForTimeout(100); // first finger lifts, second stays
+  await L.touch(cdp, 'touchStart', [{ x: x0 - 44, y: y0, id: 0 }, { x: W * 0.8, y: H * 0.6, id: 1 }]); await page.waitForTimeout(60);
+  await L.touch(cdp, 'touchEnd', [{ x: x0 - 44, y: y0, id: 0 }]); await page.waitForTimeout(100); // first finger lifts, second stays
   await L.touch(cdp, 'touchMove', [{ x: W * 0.8, y: H * 0.6 - 50, id: 1 }]); await page.waitForTimeout(150);
   const handover = await speed(300);
   await L.touch(cdp, 'touchEnd', []); await page.waitForTimeout(80);
   out.secondFinger = {
     firstAlone: `${Math.round(before.dx)},${Math.round(before.dy)}`, withSecondDown: `${Math.round(during.dx)},${Math.round(during.dy)}`,
-    afterSecondLifts: `${Math.round(after2.dx)},${Math.round(after2.dy)}`, keepsDirection: before.dx > 5 && during.dx > 5 && Math.abs(during.dy) < 3 && after2.dx > 5,
+    afterSecondLifts: `${Math.round(after2.dx)},${Math.round(after2.dy)}`, keepsDirection: before.dx < -5 && during.dx < -5 && Math.abs(during.dy) < 3 && after2.dx < -5,
     handoverToRemainingFinger: `${Math.round(handover.dx)},${Math.round(handover.dy)}`, remainingFingerSteers: handover.dy < -5,
     stuckAfterAllLift: Math.round((await speed(250)).v),
   };

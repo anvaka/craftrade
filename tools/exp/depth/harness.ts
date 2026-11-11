@@ -2,7 +2,7 @@
 // run loop, and the record written per run. Nothing here edits src/.
 import { BASE_ITEM, BASE_ITEMS } from '../../../src/shared/content/items.ts';
 import { fusedItemId, recipeKey, type ItemSpec } from '../../../src/shared/item.ts';
-import { STATS, type StatId } from '../../../src/shared/vocab.ts';
+import { PRIMITIVES, STATS, type StatId } from '../../../src/shared/vocab.ts';
 import { ENEMIES } from '../../../src/sim/data/enemies.ts';
 import { UPGRADE_VALUE } from '../../../src/sim/data/upgrades.ts';
 import { SOURCE_IDS, WEAPONS, WEAPON_INDEX } from '../../../src/sim/data/weapons.ts';
@@ -93,13 +93,24 @@ const FIXED: Record<string, Policy> = {
   every30: { every: 30 },
 };
 
+/** What-if runs: change a data table in memory (never on disk) and play a registered policy against it. */
+const WHATIF: Record<string, { base: string; apply: () => void }> = {
+  'whatif-tusk2.5': { base: 'default', apply: () => { const t = ENEMIES.find((e) => e.id === 'tusk') as { hp: number; hpW: number }; t.hp *= 2.5; t.hpW *= 2.5; } },
+  'whatif-tusk4': { base: 'default', apply: () => { const t = ENEMIES.find((e) => e.id === 'tusk') as { hp: number; hpW: number }; t.hp *= 4; t.hpW *= 4; } },
+  'whatif-tusk4-glass': { base: 'glass', apply: () => { const t = ENEMIES.find((e) => e.id === 'tusk') as { hp: number; hpW: number }; t.hp *= 4; t.hpW *= 4; } },
+  'whatif-thorns3': { base: 'thorns', apply: () => { const p = PRIMITIVES.find((x) => x.id === 'thorns') as unknown as { values: number[] }; p.values = p.values.map((v) => v * 3); } }, // the cap of 60 in SPECIAL_CAP still applies (read at module load), so this is "thorns at its cap from the first item"
+};
+
 export function policy(name: string): Policy {
+  if (WHATIF[name]) { WHATIF[name].apply(); return { ...FIXED[WHATIF[name].base], name }; }
   if (FIXED[name]) return { ...FIXED[name], name };
   const [kind, arg] = name.split(':');
   if (kind === 'stack') return { name, startWeapon: arg, weaponOk: (id) => id === arg };
   if (kind === 'start') return { name, startWeapon: arg };
   if (kind === 'kit') return { name, kit: [BASE_ITEM[arg]] };
   if (kind === 'stat') return { name, startStats: { [arg]: 3 * UPGRADE_VALUE[arg as StatId][0] } };
+  // add:damage=-4  adds an exact amount of one stat at the start.
+  if (kind === 'add') { const [st, v] = arg.split('='); return { name, startStats: { [st]: Number(v) } }; }
   throw new Error(`unknown policy ${name}`);
 }
 export const FIXED_NAMES = Object.keys(FIXED);
