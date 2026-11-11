@@ -1,0 +1,120 @@
+# Builds the game on every push and puts it on GitHub Pages, so any branch
+# can be played on a phone without a laptop.
+#
+#   default branch  ->  https://<owner>.github.io/<repo>/
+#   any other       ->  https://<owner>.github.io/<repo>/b/<branch, slashes as dashes>/
+#
+# The site has no game server, so it plays as the solo world kept on the device.
+# One-time setup: Settings -> Pages -> Source "Deploy from a branch", branch "gh-pages", folder "/ (root)".
+# A branch's preview is removed when the branch is deleted.
+name: Pages
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+  delete:
+
+permissions:
+  contents: write
+
+# Deploys push to one branch: one at a time.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Where this build goes
+        id: where
+        env:
+          BRANCH: ${{ github.ref_name }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$BRANCH" = "$DEFAULT" ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+            echo "path=" >> "$GITHUB_OUTPUT"
+          else
+            slug=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+            echo "dir=b/$slug" >> "$GITHUB_OUTPUT"
+            echo "path=b/$slug/" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to the gh-pages branch
+        env:
+          DIR: ${{ steps.where.outputs.dir }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin gh-pages; then
+            git worktree add site FETCH_HEAD
+            git -C site checkout -B gh-pages
+          else
+            git worktree add --orphan -b gh-pages site
+          fi
+          cd site
+          touch .nojekyll
+          if [ "$DIR" = "." ]; then
+            # The default branch owns the root. Previews under b/ are kept.
+            find . -mindepth 1 -maxdepth 1 ! -name .git ! -name b ! -name .nojekyll -exec rm -rf {} +
+            cp -R ../dist/. .
+          else
+            rm -rf "$DIR"
+            mkdir -p "$DIR"
+            cp -R ../dist/. "$DIR"
+          fi
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -q -m "Deploy $BRANCH at ${SHA::7}"
+            git push origin gh-pages
+          fi
+      - name: Say where it is
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          WHERE: ${{ steps.where.outputs.path }}
+        run: echo "Play it at https://$OWNER.github.io/$REPO/$WHERE" >> "$GITHUB_STEP_SUMMARY"
+
+  remove-preview:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch' && github.event.ref != 'gh-pages'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - name: Remove the deleted branch's preview
+        env:
+          BRANCH: ${{ github.event.ref }}
+        run: |
+          slug=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+          [ -d "b/$slug" ] || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -rq "b/$slug"
+          git commit -q -m "Remove the preview of $BRANCH"
+          git push origin gh-pages

@@ -10,7 +10,10 @@
 
 const VERSION = '__VERSION__';
 const FILES = __FILES__;
-const CACHE = `scrip-${VERSION}`;
+// Several builds can live on one site, each in its own folder (a preview per branch). Each keeps its own cache
+// and clears only its own old ones.
+const SCOPE = `scrip-${new URL(self.registration.scope).pathname}-`;
+const CACHE = `${SCOPE}${VERSION}`;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -21,7 +24,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('scrip-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(SCOPE) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

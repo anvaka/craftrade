@@ -47,6 +47,14 @@ Account section switches between the two; they are separate saves.
 `SCRIP_DB=sqljs npm test` runs the server tests on the browser's database
 engine.
 
+## Play any branch from a phone
+
+`.github/workflows/pages.yml` builds every push and publishes it to GitHub
+Pages: the default branch at `https://<owner>.github.io/<repo>/`, any other
+branch at `.../b/<branch with slashes as dashes>/`. One-time setup: Settings,
+Pages, "Deploy from a branch", `gh-pages`, `/ (root)`. All of these share one
+solo save, because they are one site to the browser.
+
 ## Fusion and the model
 
 Untried item pairs are decided by Claude on Amazon Bedrock. Set
