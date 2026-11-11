@@ -1,5 +1,7 @@
 // The town tab: the shared project, the stations, and who gave.
 
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip, term } from '../ui/tip.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
 import type { StationId } from '../../shared/protocol.ts';
 import { TOWN_FUND_PER_DAY } from '../../shared/rules.ts';
@@ -26,7 +28,7 @@ function project(): HTMLElement {
   const S = sprites();
   const t = app.town!;
   const p = app.profile;
-  const sec = el('section', 'section section--first', el('h2', '', 'Town project'));
+  const sec = el('section', 'section section--first', el('h2', '', term('Town project', 'townProject')));
   const pr = t.project;
   if (!pr) {
     sec.append(empty('The town has nothing in hand. A new project will be listed here.'));
@@ -84,7 +86,7 @@ function project(): HTMLElement {
     const parts = RAWS.filter((raw) => giving[raw] > 0).map((raw) => `${fmt(giving[raw])} ${raw}`);
     giveStamp.textContent = parts.length ? `Give ${parts.join(', ')}` : 'Give';
     giveStamp.disabled = !parts.length || app.busy.has('give');
-    giveStamp.title = parts.length ? '' : '0 chosen';
+    setTip(giveStamp, parts.length ? 'Raws given go to the project for good and count toward your standing.' : 'Choose an amount with + or All first.');
   };
   for (const raw of RAWS) {
     const need = pr.need[raw];
@@ -129,7 +131,7 @@ function project(): HTMLElement {
   }
   sync();
   sec.append(rows, fundRow(station ? name : 'works'));
-  sec.append(el('div', 'bar', el('div', 'bar-text note', 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your standing.'), giveStamp));
+  sec.append(el('div', 'bar', el('div', 'bar-text note', 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your ', term('standing', 'standing'), '.'), giveStamp));
   return sec;
 }
 
@@ -169,9 +171,9 @@ function fundRow(name: string): HTMLElement {
 function stations(): HTMLElement {
   const S = sprites();
   const t = app.town!;
-  const sec = el('section', 'section', el('h2', '', 'Stations'));
+  const sec = el('section', 'section', el('h2', '', term('Stations', 'station')));
   const table = el('table', 'ledger');
-  table.append(el('tr', '', el('th', '', 'Station'), el('th', '', 'Tier'), el('th', '', 'Does now'), el('th', 'wide', 'At the next tier')));
+  table.append(el('tr', '', el('th', '', 'Station'), el('th', '', setTip(el('span', 'term', 'Tier'), 'A station has five tiers. The town project raises one at a time, for every player.')), el('th', '', 'Does now'), el('th', 'wide', 'At the next tier')));
   for (const id of STATION_ORDER as StationId[]) {
     const tr = t.stations[id] ?? 1;
     table.append(

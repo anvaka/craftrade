@@ -10,6 +10,8 @@ import { api } from './api.ts';
 import { charges, el, empty, finder, fmt, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
 import { headOut } from './run.ts';
 import { act, app, getPrefs, hazardNow, redraw, savePrefs, say, setProfile } from './state.ts';
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip, term } from '../ui/tip.ts';
 import { CHARACTER_AT, CHARACTER_ORDER, CONTROLS, characterName, characterTwist } from './words.ts';
 
 export function renderHome(root: HTMLElement): void {
@@ -78,7 +80,7 @@ function hazardRow(): HTMLElement {
     b.setAttribute('role', 'radio');
     b.setAttribute('aria-checked', String(h === now));
     b.setAttribute('aria-label', shut ? `Hazard ${h}, opens with a win at hazard ${h - 1}` : `Hazard ${h}${h <= book.best ? ', won' : ''}`);
-    b.title = shut ? `Opens with a win at hazard ${h - 1}` : `${Math.round(HAZARD_MARKS * h * 100)}% more marks`;
+    setTip(b, shut ? `Opens with a win at hazard ${h - 1}` : h === 0 ? 'The plain clearing.' : `${Math.round(HAZARD_MARKS * h * 100)}% more marks. Packed items are cut down to ${kitPointCap(h) >= 999 ? 'nothing: they come whole' : `${kitPointCap(h)} points`}.`);
     b.addEventListener('click', () => {
       audio.play('lock');
       app.hazard = h;
@@ -89,9 +91,9 @@ function hazardRow(): HTMLElement {
   }
   const cap = kitPointCap(now);
   const terms = now === 0 ? 'The plain clearing.' : `Pays ${Math.round(HAZARD_MARKS * now * 100)}% more marks.`;
-  const kit = now >= MAX_HAZARD ? 'A packed item comes whole.' : `A packed item brings up to ${cap} points.`;
+  const kit: Kid[] = now >= MAX_HAZARD ? ['A packed item comes whole.'] : ['A packed item brings up to ', setTip(el('span', 'term', `${cap} points`), 'An item\u2019s points are the sum of its effects. A packed item stronger than this is cut down to it for the run, and comes home whole.'), '.'];
   const next = book.open < MAX_HAZARD ? ` A win at hazard ${book.open} as ${characterName(app.character)} opens hazard ${book.open + 1}.` : '';
-  row.append(el('div', 'bar-text', el('span', 'label', 'Hazard'), ' ', el('span', 'num', String(now)), '. ', terms, ' ', kit, el('span', 'note', next)), picks);
+  row.append(el('div', 'bar-text', term('Hazard', 'hazard', 'label'), ' ', el('span', 'num', String(now)), '. ', terms, ' ', ...kit, el('span', 'note', next)), picks);
   return row;
 }
 
@@ -99,7 +101,7 @@ function dailyRow(): HTMLElement {
   const d = app.daily;
   const row = el('div', 'bar bar--daily');
   if (!d) {
-    row.append(el('div', 'bar-text', el('span', 'label', "Today's clearing"), ' ', el('span', 'note', app.online ? 'Asking the board.' : 'The board is in town, which is out of reach.')));
+    row.append(el('div', 'bar-text', term("Today's clearing", 'daily', 'label'), ' ', el('span', 'note', app.online ? 'Asking the board.' : 'The board is in town, which is out of reach.')));
     return row;
   }
   const taken = d.taken || getPrefs().dailyTaken === d.date;
@@ -108,12 +110,12 @@ function dailyRow(): HTMLElement {
   else if (taken) result = 'Scored attempt taken, no result. Practice is open.';
   else result = 'Not yet run.';
   row.append(
-    el('div', 'bar-text', el('span', 'label', "Today's clearing"), ' ', el('span', 'num', d.date), '. ', characterName(d.character), '. ', result),
+    el('div', 'bar-text', term("Today's clearing", 'daily', 'label'), ' ', el('span', 'num', d.date), '. ', characterName(d.character), '. ', result),
     el(
       'div',
       'stamps',
-      !d.mine && !taken ? stamp('Scored attempt', { cls: 'stamp--small', key: 'daily:scored', sound: 'waveStart', onClick: () => void headOut('daily') }) : null,
-      stamp('Practice', { cls: 'stamp--small stamp--plain', key: 'daily:practice', sound: 'waveStart', onClick: () => void headOut('practice') }),
+      !d.mine && !taken ? stamp('Scored attempt', { cls: 'stamp--small', key: 'daily:scored', title: GLOSS.daily, sound: 'waveStart', onClick: () => void headOut('daily') }) : null,
+      stamp('Practice', { cls: 'stamp--small stamp--plain', key: 'daily:practice', title: GLOSS.practice, sound: 'waveStart', onClick: () => void headOut('practice') }),
     ),
   );
   return row;
@@ -190,7 +192,7 @@ function stash(): HTMLElement {
     el(
       'p',
       'note',
-      `Pack up to ${KIT_SLOTS} for the run. Each run you start spends one charge from every packed item, and an item with no charges left is gone. The daily clearing ignores kits. `,
+      'Pack up to ', term(`${KIT_SLOTS} for the run`, 'kit'), '. Each run you start spends one charge from every packed item, and an item with no ', term('charges', 'charges'), ' left is gone. The daily clearing ignores kits. ',
       el('span', 'num', `${app.kit.length} of ${KIT_SLOTS} packed.`),
       items.some((i) => isRelic(i.item)) ? ' A relic does not wear, and one relic can be packed for a run.' : null,
     ),
@@ -206,6 +208,7 @@ function stash(): HTMLElement {
       cls: `stamp--small stamp--plain${packed ? ' is-pressed' : ''}`,
       key: `pack:${it.uid}`,
       sound: 'lock',
+      title: packed ? 'Comes with you on the next run. Press to unpack.' : GLOSS.kit,
       onClick: () => {
         app.kit = packed ? app.kit.filter((u) => u !== it.uid) : [...app.kit, it.uid].slice(0, KIT_SLOTS);
         savePrefs({ kit: app.kit });
@@ -220,8 +223,8 @@ function stash(): HTMLElement {
         meta: isRelic(it.item)
           ? []
           : [
-              el('span', 'made', it.item.by ? 'first made by ' : '', finder(it.item.by, app.profile.name)),
-              down !== it.item ? el('span', 'made packs', `packs down to ${itemPoints(down.effects)} of ${itemPoints(it.item.effects)} points at hazard ${hazard}`) : null,
+              el('span', 'made', it.item.by ? term('first made by', 'firstMade') : '', it.item.by ? ' ' : '', finder(it.item.by, app.profile.name)),
+              down !== it.item ? setTip(el('span', 'made packs term', `packs down to ${itemPoints(down.effects)} of ${itemPoints(it.item.effects)} points at hazard ${hazard}`), 'Packed for a run at this hazard, the item is cut down to the cap. It comes home whole.') : null,
             ],
         actions: [charges(it.item, it.charges), mendStamp(it), packed || !(full || (relicPacked && isRelic(it.item))) ? toggle : null],
       }),
@@ -291,7 +294,7 @@ function account(): HTMLElement {
     return sec;
   }
   const dl = el('dl', 'stats stats--one');
-  const row = (name: string, ...value: Kid[]): void => void dl.append(el('div', '', el('dt', '', name), el('dd', 'num', ...value)));
+  const row = (name: Kid, ...value: Kid[]): void => void dl.append(el('div', '', el('dt', '', name), el('dd', 'num', ...value)));
   const wait = p.nameChangeAt > Date.now();
   row(
     'Name',
@@ -311,10 +314,10 @@ function account(): HTMLElement {
   row('Title worn', p.title && TITLE[p.title] ? TITLE[p.title].name : el('span', 'note', 'none'));
   row('Runs', fmt(p.runs));
   row('Wins', fmt(p.wins));
-  row('Finds that count', fmt(p.finds));
+  row(term('Finds that count', 'firstFind'), fmt(p.finds));
   row('Titles earned', fmt(p.titles.length));
   row('Days played in the daily', fmt(p.daysPlayed));
-  if (p.features.includes('town')) row('Given to the town', fmt(p.standing));
+  if (p.features.includes('town')) row(term('Given to the town', 'standing'), fmt(p.standing));
   sec.append(dl);
   return sec;
 }

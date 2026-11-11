@@ -1090,3 +1090,15 @@ p.num,
     min-width: 44px;
   }
 }
+
+/* The almanac's word list. */
+.words-list .w-word {
+  font-weight: 700;
+  white-space: nowrap;
+  padding-right: var(--gutter);
+  vertical-align: top;
+}
+/* The hazard line is long: its closing note wraps instead of running under the squares. */
+.next .bar--hazard .bar-text .note {
+  white-space: normal;
+}

@@ -15,6 +15,8 @@ import { renderMarket } from './market.ts';
 import { app, onRedraw, redraw, savePrefs, sayFail, setProfile, type TabId } from './state.ts';
 import { renderTownhall } from './townhall.ts';
 import { FEATURE_TAB, RAW_NAME } from './words.ts';
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip } from '../ui/tip.ts';
 import { renderWorkshop } from './workshop.ts';
 
 export type View = 'town' | 'run' | 'homecoming';
@@ -71,9 +73,9 @@ export function soundControls(): HTMLElement {
 
 // ---- head ------------------------------------------------------------------
 
-function counter(ic: HTMLCanvasElement, n: number, what: string, cls = ''): HTMLElement {
+function counter(ic: HTMLCanvasElement, n: number, what: string, meaning: string, cls = ''): HTMLElement {
   const c = el('span', `counter ${cls}`.trim(), ic, el('span', 'num', fmt(n)));
-  c.title = what;
+  setTip(c, `${what}: ${fmt(n)}. ${meaning}`);
   c.setAttribute('role', 'img');
   c.setAttribute('aria-label', `${fmt(n)} ${what.toLowerCase()}`);
   return c;
@@ -85,8 +87,8 @@ export function holdings(): HTMLElement {
   return el(
     'div',
     'counters',
-    counter(icon(S.icon.marks), p.marks, 'Marks', 'is-scrip'),
-    ...RAWS.map((r) => counter(icon(S.icon.raw[r]), p.raws[r], RAW_NAME[r])),
+    counter(icon(S.icon.marks), p.marks, 'Marks', GLOSS.marks, 'is-scrip'),
+    ...RAWS.map((r) => counter(icon(S.icon.raw[r]), p.raws[r], RAW_NAME[r], GLOSS[r])),
   );
 }
 
@@ -104,6 +106,14 @@ function townHead(): HTMLElement {
 
 const TAB_ORDER: TabId[] = ['stash', 'workshop', 'market', 'town', 'daily', 'almanac'];
 const tabName = (t: TabId): string => (t === 'stash' ? 'Stash' : t === 'almanac' ? 'Almanac' : FEATURE_TAB[t as Feature]);
+const TAB_TIP: Record<TabId, string> = {
+  stash: 'Your items, your kit for the next run, and who heads out.',
+  workshop: 'Fuse two stash items into one new item, and read the codex of known recipes.',
+  market: 'Trade raws with the Factor, and buy or sell items with other players.',
+  town: 'Give raws to raise a station that helps every player.',
+  daily: 'Today\u2019s clearing: the same eight waves for everyone, one scored try.',
+  almanac: 'Your record: what you have done, found and earned, and what the game\u2019s words mean.',
+};
 // The almanac opens with the first run home: before that there is nothing to write in it.
 const openTabs = (): TabId[] => TAB_ORDER.filter((t) => t === 'stash' || (t === 'almanac' ? app.profile.runs > 0 : app.profile.features.includes(t as Feature)));
 
@@ -126,6 +136,7 @@ function tabs(): HTMLElement {
     const b = el('button', 'tab', tabName(t), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null);
     b.type = 'button';
     b.dataset.fk = `tab:${t}`;
+    setTip(b, TAB_TIP[t]);
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(on));
     b.tabIndex = on ? 0 : -1;

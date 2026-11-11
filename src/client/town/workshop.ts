@@ -10,6 +10,8 @@ import { api } from './api.ts';
 import { effectList, el, empty, finder, fmt, itemIcon, pips, plural, stamp, thing, tier, type Kid } from './dom.ts';
 import { costText } from './home.ts';
 import { app, clearNotice, redraw, sayFail, setProfile } from './state.ts';
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip, term } from '../ui/tip.ts';
 
 // ---- anvil state -----------------------------------------------------------
 
@@ -74,7 +76,7 @@ function slot(which: 'a' | 'b', it: StashItem | undefined): HTMLElement {
 
 function findStamp(by: string, first: boolean): HTMLElement {
   const mine = first || by === app.profile.name;
-  return el('div', `find-stamp thud${mine ? ' is-yours' : ''}`, el('span', 'label', first ? 'First find' : 'First made by'), el('span', 'name', mine ? app.profile.name : by));
+  return setTip(el('div', `find-stamp thud${mine ? ' is-yours' : ''}`, el('span', 'label', first ? 'First find' : 'First made by'), el('span', 'name', mine ? app.profile.name : by)), first ? GLOSS.firstFind : GLOSS.firstMade);
 }
 
 function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElement {
@@ -89,7 +91,7 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
         'slot-text',
         el('div', 'name', el('span', '', it.name), tier(itemTier(it))),
         effectList(it),
-        el('div', 'charges', pips(result.charges, KIT_CHARGES, 'charges'), el('span', 'label', 'Charges, in your stash')),
+        el('div', 'charges', pips(result.charges, KIT_CHARGES, 'charges'), term('Charges, in your stash', 'charges', 'label')),
       ),
       el('div', 'outcome-stamp', findStamp(result.res.by, result.res.first)),
     );
@@ -99,11 +101,11 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
     const m = el('div', 'meter strike-meter');
     m.id = 'strike-meter';
     m.style.setProperty('--v', String(strikeProgress()));
-    box.append(el('div', 'slot-text', el('span', 'label', 'On the anvil'), m, el('span', 'note', 'An untried pair takes a second or two.')));
+    box.append(el('div', 'slot-text', el('span', 'label', 'On the anvil'), m, el('span', 'note', 'An ', term('untried pair', 'untried'), ' takes a second or two.')));
     return box;
   }
   if (!a || !b) {
-    box.append(el('div', 'slot-text', el('span', 'label', 'Comes off'), el('span', 'note', 'Put two different items on to see the budget.')));
+    box.append(el('div', 'slot-text', el('span', 'label', 'Comes off'), el('span', 'note', 'Put two different items on to see the ', term('budget', 'budget'), '.')));
     return box;
   }
   const block = fusionBlock(a.item, b.item);
@@ -114,8 +116,24 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
   const budget = fusionBudget(a.item, b.item);
   const before = tried().get(pairKey(a.item.id, b.item.id));
   const made = before ? known(before.out) : undefined;
+  // The codex also carries the world's newest finds: a pair someone else made is known, and free of the daily count.
+  const theirs = before ? undefined : app.codex?.recipes.find((r) => pairKey(r.a, r.b) === pairKey(a.item.id, b.item.id));
+  const theirsOut = theirs ? known(theirs.out) : undefined;
+  const pairNote: Kid = made
+    ? el('span', '', 'You have made this pair: ', el('strong', '', made.name), '. A ', term('known recipe', 'known'), ', so it does not count against today\u2019s untried pairs.')
+    : theirsOut
+      ? el('span', '', 'Already found by ', finder(theirs!.by, app.profile.name), ': ', el('strong', '', theirsOut.name), '. A ', term('known recipe', 'known'), ', so it does not count against today\u2019s untried pairs.')
+      : app.codex
+        ? el(
+            'span',
+            'note',
+            'You have not tried this pair. If nobody in the world has, it is an ',
+            term('untried pair', 'untried'),
+            app.profile.novelLeft > 0 ? ` and uses one of your ${app.profile.novelLeft} left today.` : '. You have none left today, so it only strikes if someone has already found it.',
+          )
+        : '';
   // The price is set by the tier of what comes off; before the strike only the most it can be is known.
-  const cost = townFuseCost(made ? itemTier(made) : tierOf(budget));
+  const cost = townFuseCost(made ? itemTier(made) : theirsOut ? itemTier(theirsOut) : tierOf(budget));
   const short = !canPay(app.profile, cost);
   const left = Math.min(a.charges, b.charges);
   box.append(
@@ -123,11 +141,11 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
       'div',
       'slot-text',
       el('span', 'label', 'Comes off'),
-      el('div', 'budget', el('span', 'num', `${budget} points`), tier(tierOf(budget))),
-      made ? el('span', '', 'You have made this pair: ', el('strong', '', made.name), '.') : el('span', 'note', app.codex ? 'You have not tried this pair.' : ''),
-      el('span', 'num', `${made ? 'Costs' : 'Costs up to'} ${costText(cost)}.`),
+      el('div', 'budget', setTip(el('span', 'num term', `${budget} points`), GLOSS.budget), tier(tierOf(budget))),
+      pairNote,
+      el('span', 'num', `${made || theirsOut ? 'Costs' : 'Costs up to'} ${costText(cost)}.`),
       el('span', '', `Both items are used up. The result has ${left} of ${KIT_CHARGES} charges: the fewer of the two.`),
-      stamp('Strike', { key: 'strike', sound: null, disabled: short, title: short ? `You have ${plural(app.profile.marks, 'mark')}, ${app.profile.raws.timber} timber, ${app.profile.raws.ore} ore, ${app.profile.raws.hide} hide` : undefined, onClick: () => void strike(a, b) }),
+      stamp('Strike', { key: 'strike', sound: null, disabled: short, title: short ? `Not enough. You have ${plural(app.profile.marks, 'mark')}, ${app.profile.raws.timber} timber, ${app.profile.raws.ore} ore, ${app.profile.raws.hide} hide` : 'Fuse the two. Both are used up, and the price is paid.', onClick: () => void strike(a, b) }),
     ),
   );
   return box;
@@ -179,7 +197,7 @@ function anvil(): HTMLElement {
       'p',
       'note',
       'Two different items go on and one new item comes off, for a price in marks and raws set by its tier. A pair nobody has tried is decided once, for everyone, and carries its finder\'s name. ',
-      el('span', 'num', `${plural(app.profile.novelLeft, 'untried pair')} left today.`),
+      el('span', 'num', `${fmt(app.profile.novelLeft)} `, term(app.profile.novelLeft === 1 ? 'untried pair' : 'untried pairs', 'untried'), ' left today.'),
     ),
   );
   if (result) {
@@ -214,7 +232,7 @@ function chooser(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
     return empty(`Only ${items[0]!.item.name} is in the stash. The anvil needs two different items; carry another home or buy one at the market.`);
   }
   const t = el('table', 'ledger chooser');
-  t.append(el('tr', '', el('th', '', 'In the stash'), el('th', '', 'Tier'), el('th', 'wide', 'Charges'), el('th', '', a && !b ? `With ${a.item.name}` : 'Pair'), el('th', '', '')));
+  t.append(el('tr', '', el('th', '', 'In the stash'), el('th', '', term('Tier', 'tier')), el('th', 'wide', term('Charges', 'charges')), el('th', '', a && !b ? `With ${a.item.name}` : 'Pair'), el('th', '', '')));
   const memory = tried();
   const other = a && !b ? a : b && !a ? b : undefined;
   for (const it of items) {
@@ -224,10 +242,10 @@ function chooser(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
     else if (other) {
       const block = fusionBlock(other.item, it.item);
       const rec = memory.get(pairKey(other.item.id, it.item.id));
-      if (block) mark = el('span', 'note', other.item.id === it.item.id ? 'Same item' : 'Finished');
+      if (block) mark = setTip(el('span', 'note term', other.item.id === it.item.id ? 'Same item' : 'Finished'), block);
       else if (rec) mark = el('span', 'tried', 'Tried: ', el('strong', '', known(rec.out)?.name ?? 'made'));
-      else mark = el('span', 'note', 'Untried by you');
-    } else if (itemTier(it.item) === 4) mark = el('span', 'note', 'Finished');
+      else mark = setTip(el('span', 'note term', 'Untried by you'), 'You have not made this pair. If nobody else has either, striking it uses one of today\u2019s untried pairs.');
+    } else if (itemTier(it.item) === 4) mark = setTip(el('span', 'note term', 'Finished'), 'Tier 4 is the top. A finished item cannot go on the anvil again.');
     const fullAnvil = !!a && !!b;
     t.append(
       el(
@@ -295,7 +313,7 @@ function pairs(): HTMLElement {
         el('span', 'r-op', '+'),
         el('span', 'r-in', thing(itemIcon(y.item), y.item.name)),
         el('span', 'r-op', '='),
-        out ? el('span', 'r-out', thing(itemIcon(out), out.name), tier(itemTier(out))) : el('span', 'r-out', thing(el('span', 'unknown'), el('span', 'note', rec ? 'Made' : 'Not tried'))),
+        out ? el('span', 'r-out', thing(itemIcon(out), out.name), tier(itemTier(out))) : el('span', 'r-out', thing(el('span', 'unknown'), el('span', 'note', rec ? 'Made' : 'Not tried by you'))),
         el(
           'span',
           'r-by',
@@ -378,7 +396,7 @@ function fillCodex(box: HTMLElement): void {
 
 function codex(): HTMLElement {
   const c = app.codex;
-  const sec = el('section', 'section', el('h2', '', 'Codex'));
+  const sec = el('section', 'section', el('h2', '', term('Codex', 'codex')));
   const box = el('div', 'codex-lists');
   const search = el('input', 'field');
   search.type = 'search';
@@ -394,7 +412,7 @@ function codex(): HTMLElement {
     el(
       'div',
       'bar',
-      el('div', 'bar-text num', c ? `You have made ${fmt(c.myAuthored)} of ${fmt(c.authoredPairs)} authored pairs. The world has tried ${fmt(c.worldAuthored)} of them, and knows ${plural(c.worldRecipes, 'recipe')} and ${plural(c.worldItems, 'fused item')} in all.` : ''),
+      el('div', 'bar-text num', c ? `You have made ${fmt(c.myAuthored)} of ${fmt(c.authoredPairs)} pairs of bench items. The world has tried ${fmt(c.worldAuthored)} of them, and knows ${plural(c.worldRecipes, 'recipe')} and ${plural(c.worldItems, 'fused item')} in all.` : ''),
       el('label', 'field-wrap', el('span', 'label', 'Find'), search),
     ),
     box,
@@ -410,7 +428,7 @@ function codex(): HTMLElement {
  * A kind nobody has found is a blank line: it is there, and nobody has it.
  */
 function relicRoll(): HTMLElement {
-  const sec = el('section', 'section relic-roll', el('h2', '', 'Relics'));
+  const sec = el('section', 'section relic-roll', el('h2', '', term('Relics', 'relic')));
   const r = app.relics;
   if (!r) {
     sec.append(empty(app.online ? 'Asking after the roll.' : 'The roll of relics is kept in town, which is out of reach.'));

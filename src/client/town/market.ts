@@ -1,6 +1,8 @@
 // The market tab: the Factor's table for raws, the listings as a price
 // ledger, and selling from the stash (post or salvage).
 
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip, term } from '../ui/tip.ts';
 import { effectText, isRelic, itemPoints, itemTier, type ItemSpec } from '../../shared/item.ts';
 import { KIT_CHARGES, LISTING_FEE, SALE_TAX, type Listing, type MarketActionRes, type Order, type RawLot, type StashItem } from '../../shared/protocol.ts';
 import { LISTING_MIN_RUNS, MAX_LOT, priceCeiling } from '../../shared/rules.ts';
@@ -58,11 +60,11 @@ function factor(): HTMLElement {
   const S = sprites();
   const m = app.market!;
   const p = app.profile;
-  const sec = el('section', 'section section--first', el('h2', '', 'The Factor'));
+  const sec = el('section', 'section section--first', el('h2', '', term('The Factor', 'factor')));
   sec.append(el('p', 'note', 'Buys and sells raws for marks at his own prices, which follow trade. He takes and gives only so much in a day.'));
   const table = el('div', 'factor');
   table.setAttribute('role', 'table');
-  const head = el('div', 'factor-row factor-head', el('span', '', 'Raw'), el('span', 'num', 'You hold'), el('span', 'num', 'Factor pays'), el('span', 'num', 'Factor asks'), el('span', 'f-act', 'Quantity'));
+  const head = el('div', 'factor-row factor-head', el('span', '', 'Raw'), el('span', 'num', 'You hold'), el('span', 'num', term('Factor pays', 'factorPays')), el('span', 'num', term('Factor asks', 'factorAsks')), el('span', 'f-act', 'Quantity'));
   head.setAttribute('role', 'row');
   table.append(head);
   for (const raw of RAWS) {
@@ -131,8 +133,8 @@ function syncFactorRow(row: HTMLElement, raw: RawId): void {
   const noBuy = !m.open ? 'Trading is closed' : n * q.buy > p.marks ? `You have ${plural(p.marks, 'mark')}` : n > q.buyLeft ? `He has ${fmt(q.buyLeft)} left today` : '';
   sellB.disabled = !!noSell || busy;
   buyB.disabled = !!noBuy || busy;
-  sellB.title = noSell;
-  buyB.title = noBuy;
+  setTip(sellB, noSell || `Sell ${fmt(n)} ${raw} to the Factor at ${fmt(q.sell)} marks each.`);
+  setTip(buyB, noBuy || `Buy ${fmt(n)} ${raw} from the Factor at ${fmt(q.buy)} marks each.`);
 }
 
 // ---- raws between players ----------------------------------------------------
@@ -333,7 +335,7 @@ function listings(): HTMLElement {
     return sec;
   }
   const t = el('table', 'ledger listings');
-  t.append(el('tr', '', el('th', '', 'Item'), el('th', '', 'Tier'), el('th', 'wide', 'First made or found by'), el('th', 'wide', 'Seller'), el('th', 'wide', 'Charges'), el('th', 'num', 'Marks'), el('th', '', '')));
+  t.append(el('tr', '', el('th', '', 'Item'), el('th', '', term('Tier', 'tier')), el('th', 'wide', term('First made or found by', 'firstMade')), el('th', 'wide', 'Seller'), el('th', 'wide', term('Charges', 'charges')), el('th', 'num', 'Marks'), el('th', '', '')));
   for (const l of m.listings) t.append(listingRow(l));
   sec.append(t);
   return sec;
@@ -432,7 +434,7 @@ function sell(): HTMLElement {
     return sec;
   }
   const t = el('table', 'ledger selling');
-  t.append(el('tr', '', el('th', '', 'Item'), el('th', '', 'Tier'), el('th', 'wide', 'Charges'), el('th', 'num', 'Salvage'), el('th', '', '')));
+  t.append(el('tr', '', el('th', '', 'Item'), el('th', '', term('Tier', 'tier')), el('th', 'wide', term('Charges', 'charges')), el('th', 'num', term('Salvage', 'salvage')), el('th', '', '')));
   for (const it of p.items) {
     const relic = isRelic(it.item);
     const worth = salvageFor(it);
@@ -455,7 +457,7 @@ function sell(): HTMLElement {
                 cls: 'stamp--small stamp--town',
                 key: `post:${it.uid}`,
                 disabled: locked || !open,
-                title: locked ? `${p.runs} of ${LISTING_MIN_RUNS} runs` : !open ? 'Trading is closed' : undefined,
+                title: locked ? `Posting opens after ${LISTING_MIN_RUNS} runs. You have ${p.runs}.` : !open ? 'Trading is closed' : GLOSS.post,
                 onClick: () => {
                   posting = { uid: it.uid, price: relic ? '' : String(Math.min(capFor(it), Math.max(5, worth * 5))) };
                   armed = null;
@@ -470,6 +472,7 @@ function sell(): HTMLElement {
           relic ? el('span', 'note', 'Cannot be salvaged') : stamp(isArmed ? `Destroy for ${fmt(worth)}` : 'Salvage', {
             cls: isArmed ? 'stamp--small is-armed' : 'stamp--small stamp--plain',
             key: `salvage:${it.uid}`,
+            title: isArmed ? `Press again to destroy ${it.item.name} for ${plural(worth, 'mark')}. It cannot be undone.` : `${GLOSS.salvage} Asks once more before it goes.`,
             onClick: () => {
               if (!isArmed) {
                 armed = it.uid;

@@ -1,6 +1,8 @@
 // The bench: upgrade picks, four offers, reroll, lock, scrap, the anvil
 // (fusion), the mule and "Next wave". DOM, ledger style. Every action goes
 // straight to the sim's bench functions; a refusal is shown as one dry line.
+import { GLOSS, STAT_MEANING } from '../ui/glossary.ts';
+import { setTip, term } from '../ui/tip.ts';
 import type { Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
 import { effectText, itemTier, type ItemSpec } from '../../shared/item.ts';
@@ -334,7 +336,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
 
   function upgradesSection(): HTMLElement {
     const s = el('section', 'section g-first');
-    s.append(el('h2', '', `Level ${p.level - b.picks + 1}: pick one`));
+    s.append(el('h2', '', term(`Level ${p.level - b.picks + 1}`, 'level'), ': pick one'));
     if (b.picks > 1) s.append(el('p', 'note', `${b.picks} picks owed.`));
     const list = el('ul', 'offers g-picks');
     b.choices.forEach((c, i) => {
@@ -390,15 +392,17 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       if (o.sold) buyBtn.disabled = true;
       else {
         if (block) buyBtn.setAttribute('aria-disabled', 'true');
+        if (block) setTip(buyBtn, block);
         buyBtn.addEventListener('click', (ev) => act(() => doBuy(i), ev));
       }
       const lockBtn = stamp(o.locked ? 'Locked' : 'Lock', `stamp--plain stamp--small${o.locked ? ' is-pressed' : ''}`);
       lockBtn.dataset.fk = `lock${i}`;
       lockBtn.setAttribute('aria-pressed', String(o.locked));
+      setTip(lockBtn, o.locked ? 'Locked: it stays through rerolls. Press to unlock.' : `${GLOSS.lock} Key: L and the offer number.`);
       lockBtn.addEventListener('click', (ev) => act(() => doLock(i), ev));
       lis.push(
         icon,
-        el('div', 'name', key(String(i + 1)), el('span', '', name), tier(o.tier), el('span', 'kind', kind), o.locked ? ic(S.icon.lock) : null),
+        el('div', 'name', key(String(i + 1)), el('span', '', name), tier(o.tier), o.commission ? setTip(el('span', 'kind term', kind), 'One extra offer from bench 5: always tier 3 or 4, dear, and a reroll does not replace it.') : el('span', 'kind', kind), o.locked ? ic(S.icon.lock) : null),
         effects,
         el('div', 'buy', priceOf(o.price, o.raws, true, !o.sold),
           !o.sold && offerCost(run, i) > o.price ? el('span', 'note', `Short of raws: ${offerCost(run, i) - o.price} scrip more`) : null,
@@ -414,13 +418,13 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
 
   function anvilSection(): HTMLElement {
     const s = el('section', 'section g-anvil');
-    s.append(el('h2', '', 'Anvil'));
+    s.append(el('h2', '', term('Anvil', 'anvil')));
     if (reveal) {
       const it = reveal.item;
       const mine = reveal.first || (!!reveal.by && reveal.by === deps.playerName);
-      const find = el('div', `find-stamp thud${mine ? ' is-yours' : ''}`,
+      const find = setTip(el('div', `find-stamp thud${mine ? ' is-yours' : ''}`,
         el('span', 'label', reveal.first ? 'First find' : 'First made by'),
-        el('span', 'name', reveal.first ? deps.playerName : reveal.by || 'someone before you'));
+        el('span', 'name', reveal.first ? deps.playerName : reveal.by || 'someone before you')), reveal.first ? GLOSS.firstFind : GLOSS.firstMade);
       const done = stamp('Take it', '');
       done.dataset.fk = 'reveal-done';
       done.addEventListener('click', (ev) => act(() => { reveal = null; }, ev));
@@ -457,7 +461,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const btn = stamp(null, `stamp--plain stamp--small${on ? ' is-pressed' : ''}`, ic(S.icon.glyph[it.glyph]), it.name, tier(itemTier(it)));
       btn.dataset.fk = `anvil${id}`;
       btn.setAttribute('aria-pressed', String(on));
-      btn.title = it.effects.map((e) => effectText(e)).join(', ');
+      setTip(btn, it.effects.map((e) => effectText(e)).join(', '));
       btn.addEventListener('click', (ev) => act(() => doAnvilPick(id), ev));
       picks.append(btn);
     }
@@ -480,14 +484,16 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const free = q.raws.timber + q.raws.ore + q.raws.hide === 0;
       row.append(
         el('div', '',
-          el('div', '', `Budget ${q.budget} points, up to tier ${q.tier}.`),
-          el('div', 'g-anvil-cost', el('span', 'label', 'Costs up to'), free ? el('span', '', 'no raws') : priceOf(0, q.raws, false),
+          el('div', '', term('Budget', 'budget'), ` ${q.budget} points, up to tier ${q.tier}.`),
+          el('div', 'g-anvil-cost', setTip(el('span', 'label term', 'Costs up to'), 'The price is set by the tier that comes off, which is known only once it is struck. This is the most it can be.'), free ? el('span', '', 'no raws') : priceOf(0, q.raws, false),
             q.scrip > 0 ? el('span', 'note', `Short of raws: ${q.scrip} scrip`) : null),
-          known ? el('div', 'note', `You made this pair earlier: ${low(known.name)}.`) : el('div', 'g-untried label', 'Not struck yet this run')),
+          known ? el('div', 'note', `You made this pair earlier: ${low(known.name)}.`) : setTip(el('div', 'g-untried label term', 'Not struck by you this run'), `You have not made this pair in this run. If nobody in the world has ever struck it, it is an untried pair: ${GLOSS.untried}`)),
       );
-      if (q.block) { strikeBtn.setAttribute('aria-disabled', 'true'); row.append(el('div', 'g-block', q.block)); }
+      if (q.block) { strikeBtn.setAttribute('aria-disabled', 'true'); setTip(strikeBtn, q.block); row.append(el('div', 'g-block', q.block)); }
+      else setTip(strikeBtn, 'Fuse the two. Both are used up and one new item comes off.');
     } else {
       strikeBtn.setAttribute('aria-disabled', 'true');
+      setTip(strikeBtn, 'Pick two different items first.');
       row.append(el('div', 'note', 'The cost shows once both are on.'));
     }
     row.append(strikeBtn);
@@ -497,7 +503,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
 
   function muleSection(): HTMLElement {
     const s = el('section', 'section g-mule');
-    s.append(el('h2', '', el('span', 'thing', ic(S.icon.mule), 'Send the mule')));
+    s.append(el('h2', '', el('span', 'thing', ic(S.icon.mule), term('Send the mule', 'mule'))));
     s.append(el('p', 'note', `What you load is safe at home and gone from this run. Die and you keep the loads plus ${Math.round(DEATH_RAW_KEEP * 100)}% of the raws you hold. Win and you keep it all.`));
     const t = el('table', 'ledger');
     t.append(el('tr', '', el('th', '', 'Raw'), el('th', 'num', 'Held'), el('th', 'num', 'Load'), el('th', '', '')));
@@ -570,7 +576,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       d.hidden = true;
       statDelta.push(d);
       const row = el('div', '', el('dt', '', ic(S.icon.stat[id]), STAT_LABEL[id]), el('dd', 'num', d, fmtStat(id, v)));
-      row.title = statTitle(id, v);
+      setTip(row, `${STAT_LABEL[id]}: ${STAT_MEANING[id]} Now: ${statTitle(id, v)}.`);
       const zero = Math.round(v * 10) === 0;
       row.hidden = zero;
       if (!zero) shownRows++;
@@ -590,6 +596,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const sc = stamp(scrapArm === key_ ? 'Sure?' : 'Scrap', `stamp--plain stamp--small${scrapArm === key_ ? ' is-pressed' : ''}`, cost(S.icon.scrip, v));
       sc.dataset.fk = `scrapw${i}`;
       sc.setAttribute('aria-label', `Scrap ${def.name} for ${v} scrip`);
+      setTip(sc, p.weapons.length <= 1 ? 'Your last weapon cannot be scrapped.' : scrapArm === key_ ? `Press again to scrap ${def.name} for ${v} scrip.` : `Scrap ${def.name} for ${v} scrip. Asks once more first.`);
       if (p.weapons.length <= 1) sc.setAttribute('aria-disabled', 'true');
       sc.addEventListener('click', (ev) => act(() => doScrapWeapon(i), ev));
       // Raise a tier for scrip and raws; combine two twins to free a slot.
@@ -646,11 +653,12 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
         const sc = stamp(armed ? 'Sure?' : 'Scrap', `stamp--plain stamp--small${armed ? ' is-pressed' : ''}`, cost(S.icon.scrip, v));
         sc.dataset.fk = `scrapi${id}`;
         sc.setAttribute('aria-label', `Scrap ${item.name} for ${v} scrip`);
+        setTip(sc, armed ? `Press again to scrap ${item.name} for ${v} scrip.` : `Scrap ${item.name} for ${v} scrip. Asks once more first.`);
         sc.addEventListener('click', (ev) => act(() => doScrapItem(last), ev));
         tbl.append(el('tr', '',
           el('td', '', el('div', 'thing', ic(S.icon.glyph[item.glyph]),
             el('span', '',
-              el('span', 'g-item-name', item.name, idxs.length > 1 ? el('span', 'num', ` x${idxs.length}`) : null, tier(itemTier(item)), kit ? el('span', 'g-tag g-tag--plain', 'Kit') : null),
+              el('span', 'g-item-name', item.name, idxs.length > 1 ? el('span', 'num', ` x${idxs.length}`) : null, tier(itemTier(item)), kit ? setTip(el('span', 'g-tag g-tag--plain', 'Kit'), `Packed from your stash. ${GLOSS.kit}`) : null),
               el('span', 'g-sub', item.effects.map((e) => effectText(e)).join(', '))))),
           el('td', 'act', item.relic ? el('span', 'note', 'Relic') : sc)));
       }
@@ -684,11 +692,13 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     const rerollBtn = stamp('Reroll', 'stamp--plain', rr > 0 ? cost(S.icon.scrip, rr, p.scrip < rr, 'scrip') : el('span', 'num', 'free'), key('R'));
     rerollBtn.dataset.fk = 'reroll';
     if (p.scrip < rr || b.picks > 0) rerollBtn.setAttribute('aria-disabled', 'true');
+    setTip(rerollBtn, b.picks > 0 ? 'Take your upgrade first.' : p.scrip < rr ? `Costs ${rr} scrip. You hold ${p.scrip}.` : `${GLOSS.reroll} Each reroll at this bench costs more. Key: R.`);
     rerollBtn.addEventListener('click', (ev) => act(doReroll, ev));
     const nextBtn = stamp(`Wave ${run.wave + 1}`, '', key('Enter'));
     nextBtn.dataset.fk = 'next';
     nextBtn.setAttribute('aria-label', 'Next wave');
     if (b.picks > 0) nextBtn.setAttribute('aria-disabled', 'true');
+    setTip(nextBtn, b.picks > 0 ? 'Take your upgrade first.' : `Leave the bench and start wave ${run.wave + 1}. Key: Enter.`);
     nextBtn.addEventListener('click', (ev) => act(doNext, ev));
     const waiting = !reason && b.picks > 0;
     const lineText = waiting ? `Take your upgrade first${b.picks > 1 ? `: ${b.picks} owed` : ''}. The offers and the next wave wait for it.` : reason;
@@ -699,7 +709,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       line,
       el('div', 'g-foot-row',
         el('div', 'g-held', el('span', 'label', 'You hold'), el('span', 'price',
-          cost(S.icon.scrip, p.scrip, false, 'scrip'), ...RAWS.map((r: RawId) => cost(S.icon.raw[r], p.raws[r], false, r)))),
+          setTip(cost(S.icon.scrip, p.scrip, false, 'scrip'), `Scrip: ${p.scrip}. ${GLOSS.scrip}`), ...RAWS.map((r: RawId) => setTip(cost(S.icon.raw[r], p.raws[r], false, r), `${cap(r)}: ${p.raws[r]}. ${GLOSS.raws}`)))),
         el('div', 'g-foot-acts', rerollBtn, nextBtn)));
 
     const page = el('div', 'page g-page', head, el('div', 'g-cols', main, sideColumn()));

@@ -1,5 +1,7 @@
 // Small DOM helpers shared by the HUD, the bench and the run-end screen.
 import { spriteElement, type Icon } from '../art/index.ts';
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip } from '../ui/tip.ts';
 
 export type Kid = Node | string | null | undefined | false;
 
@@ -24,6 +26,7 @@ export function tier(n: number): HTMLElement {
   const t = el('span', 'tier', el('i'), el('i'), el('i'), el('i'));
   t.dataset.tier = String(n);
   t.setAttribute('aria-label', n >= 5 ? 'relic' : `tier ${n}`);
+  setTip(t, n >= 5 ? `Relic. ${GLOSS.relic}` : `Tier ${n} of 4. ${GLOSS.tier}`);
   return t;
 }
 

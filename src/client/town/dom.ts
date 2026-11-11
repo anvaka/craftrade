@@ -6,6 +6,8 @@ import { effectText, isRelic, itemTier, type ItemSpec } from '../../shared/item.
 import { KIT_CHARGES } from '../../shared/protocol.ts';
 import { spriteElement, type Icon, type Sprite, type Sprites } from '../art/index.ts';
 import { audio, type SoundId } from '../audio/index.ts';
+import { GLOSS } from '../ui/glossary.ts';
+import { setTip, term } from '../ui/tip.ts';
 
 export type Kid = Node | string | number | null | undefined | false;
 
@@ -51,7 +53,7 @@ export function stamp(label: Kid | Kid[], o: StampOpts = {}): HTMLButtonElement 
   const b = el('button', `stamp ${o.cls ?? ''}`.trim(), ...kids);
   b.type = 'button';
   if (o.key) b.dataset.fk = o.key;
-  if (o.title) b.title = o.title;
+  if (o.title) setTip(b, o.title);
   if (o.disabled) b.disabled = true;
   b.addEventListener('click', (ev) => {
     if (o.sound !== null) audio.play(o.sound ?? 'stamp');
@@ -66,6 +68,7 @@ export function tier(n: number): HTMLElement {
   t.dataset.tier = String(n);
   t.setAttribute('role', 'img');
   t.setAttribute('aria-label', n >= 5 ? 'relic' : `tier ${n}`);
+  setTip(t, n >= 5 ? `Relic. ${GLOSS.relic}` : `Tier ${n} of 4. ${GLOSS.tier}`);
   return t;
 }
 
@@ -83,7 +86,8 @@ export function relicLine(item: ItemSpec, me: string): Kid[] {
 /** Charges left, as pips. A relic has none to lose and says so. */
 export function charges(item: ItemSpec, n: number, label: string | null = 'Charges'): HTMLElement {
   if (isRelic(item)) return el('span', 'charges', el('span', 'label', 'Does not wear'));
-  return el('span', 'charges', pips(n, KIT_CHARGES, 'charges'), label ? el('span', 'label', label) : null);
+  const p = setTip(pips(n, KIT_CHARGES, 'charges'), `${n} of ${KIT_CHARGES} charges left. ${GLOSS.charges}`);
+  return el('span', 'charges', p, label ? term(label, 'charges', 'label') : null);
 }
 
 /** Square pips: n of `of` inked. Used for charges and station tiers. */
@@ -92,7 +96,7 @@ export function pips(n: number, of: number, what: string): HTMLElement {
   for (let i = 0; i < of; i++) p.append(el('i', i < n ? 'on' : ''));
   p.setAttribute('role', 'img');
   p.setAttribute('aria-label', `${n} of ${of} ${what}`);
-  p.title = `${n} of ${of}`;
+  setTip(p, `${n} of ${of}`);
   return p;
 }
 
@@ -108,7 +112,7 @@ export function effectList(item: ItemSpec, me = ''): HTMLElement {
 
 /** The finder of an item: the reader in Ochre, anyone else in Woad, a bench recipe in italics. */
 export function finder(by: string | undefined, me: string): HTMLElement {
-  if (!by) return el('span', 'note', 'bench recipe');
+  if (!by) return term('bench recipe', 'benchRecipe', 'note');
   return by === me ? el('span', 'own', by) : el('span', 'who', by);
 }
 

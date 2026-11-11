@@ -1,5 +1,6 @@
 // The daily tab: today's clearing, your result, the board, and a line to copy.
 
+import { GLOSS } from '../ui/glossary.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
 import { DAILY_WAVES } from '../../shared/protocol.ts';
 import { copyText, el, empty, fmt, ordinal, plural, sprite, sprites, stamp } from './dom.ts';
@@ -52,7 +53,7 @@ export function renderDaily(root: HTMLElement): void {
               redraw();
             }),
         }),
-        stamp('Practice', { cls: 'stamp--small stamp--plain', key: 'daily:practice', sound: 'waveStart', onClick: () => void headOut('practice') }),
+        stamp('Practice', { cls: 'stamp--small stamp--plain', key: 'daily:practice', title: GLOSS.practice, sound: 'waveStart', onClick: () => void headOut('practice') }),
       ),
     );
   } else {
@@ -61,8 +62,8 @@ export function renderDaily(root: HTMLElement): void {
       el(
         'div',
         'stamps',
-        taken ? null : stamp('Scored attempt', { cls: 'stamp--small', key: 'daily:scored', sound: 'waveStart', onClick: () => void headOut('daily') }),
-        stamp('Practice', { cls: 'stamp--small stamp--plain', key: 'daily:practice', sound: 'waveStart', onClick: () => void headOut('practice') }),
+        taken ? null : stamp('Scored attempt', { cls: 'stamp--small', key: 'daily:scored', title: 'Your one scored, paid try today. The board ranks it.', sound: 'waveStart', onClick: () => void headOut('daily') }),
+        stamp('Practice', { cls: 'stamp--small stamp--plain', key: 'daily:practice', title: GLOSS.practice, sound: 'waveStart', onClick: () => void headOut('practice') }),
       ),
     );
   }

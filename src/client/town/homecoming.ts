@@ -7,6 +7,7 @@
 // to the next run is one press; what is new; what came home; the run in
 // figures.
 
+import { setTip, term } from '../ui/tip.ts';
 import './homecoming.css';
 
 import { TITLE } from '../../shared/almanac.ts';
@@ -201,7 +202,7 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
       // One table, one set of heads: gathered, sent by mule, held at the end, came home.
       const t = el('table', 'ledger came');
       const head = (text: string): HTMLElement => el('th', 'num wide', anyRaw ? text : '');
-      t.append(el('tr', '', el('th', '', anyRaw ? 'Raw' : 'Goods'), head('Gathered'), head('Sent by mule'), head('Held at the end'), el('th', 'num', 'Came home')));
+      t.append(el('tr', '', el('th', '', anyRaw ? 'Raw' : 'Goods'), head('Gathered'), head('Sent by mule'), head('Held at the end'), el('th', 'num', anyRaw ? setTip(el('span', 'term', 'Came home'), `A win keeps all held raws. A loss keeps ${Math.round(DEATH_RAW_KEEP * 100)}% of what was held, plus everything the mule took.`) : 'Came home')));
       if (anyRaw) {
         for (const raw of RAWS) {
           t.append(el('tr', '', el('td', '', thing(icon(S.icon.raw[raw]), RAW_NAME[raw])), el('td', 'num wide', fmt(recap.rawsGathered[raw])), el('td', 'num wide', fmt(r.mule[raw])), el('td', 'num wide', fmt(r.raws[raw])), el('td', 'num', `+${fmt(g.raws[raw])}`)));
@@ -219,7 +220,7 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
       if (g.marks > 0 && h.firstRun) came.append(el('p', 'note', 'Marks are what the town pays in: a few for every wave cleared, and one for every 10 scrip in hand at the end.'));
       if (g.items.length) {
         const list = el('ul', 'offers items');
-        for (const it of g.items) list.append(itemRow(it, { actions: [el('span', 'charges', pips(KIT_CHARGES, KIT_CHARGES, 'charges'), el('span', 'label', 'Charges'))] }));
+        for (const it of g.items) list.append(itemRow(it, { actions: [el('span', 'charges', pips(KIT_CHARGES, KIT_CHARGES, 'charges'), term('Charges', 'charges', 'label'))] }));
         came.append(list);
       } else if (r.wavesCleared >= 4) {
         came.append(el('p', 'note', 'No item was carried home.'));
