@@ -18,12 +18,14 @@ import type { FuseOutcome } from '../seam.ts';
 const { applyFusion, buy, pickUpgrade, reroll, scrapItem, scrapWeapon, sendMule, toggleLock } = rec;
 import { cap, cost, el, ic, rawsText, stamp, tier, type Kid } from './dom.ts';
 import { soundControls, type SoundControls } from './hud.ts';
+import { learn, learned } from './progress.ts';
 
 export interface BenchDeps {
   run: Run;
   sprites: () => Sprites;
   playerName: string;
-  firstRun: boolean;
+  /** False: no teaching lines (the dev harness). */
+  teach: boolean;
   fuse(a: string, b: string): Promise<FuseOutcome>;
   /** Start the next wave. */
   next(): void;
@@ -99,10 +101,15 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   let lockHeld = false;
   let load: RawBag = { timber: 0, ore: 0, hide: 0 };
   let muleNote = '';
-  let spendHint = deps.firstRun;
+  // Taught once per device, each kept until the thing has been done.
+  let spendHint = deps.teach && !learned('bench');
+  let anvilHint = deps.teach && !learned('anvil');
   let alive = true;
   const madeThisRun = new Map<string, ItemSpec>();
   let statDelta: HTMLElement[] = [];
+  let statRow: HTMLElement[] = [];
+  let statZero: boolean[] = [];
+  let statNone: HTMLElement | null = null;
   let hovered = '';
 
   const pairKey = (a: string, c: string): string => (a < c ? `${a}+${c}` : `${c}+${a}`);
@@ -129,6 +136,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const text = v ? signed(STATS[i], v) : '';
       if (d.textContent !== text) d.textContent = text;
       d.hidden = !v;
+      if (statRow[i] && statZero[i]) statRow[i].hidden = !v;
     }
   }
   function offerDelta(i: number): Float64Array | null {
@@ -188,7 +196,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     const before = p.weapons.length;
     const wasTier = o.tier;
     buy(run, i);
-    spendHint = false;
+    if (spendHint) { spendHint = false; learn('bench'); }
     if (o.kind === 'weapon' && p.weapons.length <= before) {
       combined = p.weapons.length - 1;
       audio.play('combine');
@@ -284,6 +292,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const why = a2 < 0 || b2 < 0 ? 'Pick two different items.' : applyFusion(run, a2, b2, out.res.item);
       if (why) { refuse(`${why} Nothing was used.`); render(); return; }
       madeThisRun.set(pairKey(A.id, B.id), out.res.item);
+      if (anvilHint) { anvilHint = false; learn('anvil'); }
       anvil = [null, null];
       reveal = { item: out.res.item, first: out.res.first, by: out.res.by || out.res.item.by || '' };
       audio.play(out.res.first ? 'revealFirst' : 'reveal');
@@ -324,7 +333,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const li = el('li', 'offer g-pick',
         ic(S.icon.stat[c.stat], true),
         el('div', 'name', key(String(i + 1)), el('span', '', `${signed(c.stat, c.value)} ${STAT_LABEL[c.stat]}`), tier(c.tier)),
-        el('ul', 'effects', el('li', '', `Now ${fmtStat(c.stat, cur)}, then ${fmtStat(c.stat, cur + c.value)}`)),
+        el('ul', 'effects', el('li', '', `Now ${fmtStat(c.stat, cur)}, then ${fmtStat(c.stat, cur + c.value)}: ${low(statMeans(c.stat, cur + c.value))}`)),
         el('div', 'buy', btn));
       const d = new Float64Array(STATS.length);
       d[ST[c.stat]] = c.value;
@@ -338,7 +347,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   function offersSection(): HTMLElement {
     const s = el('section', 'section g-first');
     s.append(el('h2', '', 'Offers'));
-    if (spendHint) s.append(el('p', 'note', 'Scrip and raws buy these. Spend what you can, then start the next wave.'));
+    if (spendHint) s.append(el('p', 'note', 'Scrip buys these, and some also cost raws: the timber, ore and hide you gather. Buy what you can, then start the next wave.'));
     const list = el('ul', 'offers');
     b.offers.forEach((o, i) => {
       const lis: Kid[] = [];
@@ -418,10 +427,12 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     // A relic never goes on the anvil.
     for (const it of p.items) if (!it.relic && !groups.has(it.id)) groups.set(it.id, it);
     if (groups.size < 2) {
-      s.append(el('p', 'note', 'Needs two different items. They are used up and one new item comes out.'));
+      s.append(el('p', 'note', 'Two different items go on and one new item comes off. What a pair makes is the same for everyone, and whoever strikes a pair first has their name on it for good. You need two items.'));
       return s;
     }
-    s.append(el('p', 'note', 'Pick two different items. They are used up and one new item comes out.'));
+    s.append(el('p', 'note', anvilHint
+      ? 'You hold two different items. Pick both and strike: they are used up and one new item comes off. If nobody in the world has tried the pair, your name goes on what it makes.'
+      : 'Pick two different items. They are used up and one new item comes off.'));
     const picks = el('div', 'g-anvil-picks');
     for (const [id, it] of groups) {
       const on = anvil[0] === id || anvil[1] === id;
@@ -453,7 +464,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
         el('div', '',
           el('div', '', `Budget ${q.budget} points, up to tier ${q.tier}.`),
           el('div', 'g-anvil-cost', el('span', 'label', 'Costs up to'), free ? el('span', '', 'no raws') : priceOf(0, q.raws, false)),
-          known ? el('div', 'note', `You made this pair earlier: ${low(known.name)}.`) : el('div', 'g-untried label', 'Untried by you this run')),
+          known ? el('div', 'note', `You made this pair earlier: ${low(known.name)}.`) : el('div', 'g-untried label', 'Not struck yet this run')),
       );
       if (q.block) { strikeBtn.setAttribute('aria-disabled', 'true'); row.append(el('div', 'g-block', q.block)); }
     } else {
@@ -494,6 +505,16 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     return s;
   }
 
+  /** What a stat is worth at a value, in the game's own terms. Used on upgrade rows, where the value is not yet the player's. */
+  function statMeans(id: StatId, v: number): string {
+    switch (id) {
+      case 'maxHp': return `${Math.round(p.maxHp - p.stat[ST.maxHp] + v)} health`;
+      case 'mend': return `${(v > 0 ? 0.2 + 0.09 * (v - 1) : 0).toFixed(2)} HP per second`;
+      case 'armor': return `Damage taken x${(1 / (1 + Math.max(0, v) / 15)).toFixed(2)}`;
+      default: return statTitle(id, v);
+    }
+  }
+
   function statTitle(id: StatId, v: number): string {
     switch (id) {
       case 'maxHp': return `${Math.round(p.maxHp)} health`;
@@ -517,8 +538,13 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     const ch = CHARACTER[run.character];
 
     // Stats.
+    // A stat at nothing is not a row: thirteen zeros teach nobody. A row comes
+    // up when the stat is raised, or while an offer that would raise it is under the pointer.
     const stats = el('dl', 'stats');
     statDelta = [];
+    statRow = [];
+    statZero = [];
+    let shownRows = 0;
     for (const id of STATS) {
       const v = p.stat[ST[id]];
       const d = el('span', 'g-delta');
@@ -526,9 +552,15 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       statDelta.push(d);
       const row = el('div', '', el('dt', '', ic(S.icon.stat[id]), STAT_LABEL[id]), el('dd', 'num', d, fmtStat(id, v)));
       row.title = statTitle(id, v);
+      const zero = Math.round(v * 10) === 0;
+      row.hidden = zero;
+      if (!zero) shownRows++;
+      statRow.push(row); statZero.push(zero);
       stats.append(row);
     }
-    side.append(el('section', 'section g-first', el('h2', '', `${ch.name}, level ${p.level}`), ch.twist !== 'No twist.' ? el('p', 'note', ch.twist) : null, stats));
+    statNone = el('p', 'note', 'No stats raised yet. Upgrades and items show here.');
+    statNone.hidden = shownRows > 0;
+    side.append(el('section', 'section g-first', el('h2', '', `${ch.name}, level ${p.level}`), ch.twist !== 'No twist.' ? el('p', 'note', ch.twist) : null, statNone, stats));
 
     // Weapons.
     const wt = el('table', 'ledger');
@@ -621,9 +653,11 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     nextBtn.setAttribute('aria-label', 'Next wave');
     if (b.picks > 0) nextBtn.setAttribute('aria-disabled', 'true');
     nextBtn.addEventListener('click', (ev) => act(doNext, ev));
-    const line = el('div', `notice g-reason${reasonBad ? ' g-reason--bad' : ''}`, el('span', 'tag', reasonBad ? 'No' : 'Done'), el('span', 'text', reason));
+    const waiting = !reason && b.picks > 0;
+    const lineText = waiting ? `Take your upgrade first${b.picks > 1 ? `: ${b.picks} owed` : ''}. The offers and the next wave wait for it.` : reason;
+    const line = el('div', `notice g-reason${reasonBad ? ' g-reason--bad' : ''}`, el('span', 'tag', reasonBad ? 'No' : waiting ? 'First' : 'Done'), el('span', 'text', lineText));
     line.setAttribute('role', 'status');
-    if (!reason) line.classList.add('is-empty');
+    if (!lineText) line.classList.add('is-empty');
     const foot = el('div', 'g-foot',
       line,
       el('div', 'g-foot-row',

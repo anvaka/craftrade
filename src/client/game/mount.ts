@@ -1,4 +1,10 @@
-// The run: loop, pause, teaching lines, bench and run-end hand-off.
+// The run: loop, pause, teaching lines, beats, bench and run-end hand-off.
+//
+// Beats: a wave cleared holds the scene for a moment while what was left on
+// the floor flies in and a card says what the wave paid; a death holds it
+// with the name of what did it; an elite or the boss arrives under a card.
+// Teaching is one line near the player at a time, kept until the player has
+// done the thing (see progress.ts), never a modal.
 //
 // Timing: the sim advances in fixed 1/60 s steps from an accumulator fed by
 // requestAnimationFrame. A frame never runs more than 5 steps; anything owed
@@ -9,18 +15,20 @@ import '../ui/theme.css';
 import './game.css';
 import { bakeAll, capDpr, type Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
+import { bedLevel } from '../audio/music.ts';
 import type { ItemSpec } from '../../shared/item.ts';
 import {
-  DT, ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, botBench, botInput, clearEvents, createBot, createRun, nextWave,
-  step, summary, type Run, type SimEvent,
+  DT, ENEMIES, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
+  createBot, createRun, nextWave, setCarry, step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
 import { killsOf, rec, record, replayOf } from '../../shared/replay.ts';
 import type { RunHandle, RunHost, RunRecap } from '../seam.ts';
 import { createBench } from './bench.ts';
 import { el, loadShake, saveShake, stamp } from './dom.ts';
-import { createEndScreen, killerName, sourceName, type EndScreen } from './end.ts';
+import { createEndScreen, defaultCarry, gotYou, killerName, sourceName, theName, type EndScreen } from './end.ts';
 import { createHud, soundControls } from './hud.ts';
 import { createInput } from './input.ts';
+import { learn, learned, recordRun } from './progress.ts';
 import { createRenderer } from './render.ts';
 import { createRunSound } from './sound.ts';
 
@@ -43,11 +51,23 @@ export interface DevOpts {
   /** Called before every sim step (god mode, stuffing the enemy pool). */
   beforeStep?(run: Run): void;
   /** Hand the run, and a way to redraw the current frame, to the harness. */
-  expose?(run: Run, redraw: () => void): void;
+  expose?(run: Run, redraw: () => void, playerScreen: () => { x: number; y: number; zoom: number }): void;
+  /** False: no teaching lines (the harness, unless ?first=1). */
+  teach?: boolean;
 }
 
 const MAX_STEPS = 5;
 const PK_NAME = ['scrip', 'timber', 'ore', 'hide'];
+/** Seconds the scene holds after a wave is cleared, before the bench. */
+const CLEAR_BEAT = 1.05;
+const DEATH_BEAT = 1.5, WIN_BEAT = 2.1;
+/** What an elite or the boss does, said once on its card. */
+const ARRIVAL: Record<string, string> = {
+  stag: 'It charges three times and leaves shards where it stops.',
+  rotwood: 'It sheds mites. Stand in its ring to work it like a tree.',
+  tusk: 'Three phases: it charges, it calls a pack, it slams.',
+};
+const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const t = host.ticket;
@@ -86,12 +106,13 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
 
   const renderer = createRenderer(canvas, sprites, run);
   renderer.shake = loadShake();
-  const sound = createRunSound();
+  renderer.reduced = reducedMotion();
+  const sound = createRunSound(run);
   const input = createInput(stage);
   const moveIn = { mx: 0, my: 0 };
   const hud = createHud(stage, sprites, run, () => setPaused(true));
 
-  type State = 'wave' | 'bench' | 'beat' | 'end' | 'done';
+  type State = 'wave' | 'clear' | 'bench' | 'beat' | 'end' | 'done';
   let state: State = 'wave';
   let alive = true;
   let paused = false;
@@ -102,6 +123,12 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   let alpha = 1;
   let freezeT = 0;
   let beatT = 0;
+  let clearT = 0, sweepTickT = 0, sweepTicks = 0, paidDue = -1;
+  let heartT = 0;
+  let insetT = 0;
+  // What the wave has paid so far is the difference from these.
+  let scrip0 = run.scripEarned, bank0 = run.player.bank;
+  let raws0 = { ...run.gathered };
   let endScreen: EndScreen | null = null;
   let stealAt = -10, stolen = 0;
   // A phone, by its pointer or by having no hover and a touch screen; and any device the moment it is touched.
@@ -110,15 +137,19 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const onFirstTouch = (): void => { coarse = true; };
   stage.addEventListener('touchstart', onFirstTouch, { passive: true, once: true });
 
-  // ---- first-run teaching: one line near the player, each shown once -------
-  let teachMove = host.firstRun, teachWork = host.firstRun;
-  let moved = 0, worked = 0;
+  // ---- teaching: one line near the player, each kept until the thing is done ----
+  // Tracked per device, not per run: a player who died without moving is
+  // still told how to move on the next run.
+  const teachOn = dev.teach !== false;
+  let teachMove = teachOn && !learned('move'), teachWork = teachOn && !learned('work');
+  let teachKeep = teachOn && !learned('keepMoving'), teachRaws = teachOn && !learned('raws'), teachLevel = teachOn && !learned('level');
+  let moved = 0, keepArmed = false, keepMoved = 0, idleT = 0;
 
   const bench = createBench(root, {
     run,
     sprites: () => sprites,
     playerName: t.profile?.name || 'You',
-    firstRun: host.firstRun,
+    teach: teachOn,
     fuse: (a, b) => host.fuse(a, b),
     next: startNext,
     pause: () => setPaused(true),
@@ -128,6 +159,8 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     if (!rec.nextWave(run)) return;
     bench.close();
     state = 'wave';
+    hud.card('', '', '', 'plain', 0);
+    scrip0 = run.scripEarned; bank0 = run.player.bank; raws0 = { ...run.gathered };
     acc = 0; alpha = 1; freezeT = 0;
     input.reset();
     renderer.snap();
@@ -149,6 +182,10 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     shake.setAttribute('aria-pressed', String(renderer.shake));
     shake.setAttribute('aria-label', renderer.shake ? 'Screen shake is on' : 'Screen shake is off');
     shake.addEventListener('click', () => { renderer.shake = !renderer.shake; saveShake(renderer.shake); audio.play('stamp'); renderPause(); });
+    const song = stamp(audio.songOn ? 'On' : 'Off', 'stamp--plain stamp--small');
+    song.setAttribute('aria-pressed', String(audio.songOn));
+    song.setAttribute('aria-label', audio.songOn ? 'The work song is on' : 'The work song is off');
+    song.addEventListener('click', () => { audio.setSong(!audio.songOn); audio.play('stamp'); renderPause(); });
     const quit = stamp(quitArmed ? 'Sure?' : 'Quit', 'stamp--plain stamp--small');
     quit.addEventListener('click', () => {
       if (!quitArmed) { quitArmed = true; audio.play('lock'); renderPause(); return; }
@@ -158,15 +195,17 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       el('div', 'label', state === 'bench' ? `Bench after wave ${run.bench.index}` : `Wave ${run.wave} of ${run.totalWaves}`),
       el('h2', '', 'Paused'),
       el('div', 'g-panel-rows', resume, pauseSound.el,
+        el('div', 'g-panel-row', el('span', '', 'Work song'), song),
         el('div', 'g-panel-row', el('span', '', 'Screen shake'), shake),
         el('div', 'g-panel-row', el('span', '', quitArmed ? 'The run ends here as a loss' : 'Quit the run'), quit))));
   }
   function setPaused(on: boolean): void {
-    if (!alive || paused === on || state === 'end' || state === 'done' || state === 'beat') return;
+    if (!alive || paused === on || state === 'end' || state === 'done' || state === 'beat' || state === 'clear') return;
     paused = on;
     bench.active = !on;
     input.reset();
     if (on) {
+      audio.setBed(null);
       quitArmed = false;
       renderPause();
       pausePanel.hidden = false;
@@ -193,12 +232,29 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   }
 
   // ---- run end ----------------------------------------------------------------
+  // One recap, and it is the town's. The game only stops to ask when there is
+  // something to choose: more items that could go home than may.
   function showEnd(): void {
     state = 'end';
+    audio.setBed(null);
     hud.teach('', 0, 0);
+    renderer.pointAt(null);
+    const limit = carryLimit(run), pool = carryable(run);
+    if (limit <= 0 || pool.length <= limit) { finish(defaultCarry(run)); return; }
     hud.el.hidden = true;
     endScreen = createEndScreen(root, sprites, run, quitting, finish);
-    endScreen.el.focus();
+  }
+  /** One true line about how close it was, or null. */
+  function nearMiss(): string | null {
+    if (run.won || quitting || run.phase !== 'over') return null;
+    const e = run.eliteIdx >= 0 ? run.enemies[run.eliteIdx] : null;
+    if (e && e.alive && e.hp / e.maxHp <= 0.35) {
+      return `${theName(ENEMIES[e.type]?.name ?? 'It')} had ${Math.max(1, Math.round((e.hp / e.maxHp) * 100))}% of its health left.`;
+    }
+    const left = Math.ceil(run.waveSeconds - run.waveTime);
+    if (left >= 1 && left <= 8 && !(e && e.alive && ENEMIES[e.type]?.rank === 2)) return `${left} ${left === 1 ? 'second' : 'seconds'} from clearing wave ${run.wave}.`;
+    if (run.wave % 4 === 0 && run.wave <= run.totalWaves) return 'One wave short of carrying an item home.';
+    return null;
   }
   function finish(carried: ItemSpec[]): void {
     if (state === 'done') return;
@@ -206,6 +262,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     rec.setCarry(run, carried.map((i) => i.id));
     const s = summary(run);
     const replay = replayOf(run);
+    const best = host.mode === 'run' && !quitting ? recordRun(s.won ? s.totalWaves : s.endWave, s.won) : undefined;
     const recap: RunRecap = {
       report: {
         wavesCleared: s.wavesCleared, won: s.won, scripEarned: s.scripEarned, scripHeld: s.scripHeld, level: s.level,
@@ -221,6 +278,8 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       rawsGathered: s.rawsGathered,
       items: run.player.items.slice(),
       carried,
+      nearMiss: nearMiss(),
+      best,
     };
     host.onEnd(recap);
     if (quitting) host.onQuit();
@@ -240,7 +299,29 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
           if (def) hud.notice(`Wave ${ev.a}`, def.brief, !!def.elite, 3.6);
           break;
         }
-        case 'hurt': hud.hurt(); break;
+        case 'hurt':
+          hud.hurt();
+          if (teachKeep) keepArmed = true;
+          break;
+        case 'levelup': {
+          hud.levelUp();
+          if (teachLevel) {
+            teachLevel = false; learn('level');
+            hud.notice(`Level ${ev.a}`, 'Scrip is also experience. A level is one upgrade pick at the bench.', false, 6);
+          }
+          break;
+        }
+        case 'eliteSpawn':
+        case 'bossSpawn': {
+          const def = ENEMIES[ev.a];
+          if (def) hud.card(ev.type === 'bossSpawn' ? 'Boss' : 'Elite', theName(def.name), ARRIVAL[def.id] ?? '', 'danger', 3.4);
+          break;
+        }
+        case 'eliteDeath': {
+          const def = ENEMIES[ev.a];
+          if (def) hud.card('Elite', `${theName(def.name)} is down`, def.scrip > 0 ? `It dropped ${def.scrip} scrip.` : '', 'paid', 2.6);
+          break;
+        }
         case 'steal': {
           stolen += ev.b;
           const now = performance.now() / 1000;
@@ -253,24 +334,79 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
         case 'escape': hud.notice('Magpie', `Got away with ${ev.a} ${ev.a === 1 ? 'piece' : 'pieces'}.`, true, 2.6); break;
         case 'secondWind': hud.notice('Second wind', `${Math.ceil(ev.a)} HP left.`, true, 2.4); break;
         case 'bossPhase': hud.notice(ENEMIES[run.enemies[run.eliteIdx]?.type ?? 9]?.name ?? 'Old Tusk', `Phase ${ev.a} of 3.`, true, 2.4); break;
-        case 'break': if (teachWork) worked = 99; break;
-        case 'pickup': if (ev.a !== PK_SCRIP && teachWork) worked = 99; break;
+        case 'break':
+          if (teachWork) { teachWork = false; learn('work'); renderer.pointAt(null); }
+          break;
+        case 'pickup':
+          if (ev.a !== PK_SCRIP && teachRaws) {
+            teachRaws = false; learn('raws');
+            hud.notice('Raws', 'Timber, ore and hide are raws. They pay for bench recipes, and what you keep goes home.', false, 7);
+          }
+          break;
       }
     }
     clearEvents(run);
   }
 
+  /** The wave is cleared: say what it paid, and let the floor fly in before the bench. */
+  function waveCleared(): void {
+    const p = run.player;
+    const paid: string[] = [`${run.scripEarned - scrip0} scrip`];
+    for (const r of ['timber', 'ore', 'hide'] as const) { const n = run.gathered[r] - raws0[r]; if (n > 0) paid.push(`${n} ${r}`); }
+    let sub = `Paid ${paid.join(', ')}.`;
+    const left = Math.round(p.bank - bank0);
+    if (left > 0) sub += ` ${left} scrip left behind.`;
+    if (!run.won && run.bench.picks > 0) sub += ` ${run.bench.picks === 1 ? '1 upgrade pick' : `${run.bench.picks} upgrade picks`} at the bench.`;
+    hud.card('Cleared', run.won ? `All ${run.totalWaves} waves cleared` : `Wave ${run.wave} cleared`, sub, 'paid', 0);
+    sweepTickT = 0.12; sweepTicks = 0; paidDue = 0.42;
+    audio.setBed(null);
+    input.reset();
+    hud.teach('', 0, 0);
+    renderer.pointAt(null);
+  }
+  /** Sounds of the sweep: a rising run of ticks while pickups land, then the count. */
+  function clearSounds(dt: number): void {
+    if (renderer.sweeping() > 0 && sweepTicks < 9) {
+      sweepTickT -= dt;
+      if (sweepTickT <= 0) { sweepTickT = 0.065; sweepTicks++; audio.play('scrip', { gain: 0.9 }); }
+    }
+    if (paidDue >= 0) { paidDue -= dt; if (paidDue < 0) audio.play('paid'); }
+  }
+
+  function nearestEnemy2(): number {
+    const p = run.player;
+    let best = 1e12;
+    for (let i = 0; i < MAX_ENEMIES; i++) {
+      const e = run.enemies[i];
+      if (!e.alive) continue;
+      const d = (e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
   function teach(dt: number): void {
-    if (!teachMove && !teachWork) { hud.teach('', 0, 0); return; }
+    if (!teachMove && !teachWork && !teachKeep) { hud.teach('', 0, 0); return; }
     const p = run.player;
     const x = renderer.screenX(p.x), y = renderer.screenY(p.y) + 26;
     if (teachMove) {
       if (p.moving) moved += dt;
-      if (moved > 0.7) teachMove = false;
+      if (moved > 0.7) { teachMove = false; learn('move'); }
       else { hud.teach(coarse ? 'Drag anywhere to move' : 'Move with WASD or the arrow keys', x, y); return; }
     }
+    // The two words that matter. Said after the first hit, or when something is
+    // on top of a player who is standing still, and kept until they have moved off.
+    if (teachKeep) {
+      if (!keepArmed) {
+        idleT = p.moving ? 0 : idleT + dt;
+        if (idleT > 1.2 && nearestEnemy2() < 150 * 150) keepArmed = true;
+      } else {
+        if (p.moving) keepMoved += dt;
+        if (keepMoved > 2.5) { teachKeep = false; learn('keepMoving'); }
+        else { renderer.pointAt(null); hud.teach('Keep moving. Touch hurts.', x, y, true); return; }
+      }
+    }
     if (teachWork) {
-      if (worked > 1) { teachWork = false; hud.teach('', 0, 0); return; }
       let best = -1, bd = 1e12;
       for (let i = 0; i < MAX_NODES; i++) {
         const n = run.nodes[i];
@@ -279,9 +415,32 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
         if (d < bd) { bd = d; best = i; }
       }
       // Said until a node has been broken; quiet while the player is doing it.
-      if (best < 0 || p.workingNode >= 0) { hud.teach('', 0, 0); return; }
-      hud.teach(`Stand in a ring to work the ${NODE_IDS[run.nodes[best].type] ?? 'tree'}`, x, y);
+      if (best < 0) { renderer.pointAt(null); hud.teach('', 0, 0); return; }
+      const n = run.nodes[best];
+      renderer.pointAt(n.x, n.y);
+      if (p.workingNode >= 0) { hud.teach('Stay in the ring until it breaks', x, y); return; }
+      hud.teach(`Stand in the ring to work the ${NODE_IDS[n.type] ?? 'tree'}`, x, y);
+      return;
     }
+    hud.teach('', 0, 0);
+  }
+
+  /** Low health: a heartbeat, quicker when it is nearly over, and the edge hatch steps with it. */
+  function heart(dt: number): void {
+    const p = run.player;
+    const k = p.hp / Math.max(1, p.maxHp);
+    if (p.hp <= 0 || k > 0.3) { heartT = 0; return; }
+    heartT -= dt;
+    if (heartT > 0) return;
+    heartT = k <= 0.15 ? 0.62 : 0.95;
+    audio.play('heart');
+    renderer.pulse();
+  }
+
+  /** Tell the camera what the HUD covers. Cheap, and only a few times a second. */
+  function syncInsets(): void {
+    const [it, ir, ib, il] = hud.insets();
+    renderer.setInsets(it, ir, ib, il);
   }
 
   // ---- perf readout (dev) ---------------------------------------------------------
@@ -340,6 +499,10 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     const t0 = dev.perf ? performance.now() : 0;
 
     if (state === 'wave') {
+      const el_ = run.eliteIdx >= 0 ? run.enemies[run.eliteIdx] : null;
+      audio.setBed(bedLevel(run.wave, run.totalWaves, !!el_ && el_.alive));
+      insetT -= dt;
+      if (insetT <= 0) { insetT = 0.25; syncInsets(); }
       if (freezeT > 0) freezeT -= dt;
       else {
         acc += dt;
@@ -360,28 +523,47 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
         renderer.update(dt);
       }
       hud.update(dt);
-      teach(dt);
+      if (run.phase === 'wave') { teach(dt); heart(dt); }
       if (dev.perf && run.enemyCount > perfEnemies) perfEnemies = run.enemyCount;
       if (run.phase === 'bench') {
-        state = 'bench';
-        input.reset();
-        hud.teach('', 0, 0);
-        if (bot && dev.autoBench) { botBench(run, bot); startNext(); }
-        else bench.open();
-        return;
-      }
-      if (run.phase === 'over') {
+        // The beat between the fight and the bench.
+        state = 'clear';
+        clearT = CLEAR_BEAT;
+        waveCleared();
+      } else if (run.phase === 'over') {
         state = 'beat';
-        beatT = run.won ? 1.7 : 1.5;
-        if (run.won) audio.play('win');
+        beatT = run.won ? WIN_BEAT : DEATH_BEAT;
         input.reset();
         hud.teach('', 0, 0);
+        renderer.pointAt(null);
+        audio.setBed(null);
+        if (run.won) { waveCleared(); audio.play('win'); }
+        else {
+          // What hurt you, on the line the run ends on.
+          const by = killerName(run);
+          hud.card('Down', `Down in wave ${run.wave}`, by ? gotYou(by) : '', 'danger', 0);
+        }
+      }
+    } else if (state === 'clear') {
+      // The scene holds while the floor flies in; then the bench.
+      renderer.takeFreeze();
+      renderer.update(dt);
+      hud.update(dt);
+      clearSounds(dt);
+      clearT -= dt;
+      alpha = 1;
+      if (clearT <= 0) {
+        state = 'bench';
+        hud.card('', '', '', 'plain', 0);
+        if (bot && dev.autoBench) { botBench(run, bot); startNext(); }
+        else { bench.open(); return; }
       }
     } else if (state === 'beat') {
       // The scene holds; only the debris keeps moving.
       renderer.takeFreeze();
       renderer.update(dt);
       hud.update(dt);
+      if (run.won) clearSounds(dt);
       beatT -= dt;
       alpha = 1;
       if (beatT <= 0) { showEnd(); return; }
@@ -417,7 +599,8 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       world = want === sprites.dpr ? sprites : bakeAll(want);
       renderer.setSprites(world);
     }
-    if (state === 'wave' || state === 'beat') renderer.draw(alpha);
+    syncInsets();
+    if (state === 'wave' || state === 'beat' || state === 'clear') renderer.draw(alpha);
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
   ro?.observe(stage);
@@ -445,7 +628,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   document.addEventListener('visibilitychange', onVis);
   window.addEventListener('keydown', onKey);
 
-  dev.expose?.(run, () => renderer.draw(alpha));
+  dev.expose?.(run, () => renderer.draw(alpha), () => ({ x: renderer.screenX(run.player.x), y: renderer.screenY(run.player.y), zoom: renderer.zoom() }));
   fit();
   if (run.phase === 'bench') { state = 'bench'; bench.open(); }
   raf = requestAnimationFrame(frame);
@@ -461,6 +644,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       window.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('keydown', onKey);
+      audio.setBed(null);
       pauseSound?.dispose();
       input.destroy();
       hud.destroy();

@@ -5,8 +5,14 @@
 //   floor, lane marks, telegraphs (spawn marks, charge lanes, slam rings,
 //   work rings), shards, pickups, then everything that stands sorted by
 //   foot line (nodes, stumps, enemies, the player and their weapons), then
-//   melee arcs, player shots, chips, the treeline, enemy shots, numbers.
-// Enemy shots go over everything in the clearing so they are never lost.
+//   melee arcs, player shots, chips, the treeline, enemy shots, the player's
+//   head mark, the hurt tick, numbers, and the low-health hatch at the edges.
+// Enemy shots and the player's marks go over everything in the clearing so
+// they are never lost.
+//
+// Cost rules (phones spend most of a frame filling canvas pixels): every new
+// mark is a baked sprite or one short path; nothing fills the screen with
+// alpha; telegraphs that do not threaten the player are drawn as outlines.
 import {
   INK, MADDER, OCHRE, OUTLINE, drawChargeLane, drawFloor, drawSlamRing, drawSprite, drawTreeline, drawWorkRing,
   type Sprite, type Sprites,
@@ -24,6 +30,9 @@ const MAX_CHIPS = 220;
 const MAX_NUMS = 36;
 const MAX_GHOSTS = 40;
 const MAX_RINGS = 24;
+const MAX_SWEEP = 140;
+/** Seconds between two hit-stops asked for by the player's own hits and kills. */
+const STOP_GAP = 0.3;
 const MAX_REMNANTS = 20;
 /** View margin kept between the arena edge and the screen edge, so the treeline shows. */
 const EDGE = 96;
@@ -52,7 +61,19 @@ export interface Renderer {
   zoom(): number;
   /** Seconds of hit-stop asked for by events since the last call. */
   takeFreeze(): number;
+  /** Css px of each screen edge covered by the HUD. The camera keeps the player out from under them. */
+  setInsets(top: number, right: number, bottom: number, left: number): void;
+  /** Stand a teaching pointer over a world point; null takes it away. */
+  pointAt(x: number | null, y?: number): void;
+  /** One beat of the low-health hatch (called with the heart sound). */
+  pulse(): void;
+  /** Pickups still flying in after a wave end. */
+  sweeping(): number;
+  /** The name of what last hurt the player, '' if nothing has. */
+  lastHurtBy(): string;
   shake: boolean;
+  /** prefers-reduced-motion: no optional hit-stop, no pulsing, rings do not grow. */
+  reduced: boolean;
   /** Entities drawn last frame, for the perf readout. */
   drawn: number;
 }
@@ -68,6 +89,15 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   let trauma = 0, shakeX = 0, shakeY = 0;
   let freeze = 0;
   let hurtFlash = 0;
+  let insT = 0, insR = 0, insB = 0, insL = 0;
+  let lastStop = -10;
+  let pointX = 0, pointY = 0, pointOn = false;
+  let beatT = 0;
+  // Where the last hit came from: unit direction, age, and the name of the source.
+  let tickX = 0, tickY = 0, tickAge = 10, tickLife = 0.75, hurtBy = '';
+  // One line of large type over the player (a level gained).
+  let callText = '', callAge = 10;
+  const CALL_LIFE = 1.25;
   let playerFlip = false;
   let stride = 0;
   let fontReady = false, fontAsked = false;
@@ -123,17 +153,33 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   const numKind = new Uint8Array(MAX_NUMS); // 0 hit, 1 crit, 2 hurt
   const numText: string[] = new Array(MAX_NUMS).fill('');
   const NUM_LIFE = 0.62, NUM_MERGE = 0.34;
-  function number(x: number, y: number, v: number, kind: number, uid: number): void {
-    let slot = -1, oldest = -1, oldestAge = -1;
+  /** Above this many live figures, ordinary hits are added up per patch of ground instead of per target. */
+  const NUM_CROWD = 9;
+  const NUM_PATCH_X = 70, NUM_PATCH_Y = 54;
+  let numLive = 0;
+  function number(x: number, y: number, v: number, kind: number, uid: number, label = ''): void {
+    let slot = -1, oldest = -1, oldestAge = -1, patch = -1, live = 0;
     for (let i = 0; i < MAX_NUMS; i++) {
-      if (uid >= 0 && numUid[i] === uid && numAge[i] < NUM_MERGE) { slot = i; break; }
-      if (numAge[i] >= NUM_LIFE) { if (slot < 0) slot = i; } else if (numAge[i] > oldestAge) { oldestAge = numAge[i]; oldest = i; }
+      if (uid !== -1 && numUid[i] === uid && numAge[i] < NUM_MERGE) { slot = i; break; }
+      if (numAge[i] >= NUM_LIFE) { if (slot < 0) slot = i; continue; }
+      live++;
+      if (numAge[i] > oldestAge && numKind[i] !== 2) { oldestAge = numAge[i]; oldest = i; }
+      if (kind === 0 && patch < 0 && numKind[i] === 0 && numAge[i] < NUM_MERGE && Math.abs(numX[i] - x) < NUM_PATCH_X && Math.abs(numY[i] - y) < NUM_PATCH_Y) patch = i;
     }
-    if (slot >= 0 && numUid[slot] === uid && uid >= 0 && numAge[slot] < NUM_MERGE) {
+    numLive = live;
+    // The player's own figure: one at a time, so two hits never print over each other.
+    if (uid === -2) for (let i = 0; i < MAX_NUMS; i++) if (numUid[i] === -2 && numAge[i] < NUM_LIFE) { slot = i; if (numAge[i] >= NUM_MERGE) numVal[i] = 0; numAge[i] = 0; break; }
+    const same = slot >= 0 && numUid[slot] === uid && uid !== -1 && numAge[slot] < NUM_MERGE;
+    if (same) {
       numVal[slot] += v;
       if (kind > numKind[slot]) numKind[slot] = kind;
       numAge[slot] = 0;
       numX[slot] = x; numY[slot] = y;
+    } else if (patch >= 0 && live >= NUM_CROWD) {
+      // A crowd: one figure per patch, standing where it first appeared.
+      slot = patch;
+      numVal[slot] += v;
+      numAge[slot] = Math.min(numAge[slot], 0.1);
     } else {
       if (slot < 0) slot = oldest;
       if (slot < 0) return;
@@ -141,7 +187,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       numX[slot] = x; numY[slot] = y;
     }
     const shown = Math.max(1, Math.round(numVal[slot]));
-    numText[slot] = kind === 2 ? `-${shown}` : String(shown);
+    numText[slot] = numKind[slot] === 2 ? (label ? `-${shown} ${label}` : `-${shown}`) : String(shown);
   }
   numAge.fill(NUM_LIFE);
 
@@ -152,7 +198,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
 
   const ringX = new Float32Array(MAX_RINGS), ringY = new Float32Array(MAX_RINGS), ringR = new Float32Array(MAX_RINGS);
   const ringR0 = new Float32Array(MAX_RINGS), ringLife = new Float32Array(MAX_RINGS), ringDur = new Float32Array(MAX_RINGS);
-  const ringKind = new Uint8Array(MAX_RINGS); // 0 slam landed (madder), 1 burst (ochre), 2 level (ochre, small)
+  const ringKind = new Uint8Array(MAX_RINGS); // 0 slam landed (ink), 1 burst (ochre), 2 level (ochre, double), 3 arrival (madder, double)
   let ringNext = 0;
   function ring(x: number, y: number, r: number, r0: number, kind: number, dur: number): void {
     const i = ringNext; ringNext = (ringNext + 1) % MAX_RINGS;
@@ -166,6 +212,15 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   const nodeKick = new Uint8Array(MAX_NODES);
   const enemyFlip = new Uint8Array(MAX_ENEMIES);
   const pullFrom = new Float32Array(MAX_PICKUPS);
+  // What stood at the last draw, so a wave end can show what it swept away.
+  const pickupWas = new Uint8Array(MAX_PICKUPS), enemyWas = new Uint8Array(MAX_ENEMIES), eshotWas = new Uint8Array(MAX_ESHOTS);
+  // Pickups flying in at a wave end: from where, what, and when each starts and lands.
+  const sweepX = new Float32Array(MAX_SWEEP), sweepY = new Float32Array(MAX_SWEEP);
+  const sweepT = new Float32Array(MAX_SWEEP), sweepDur = new Float32Array(MAX_SWEEP);
+  const sweepKind = new Uint8Array(MAX_SWEEP);
+  let sweepN = 0, sweepLeft = 0;
+  // Telegraphs that threaten the player this frame, drawn last and in full.
+  const hotLane = new Int16Array(MAX_ENEMIES);
 
   // ---- y-sort ----------------------------------------------------------------
   let bucketCount = 1;
@@ -223,6 +278,36 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   }
 
   function trauma_(v: number): void { trauma = Math.min(1, trauma + v); }
+  /** A short hit-stop for the player's own big hits and kills, at most one every STOP_GAP. */
+  function stop(seconds: number): void {
+    if (self.reduced || time - lastStop < STOP_GAP) return;
+    lastStop = time;
+    freeze = Math.max(freeze, seconds);
+  }
+  /** Where a hit of this enemy type came from, as a unit vector from the player. False if nothing fits. */
+  function hurtFrom(type: number): boolean {
+    const p = run.player;
+    let bx = 0, by = 0, bd = 1e12;
+    // A shot that was in the air at the last draw and is gone now, close by: it came along its own line.
+    for (let i = 0; i < MAX_ESHOTS; i++) {
+      const s = run.eshots[i];
+      if (s.alive || !eshotWas[i] || s.type !== type) continue;
+      const d = (s.x - p.x) * (s.x - p.x) + (s.y - p.y) * (s.y - p.y);
+      if (d < 70 * 70 && d < bd) { bd = d; bx = -s.vx; by = -s.vy; }
+    }
+    if (bd === 1e12) {
+      for (let i = 0; i < MAX_ENEMIES; i++) {
+        const e = run.enemies[i];
+        if (!e.alive || e.type !== type) continue;
+        const d = (e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y);
+        if (d < bd) { bd = d; bx = e.x - p.x; by = e.y - p.y; }
+      }
+    }
+    const len = Math.hypot(bx, by);
+    if (bd === 1e12 || len < 0.5) return false;
+    tickX = bx / len; tickY = by / len;
+    return true;
+  }
   const inView = (x: number, y: number, m: number): boolean => x > camX - m && x < camX + vw + m && y > camY - m && y < camY + vh + m;
 
   function event(ev: SimEvent): void {
@@ -236,6 +321,8 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         number(ev.x, ev.y - top, ev.a, ev.type === 'crit' ? 1 : 0, e ? e.uid : -1);
         const dx = ev.x - p.x, dy = ev.y - p.y, d = Math.hypot(dx, dy) || 1;
         chips(ev.x, ev.y - (e ? e.r : 10), ev.type === 'crit' ? 3 : 1, C_MADDER, 150, dx / d, dy / d);
+        // A big hit: a third of a tough enemy's health in one blow. Two frames of stop and a nudge.
+        if (e && e.maxHp >= 30 && ev.a >= 12 && ev.a >= e.maxHp * 0.3) { stop(0.034); trauma_(0.12); chips(ev.x, ev.y - e.r, 4, C_INK, 220, dx / d, dy / d); }
         break;
       }
       case 'kill': {
@@ -248,15 +335,19 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         const g = ghostNext; ghostNext = (ghostNext + 1) % MAX_GHOSTS;
         ghostX[g] = ev.x; ghostY[g] = ev.y; ghostType[g] = ev.a; ghostLife[g] = GHOST_LIFE * (rank > 0 ? 2.5 : 1);
         ghostFlip[g] = dx > 0 ? 1 : 0;
+        if (rank === 0 && r > 20) { stop(0.034); trauma_(0.1); }
         break;
       }
-      case 'hurt':
-        number(p.x, p.y - 58, ev.a, 2, -2);
+      case 'hurt': {
+        hurtBy = ENEMIES[ev.b]?.name ?? '';
+        number(p.x, p.y - 104, ev.a, 2, -2, hurtBy);
         chips(p.x, p.y - 20, 5, C_OCHRE, 230);
         trauma_(0.42);
         freeze = Math.max(freeze, 0.06);
         hurtFlash = 2;
+        if (hurtFrom(ev.b)) { tickAge = 0; tickLife = 0.75; }
         break;
+      }
       case 'shieldBreak':
         chips(p.x, p.y - 20, 6, C_INK, 240);
         break;
@@ -269,6 +360,9 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         chips(p.x, p.y - 20, 6, C_INK, 220);
         trauma_(0.7);
         freeze = Math.max(freeze, 0.12);
+        // The tick stays through the beat that follows, pointing at what did it.
+        hurtBy = ENEMIES[ev.a]?.name ?? hurtBy;
+        if (tickAge < tickLife || hurtFrom(ev.a)) { tickAge = 0; tickLife = 3; }
         break;
       case 'work': {
         for (let i = 0; i < MAX_NODES; i++) if (run.nodes[i].alive && run.nodes[i].x === ev.x && run.nodes[i].y === ev.y) nodeKick[i] = 4;
@@ -288,7 +382,12 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         break;
       }
       case 'levelup':
-        ring(p.x, p.y, 46, 0, 2, 0.16);
+        // An event: two Ochre rings out to arm's length and beyond, a burst of chips, the level in large type.
+        ring(p.x, p.y, 150, 0, 2, 0.5);
+        ring(p.x, p.y, 92, 0, 2, 0.34);
+        chips(p.x, p.y - 22, 14, C_OCHRE, 330);
+        chips(p.x, p.y - 22, 4, C_INK, 240);
+        callText = `Level ${ev.a}`; callAge = 0;
         break;
       case 'slam':
         ring(ev.x, ev.y, ev.a, ev.b, 0, 0.07);
@@ -304,15 +403,52 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       }
       case 'eliteSpawn':
         trauma_(0.3);
+        ring(ev.x, ev.y, 130, 0, 3, 0.4);
+        freeze = Math.max(freeze, 0.05);
         break;
       case 'bossSpawn':
+        trauma_(0.55);
+        ring(ev.x, ev.y, 190, 0, 3, 0.5);
+        freeze = Math.max(freeze, 0.066);
+        break;
       case 'bossPhase':
         trauma_(0.55);
+        ring(ev.x, ev.y, 150, 0, 3, 0.4);
         break;
       case 'eliteDeath':
         trauma_(0.5);
-        freeze = Math.max(freeze, 0.12);
+        freeze = Math.max(freeze, 0.066);
+        chips(ev.x, ev.y - 30, 16, C_INK, 320);
         break;
+      case 'waveEnd': {
+        // What the wave end took off the floor flies in; what it killed pops.
+        sweepN = 0;
+        let seen = 0;
+        for (let i = 0; i < MAX_PICKUPS; i++) {
+          const k = run.pickups[i];
+          if (k.alive || !pickupWas[i]) continue;
+          pickupWas[i] = 0;
+          seen++;
+          if (sweepN >= MAX_SWEEP || !inView(k.x, k.y, 200)) continue;
+          const d = Math.hypot(k.x - p.x, k.y - p.y);
+          const j = sweepN++;
+          sweepX[j] = k.x; sweepY[j] = k.y; sweepKind[j] = k.kind;
+          sweepT[j] = -Math.min(0.3, d / 2400) - rnd() * 0.06;
+          sweepDur[j] = 0.3 + Math.min(0.3, d / 1800);
+        }
+        sweepLeft = sweepN;
+        for (let i = 0; i < MAX_ENEMIES; i++) {
+          const e = run.enemies[i];
+          if (e.alive || !enemyWas[i]) continue;
+          enemyWas[i] = 0;
+          if (!inView(e.x, e.y, 40)) continue;
+          const g = ghostNext; ghostNext = (ghostNext + 1) % MAX_GHOSTS;
+          ghostX[g] = e.x; ghostY[g] = e.y; ghostType[g] = e.type; ghostLife[g] = GHOST_LIFE * 2; ghostFlip[g] = e.x > p.x ? 1 : 0;
+          if (seen < 400) chips(e.x, e.y - e.r, 2, C_MADDER, 190);
+        }
+        ring(p.x, p.y, 210, 0, 2, 0.55);
+        break;
+      }
       case 'bossDeath':
         trauma_(0.85);
         freeze = Math.max(freeze, 0.12);
@@ -352,6 +488,14 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     for (let i = 0; i < MAX_NUMS; i++) if (numAge[i] < NUM_LIFE) numAge[i] += dt;
     for (let i = 0; i < MAX_GHOSTS; i++) if (ghostLife[i] > 0) ghostLife[i] -= dt;
     for (let i = 0; i < MAX_RINGS; i++) if (ringLife[i] > 0) ringLife[i] -= dt;
+    if (sweepLeft > 0) {
+      let left = 0;
+      for (let i = 0; i < sweepN; i++) { if (sweepT[i] < sweepDur[i]) { sweepT[i] += dt; if (sweepT[i] < sweepDur[i]) left++; } }
+      sweepLeft = left;
+    }
+    if (tickAge < tickLife) tickAge += dt;
+    if (callAge < CALL_LIFE) callAge += dt;
+    if (beatT > 0) beatT -= dt;
     trauma = Math.max(0, trauma - dt * 2.1);
     if (run.player.moving) stride += dt;
   }
@@ -368,15 +512,66 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     head = new Int32Array(bucketCount); tail = new Int32Array(bucketCount);
     camReady = false;
     laneCache.clear(); ringCache.clear();
+    edgeStrips = null;
   }
 
+  // The camera may run past the clearing by as much as the HUD covers, so a
+  // player in a corner is still out from under the panels. What shows there
+  // is the forest.
   function clampCam(x: number, y: number): void {
-    const minX = -EDGE, maxX = ARENA_W + EDGE - vw, minY = -EDGE, maxY = ARENA_H + EDGE - vh;
+    const minX = -EDGE - insL / zoom, maxX = ARENA_W + EDGE - vw + insR / zoom;
+    const minY = -EDGE - insT / zoom, maxY = ARENA_H + EDGE - vh + insB / zoom;
     camX = maxX < minX ? (ARENA_W - vw) / 2 : x < minX ? minX : x > maxX ? maxX : x;
     camY = maxY < minY ? (ARENA_H - vh) / 2 : y < minY ? minY : y > maxY ? maxY : y;
   }
 
   const snapPx = (v: number): number => Math.round(v * scale) / scale;
+
+  // ---- low health: a Madder hatch along the screen edges ------------------------
+  // Baked once per size as four strips at two depths, so a frame costs four
+  // blits and never a full-screen fill.
+  let edgeStrips: HTMLCanvasElement[] | null = null;
+  const EDGE_DEPTH = [18, 30];
+  function bakeEdges(): HTMLCanvasElement[] {
+    const out: HTMLCanvasElement[] = [];
+    for (const depth of EDGE_DEPTH) {
+      for (let side = 0; side < 2; side++) {
+        const w = side === 0 ? cssW : depth, h = side === 0 ? depth : cssH;
+        const c = document.createElement('canvas');
+        c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
+        const g = c.getContext('2d')!;
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.strokeStyle = MADDER;
+        g.lineWidth = 2.5;
+        g.beginPath();
+        for (let k = -h; k < w + h; k += 8) { g.moveTo(k, h + 1); g.lineTo(k + h + 2, -1); }
+        g.stroke();
+        g.lineWidth = OUTLINE;
+        g.beginPath();
+        if (side === 0) { g.moveTo(0, depth - 1.5); g.lineTo(w, depth - 1.5); } else { g.moveTo(depth - 1.5, 0); g.lineTo(depth - 1.5, h); }
+        g.stroke();
+        out.push(c);
+      }
+    }
+    return out;
+  }
+  function drawLowHealth(): void {
+    if (!edgeStrips) edgeStrips = bakeEdges();
+    const deep = beatT > 0 && !self.reduced ? 1 : 0;
+    const d = EDGE_DEPTH[deep];
+    const top = edgeStrips[deep * 2], sideStrip = edgeStrips[deep * 2 + 1];
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.drawImage(top, 0, 0, cssW, d);
+    ctx.save();
+    ctx.translate(0, cssH); ctx.scale(1, -1);
+    ctx.drawImage(top, 0, 0, cssW, d);
+    ctx.restore();
+    ctx.drawImage(sideStrip, 0, d * dpr, d * dpr, (cssH - d * 2) * dpr, 0, d, d, cssH - d * 2);
+    ctx.save();
+    ctx.translate(cssW, 0); ctx.scale(-1, 1);
+    ctx.drawImage(sideStrip, 0, d * dpr, d * dpr, (cssH - d * 2) * dpr, 0, d, d, cssH - d * 2);
+    ctx.restore();
+  }
 
   function ngon(x: number, y: number, rx: number, ry: number, n: number): void {
     for (let i = 0; i < n; i++) {
@@ -453,12 +648,14 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     const p = run.player;
     const px = p.px + (p.x - p.px) * alpha, py = p.py + (p.y - p.py) * alpha;
 
-    // Camera: the player with a little look-ahead, eased, clamped to the clearing.
+    // Camera: the player with a little look-ahead, eased, clamped to the
+    // clearing, and centred in the part of the screen the HUD leaves open.
     const wantLX = p.moving ? p.fx * 56 : 0, wantLY = p.moving ? p.fy * 40 : 0;
-    if (!camReady) { lookX = 0; lookY = 0; clampCam(px - vw / 2, py - vh / 2); camReady = true; }
+    const offX = (insL - insR) / 2 / zoom, offY = (insT - insB) / 2 / zoom;
+    if (!camReady) { lookX = 0; lookY = 0; clampCam(px - vw / 2 - offX, py - vh / 2 - offY); camReady = true; }
     else {
       lookX += (wantLX - lookX) * 0.045; lookY += (wantLY - lookY) * 0.045;
-      const tx = px + lookX - vw / 2, ty = py + lookY - vh / 2;
+      const tx = px + lookX - vw / 2 - offX, ty = py + lookY - vh / 2 - offY;
       clampCam(camX + (tx - camX) * 0.16, camY + (ty - camY) * 0.16);
     }
     if (self.shake && trauma > 0) {
@@ -512,7 +709,23 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       if (h.x < x0 - h.r1 || h.x > x1 + h.r1 || h.y < y0 - h.r1 || h.y > y1 + h.r1) continue;
       if (h.kind === HZ_RING) {
         const prog = Math.max(0, Math.min(1, 1 - h.t / h.dur));
-        if (h.r0 > 0) {
+        // A ring the player is in, or a step from, is drawn in full. The rest
+        // keep their outline: enough to see coming, not a red carpet.
+        const hd = Math.hypot(h.x - px, h.y - py);
+        if (hd > h.r1 + 44 || hd < h.r0 - 44) {
+          if (h.r1 <= 200 && h.r0 <= 0) {
+            const sp = ringSprite(h.r1, 0);
+            const side = (h.r1 + TPAD) * 2;
+            ctx.drawImage(sp, snapPx(h.x - h.r1 - TPAD), snapPx(h.y - h.r1 - TPAD), side, side);
+          } else {
+            ctx.strokeStyle = MADDER;
+            ctx.lineWidth = OUTLINE;
+            ctx.beginPath();
+            ngon(h.x, h.y, h.r1, h.r1, 20);
+            if (h.r0 > 0) ngon(h.x, h.y, h.r0, h.r0, 20);
+            ctx.stroke();
+          }
+        } else if (h.r0 > 0) {
           // A band: the kit's ring hatches a whole disc, so cut the middle out.
           ctx.save();
           ctx.beginPath();
@@ -531,31 +744,35 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       }
     }
 
-    // Spawn marks and charge lanes.
-    let marks = 0;
-    ctx.strokeStyle = MADDER;
-    ctx.lineWidth = OUTLINE;
-    ctx.beginPath();
-    for (let i = 0; i < MAX_ENEMIES; i++) {
-      const e = run.enemies[i];
-      if (!e.alive || e.state !== ES.Spawn) continue;
-      if (e.x < x0 || e.x > x1 || e.y < y0 || e.y > y1) continue;
-      const k = Math.max(0, Math.min(1, e.t / SPAWN_TELL));
-      const r = e.r * (0.9 + k * 0.9);
-      ctx.moveTo(e.x - r, e.y); ctx.lineTo(e.x, e.y - r * 0.55); ctx.lineTo(e.x + r, e.y); ctx.lineTo(e.x, e.y + r * 0.55); ctx.closePath();
-      marks++;
+    // Spawn marks: the ones near the player at the outline weight, the rest thin.
+    for (let pass = 0; pass < 2; pass++) {
+      let marks = 0;
+      ctx.strokeStyle = MADDER;
+      ctx.lineWidth = pass === 0 ? 1.5 : OUTLINE;
+      ctx.beginPath();
+      for (let i = 0; i < MAX_ENEMIES; i++) {
+        const e = run.enemies[i];
+        if (!e.alive || e.state !== ES.Spawn) continue;
+        if (e.x < x0 || e.x > x1 || e.y < y0 || e.y > y1) continue;
+        const near = Math.abs(e.x - px) < 230 && Math.abs(e.y - py) < 230;
+        if (near !== (pass === 1)) continue;
+        const k = Math.max(0, Math.min(1, e.t / SPAWN_TELL));
+        const r = e.r * (0.9 + k * 0.9);
+        ctx.moveTo(e.x - r, e.y); ctx.lineTo(e.x, e.y - r * 0.55); ctx.lineTo(e.x + r, e.y); ctx.lineTo(e.x, e.y + r * 0.55); ctx.closePath();
+        marks++;
+      }
+      if (marks) ctx.stroke();
     }
-    if (marks) ctx.stroke();
-    for (let i = 0; i < MAX_ENEMIES; i++) {
+    // Charge lanes. A lane that crosses the player, or passes within a step,
+    // is drawn last with its hatch filling; the others are a dashed outline.
+    let hot = 0;
+    const lane = (i: number, full_: boolean): void => {
       const e = run.enemies[i];
-      if (!e.alive || (e.state !== ES.Windup && e.state !== ES.Charge)) continue;
-      if (e.type !== T_BOAR && e.type !== T_STAG && e.type !== T_TUSK) continue;
       const charging = e.state === ES.Charge;
       const full = chargeLen(e.type, 0, false);
       const len = charging ? Math.min(full, chargeLen(e.type, e.t, true)) : full;
-      if (len < 24) continue;
       const ex = e.px + (e.x - e.px) * alpha, ey = e.py + (e.y - e.py) * alpha;
-      const fill = charging ? 1 : Math.max(0, Math.min(1, 1 - e.t / chargeTell(e.type)));
+      const fill = !full_ ? 0 : charging ? 1 : Math.max(0, Math.min(1, 1 - e.t / chargeTell(e.type)));
       const hw = e.r + 5;
       const sp = laneSprite(e.type, full, hw, Math.round(fill * FILL_STEPS));
       // A charge under way shows only what is left of its lane: the far end of the same print.
@@ -565,11 +782,27 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       ctx.rotate(Math.atan2(e.dy, e.dx));
       ctx.drawImage(sp, cut * scale, 0, sp.width - cut * scale, sp.height, cut > 0 ? 0 : -TPAD, -hw - TPAD, len + (cut > 0 ? TPAD : TPAD * 2), hw * 2 + TPAD * 2);
       ctx.restore();
+    };
+    for (let i = 0; i < MAX_ENEMIES; i++) {
+      const e = run.enemies[i];
+      if (!e.alive || (e.state !== ES.Windup && e.state !== ES.Charge)) continue;
+      if (e.type !== T_BOAR && e.type !== T_STAG && e.type !== T_TUSK) continue;
+      const charging = e.state === ES.Charge;
+      const full = chargeLen(e.type, 0, false);
+      const len = charging ? Math.min(full, chargeLen(e.type, e.t, true)) : full;
+      if (len < 24) continue;
+      // Distance from the player to the lane's centre line.
+      const rx = px - e.x, ry = py - e.y;
+      const along = Math.max(0, Math.min(len, rx * e.dx + ry * e.dy));
+      const off = Math.hypot(rx - e.dx * along, ry - e.dy * along);
+      if (off < e.r + 5 + 40) hotLane[hot++] = i; else lane(i, false);
     }
+    for (let k = 0; k < hot; k++) lane(hotLane[k], true);
 
     // Pickups lie on the ground. Pulled ones lag, then catch up: it reads as acceleration.
     for (let i = 0; i < MAX_PICKUPS; i++) {
       const k = run.pickups[i];
+      pickupWas[i] = k.alive ? 1 : 0;
       if (!k.alive) { pullFrom[i] = 0; continue; }
       let x = k.px + (k.x - k.px) * alpha, y = k.py + (k.y - k.py) * alpha;
       let sc = 1;
@@ -587,6 +820,16 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
       drawSprite(ctx, pickupSprite[k.kind] ?? pickupSprite[PK_SCRIP], snapPx(x), snapPx(y), false, sc);
     }
+    // The wave-end sweep: what was left on the floor flies to the player.
+    if (sweepLeft > 0) {
+      for (let i = 0; i < sweepN; i++) {
+        const t = sweepT[i], dur = sweepDur[i];
+        if (t >= dur) continue;
+        const u = t <= 0 ? 0 : t / dur, e = u * u;
+        const x = sweepX[i] + (px - sweepX[i]) * e, y = sweepY[i] + (py - 16 - sweepY[i]) * e;
+        drawSprite(ctx, pickupSprite[sweepKind[i]] ?? pickupSprite[PK_SCRIP], snapPx(x), snapPx(y), false, 1 - e * 0.35);
+      }
+    }
 
     // Everything that stands, sorted by foot line.
     head.fill(-1);
@@ -603,6 +846,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     for (let i = 0; i < MAX_GHOSTS; i++) if (ghostLife[i] > 0) push(K_GHOST, i, ghostX[i], ghostY[i]);
     for (let i = 0; i < MAX_ENEMIES; i++) {
       const e = run.enemies[i];
+      enemyWas[i] = e.alive ? 1 : 0;
       if (!e.alive || e.state === ES.Spawn) continue;
       const x = e.px + (e.x - e.px) * alpha, y = e.py + (e.y - e.py) * alpha;
       const m = e.r > 30 ? 60 : 0;
@@ -651,12 +895,8 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
             break;
           }
           case K_PLAYER: {
-            // An Ochre ground mark so the player is never lost in a crowd.
-            ctx.strokeStyle = OCHRE;
-            ctx.lineWidth = OUTLINE;
-            ctx.beginPath();
-            ngon(x, y, 21, 10, 8);
-            ctx.stroke();
+            // A heavy ground mark, Ink with an Ochre line: no coin or raw looks like it.
+            drawSprite(ctx, S.mark.ground, snapPx(x), snapPx(y));
             drawPlayer(x, y);
             break;
           }
@@ -707,27 +947,52 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     // Landed slams and bursts: a hard ring for a few frames.
     for (let i = 0; i < MAX_RINGS; i++) {
       if (ringLife[i] <= 0) continue;
-      const k = 1 - ringLife[i] / ringDur[i];
+      const k = self.reduced ? 1 : 1 - ringLife[i] / ringDur[i];
       const kind = ringKind[i];
-      ctx.strokeStyle = kind === 0 ? INK : OCHRE;
+      ctx.strokeStyle = kind === 0 ? INK : kind === 3 ? MADDER : OCHRE;
       ctx.lineWidth = OUTLINE;
-      const r = kind === 0 ? ringR[i] : ringR[i] * (0.55 + 0.45 * k);
+      const r = kind === 0 ? ringR[i] : kind === 1 ? ringR[i] * (0.55 + 0.45 * k) : ringR[i] * (0.25 + 0.75 * Math.sqrt(k));
       ctx.beginPath();
       ngon(ringX[i], ringY[i], r, r, 20);
       if (ringR0[i] > 0) ngon(ringX[i], ringY[i], ringR0[i], ringR0[i], 20);
+      // Level and arrival rings are doubled, with an Ink ring between, so they read on Moss and over a crowd.
+      if (kind >= 2 && r > 16) ngon(ringX[i], ringY[i], r - 9, r - 9, 20);
       ctx.stroke();
+      if (kind >= 2 && r > 16) {
+        ctx.strokeStyle = INK;
+        ctx.beginPath();
+        ngon(ringX[i], ringY[i], r - 4.5, r - 4.5, 20);
+        ctx.stroke();
+      }
     }
 
     drawTreeline(ctx, S.treeline, { x: 0, y: 0, w: ARENA_W, h: ARENA_H });
 
-    // Enemy shots: over everything in the clearing.
-    const pulse = (((time * 7) | 0) & 1) === 0 ? 1 : 1.14;
+    // Enemy shots: over everything in the clearing, a heavy Ink rim round a
+    // Madder core, turned to their heading.
+    const pulse = (((time * 7) | 0) & 1) === 0 ? 1 : 1.12;
     for (let i = 0; i < MAX_ESHOTS; i++) {
       const s = run.eshots[i];
+      eshotWas[i] = s.alive ? 1 : 0;
       if (!s.alive) continue;
       const x = s.px + (s.x - s.px) * alpha, y = s.py + (s.y - s.py) * alpha;
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
-      drawSprite(ctx, S.shot.spit, snapPx(x), snapPx(y - 12), false, (s.r / 7) * 1.15 * pulse);
+      drawSprite(ctx, S.shot.spit, snapPx(x), snapPx(y - 12), false, (s.r / 7) * pulse, Math.atan2(s.vy, s.vx));
+    }
+
+    // The player's head mark, over the crowd, the treeline and the shots. It steps, it does not glide.
+    if (run.phase !== 'over' || run.won) {
+      const hop = self.reduced ? 0 : (((time * 2.5) | 0) & 1) * 3;
+      drawSprite(ctx, S.mark.head, snapPx(px), snapPx(py - 84 - hop));
+    }
+    // Where the last hit came from.
+    if (tickAge < tickLife && (tickAge > 0.24 || (((tickAge * 25) | 0) & 1) === 0)) {
+      const d = 52;
+      drawSprite(ctx, S.mark.tick, snapPx(px + tickX * d), snapPx(py - 20 + tickY * d), false, tickLife > 1 ? 1.3 : 1, Math.atan2(tickY, tickX));
+    }
+    if (pointOn) {
+      const hop = self.reduced ? 0 : (((time * 3) | 0) & 1) * 5;
+      drawSprite(ctx, S.mark.point, snapPx(pointX), snapPx(pointY - 118 - hop));
     }
 
     // Edge chevrons for things behind the edge of the screen: Madder for the
@@ -735,7 +1000,8 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     const edgeMark = (ex: number, ey: number, colour: string, count: number): void => {
       const m = 26 / zoom;
       if (!(ex < cx || ex > cx + vw || ey < cy || ey > cy + vh)) return;
-      const ax = Math.max(cx + m, Math.min(cx + vw - m, ex)), ay = Math.max(cy + m + 70 / zoom, Math.min(cy + vh - m, ey));
+      const ax = Math.max(cx + m + insL / zoom, Math.min(cx + vw - m - insR / zoom, ex));
+      const ay = Math.max(cy + m + Math.max(70, insT) / zoom, Math.min(cy + vh - m - insB / zoom, ey));
       const dx = ex - ax, dy = ey - ay, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, w = 11 / zoom;
       for (let pass = 0; pass < 2; pass++) {
         ctx.strokeStyle = pass === 0 ? INK : colour;
@@ -769,7 +1035,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       // Never draw a figure in a fallback face: wait for the one typeface.
       const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
       fontReady = !fonts || fonts.check('700 15px "Zilla Slab"');
-      if (!fontReady) { if (!fontAsked) { fontAsked = true; void fonts!.load('700 15px "Zilla Slab"'); } return; }
+      if (!fontReady) { if (!fontAsked) { fontAsked = true; void fonts!.load('700 15px "Zilla Slab"'); } lowHealth(); return; }
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
@@ -794,6 +1060,24 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         ctx.fillText(numText[i], x, y);
       }
     }
+    // A level gained: its number in large type over the player for a second.
+    if (callAge < CALL_LIFE) {
+      const a = callAge;
+      const rise = a < 0.1 ? (a / 0.1) * 14 : 14 + (a - 0.1) * 8;
+      ctx.font = `700 ${30 / zoom}px "Zilla Slab", serif`;
+      ctx.fillStyle = OCHRE;
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 5 / zoom;
+      const x = snapPx(px), y = snapPx(py - 128 - rise);
+      ctx.strokeText(callText, x, y);
+      ctx.fillText(callText, x, y);
+    }
+    lowHealth();
+  }
+
+  function lowHealth(): void {
+    const p = run.player;
+    if (run.phase === 'wave' && p.hp > 0 && p.hp / Math.max(1, p.maxHp) <= 0.3) drawLowHealth();
   }
 
   const self: Renderer = {
@@ -805,7 +1089,13 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     viewW: () => cssW,
     zoom: () => zoom,
     takeFreeze() { const f = freeze; freeze = 0; return f; },
+    setInsets(t, r, b, l) { insT = t; insR = r; insB = b; insL = l; },
+    pointAt(x, y = 0) { pointOn = x !== null; if (x !== null) { pointX = x; pointY = y; } },
+    pulse() { beatT = 0.16; },
+    sweeping: () => sweepLeft,
+    lastHurtBy: () => hurtBy,
     shake: true,
+    reduced: false,
     drawn: 0,
   };
   return self;

@@ -5,11 +5,18 @@
 // plays when the node gives way. Everything else stays shorter and quieter
 // than those so a busy wave still sounds like work being done.
 //
-// A sound is { make, max, gap, vary, gain }:
+// A sound is { make, max, gap, vary, gain, bus, duck }:
 //   max   voices of this sound that may overlap
 //   gap   least time between two starts, seconds (50 kills in a frame = 1 kill sound)
 //   vary  random pitch drift per play, as a fraction
 //   gain  level of the whole sound
+//   bus   'combat' (weapons, hits, kills), 'alert' (what the player must act on) or 'fx' (the rest)
+//   duck  seconds the combat bus and the work song are held down while this plays; 0 for none
+//
+// The mix rule: an alert is never masked. Measured (tools/exp/feel/audio.cjs),
+// the telegraph's energy is its 490 Hz knock, and hits and kills sit under
+// 300 Hz, so they were already apart; what an alert adds is that it ducks the
+// combat bus and the work song for as long as it carries information.
 
 import type { Kit } from './kit.ts';
 
@@ -19,7 +26,10 @@ export interface SoundDef {
   gap: number;
   vary: number;
   gain: number;
+  bus: Bus;
+  duck: number;
 }
+export type Bus = 'combat' | 'alert' | 'fx';
 
 // Partial ratios of struck iron shapes.
 const BAR = [1, 2.76, 5.4, 8.93]; // a free bar: pick head, triangle
@@ -27,7 +37,8 @@ const PLATE = [1, 1.48, 2.93, 4.21, 5.6]; // anvil face
 const BELL = [1, 1.51, 2.0, 2.66, 3.4]; // a folded sheet bell, dull
 const TOKEN = [1, 1.59, 2.71]; // a small punched disc
 
-const def = (make: SoundDef['make'], max = 3, gap = 0.03, vary = 0.06, gain = 1): SoundDef => ({ make, max, gap, vary, gain });
+const def = (make: SoundDef['make'], max = 3, gap = 0.03, vary = 0.06, gain = 1, bus: Bus = 'fx', duck = 0): SoundDef =>
+  ({ make, max, gap, vary, gain, bus, duck });
 
 function anvilStrike(k: Kit, t: number, g: number, f = 1040, dur = 0.26): void {
   k.noise(t, 0.008, { f: 5200, q: 0.8, g: g * 0.8 });
@@ -128,55 +139,55 @@ export const SOUNDS = {
 
   edge: def((k, t) => {
     k.noise(t, 0.09, { f: 1900 * k.p, f1: 5200 * k.p, q: 2.2, g: 0.5, a: 0.012 });
-  }, 3, 0.05, 0.1, 1.4),
+  }, 3, 0.05, 0.1, 1.4, 'combat'),
 
   blunt: def((k, t) => {
     k.noise(t, 0.07, { f: 420, type: 'lowpass', g: 0.5, a: 0.01 });
     k.tone(t + 0.01, 0.09, { f: 150, f1: 72, g: 0.7 });
-  }, 3, 0.05, 0.08, 0.8),
+  }, 3, 0.05, 0.08, 0.8, 'combat'),
 
   // Sling and bow: a cord letting go.
   shot: def((k, t) => {
     k.tone(t, 0.07, { f: 330, f1: 235, type: 'sawtooth', lp: 1300, g: 0.4 });
     k.tone(t, 0.05, { f: 660, f1: 470, type: 'triangle', g: 0.14 });
     k.noise(t, 0.05, { f: 2400, f1: 4200, q: 1.5, g: 0.18, a: 0.008 });
-  }, 3, 0.04, 0.09, 0.9),
+  }, 3, 0.04, 0.09, 0.9, 'combat'),
 
   musket: def((k, t) => {
     k.noise(t, 0.004, { f: 7000, type: 'highpass', g: 0.8 });
     k.noise(t, 0.26, { f: 6000, f1: 260, type: 'lowpass', g: 1.1 });
     k.tone(t, 0.17, { f: 130, f1: 42, g: 1 });
     k.noise(t + 0.05, 0.2, { f: 900, f1: 300, q: 0.7, g: 0.3 });
-  }, 2, 0.08, 0.06, 0.65),
+  }, 2, 0.08, 0.06, 0.65, 'combat'),
 
   // ----------------------------------------------------------------- combat
 
   hit: def((k, t) => {
     k.noise(t, 0.035, { f: 760 * k.p, q: 1.6, g: 0.6 });
     k.tone(t, 0.035, { f: 250, f1: 160, g: 0.4 });
-  }, 3, 0.035, 0.12, 1.0),
+  }, 3, 0.035, 0.12, 1.0, 'combat'),
 
   crit: def((k, t) => {
     k.noise(t, 0.04, { f: 900, q: 1.4, g: 0.7 });
     k.tone(t, 0.05, { f: 230, f1: 130, g: 0.5 });
     k.ring(t, 2650, BAR.slice(0, 3), 0.1, 0.3);
-  }, 2, 0.05, 0.06, 0.6),
+  }, 2, 0.05, 0.06, 0.6, 'combat'),
 
   kill: def((k, t) => {
     k.noise(t, 0.07, { f: 1900, f1: 420, type: 'lowpass', g: 0.6 });
     k.noise(t + 0.02, 0.03, { f: 2600, q: 3, g: 0.25 });
     k.tone(t, 0.07, { f: 135, f1: 70, g: 0.55 });
-  }, 2, 0.06, 0.12, 0.7),
+  }, 2, 0.06, 0.12, 0.7, 'combat'),
 
   hurt: def((k, t) => {
     k.noise(t, 0.05, { f: 500, type: 'lowpass', g: 1 });
     k.tone(t, 0.18, { f: 150, f1: 82, type: 'sawtooth', lp: 520, g: 0.8 });
     k.tone(t, 0.12, { f: 92, f1: 50, g: 0.9 });
-  }, 1, 0.12, 0.05, 0.75),
+  }, 1, 0.12, 0.05, 0.75, 'alert', 0.25),
 
   dodge: def((k, t) => {
     k.noise(t, 0.07, { f: 3200, f1: 6400, q: 1.2, g: 0.3, a: 0.02 });
-  }, 2, 0.06, 0.1, 1.2),
+  }, 2, 0.06, 0.1, 1.2, 'alert'),
 
   // A dry rattle that quickens: something is about to come at you.
   telegraph: def((k, t) => {
@@ -185,13 +196,13 @@ export const SOUNDS = {
       k.noise(t + gaps[i]!, 0.022, { f: 980 * k.p, q: 9, g: 0.75 + i * 0.05 });
       k.tone(t + gaps[i]!, 0.025, { f: 490, g: 0.2 });
     }
-  }, 2, 0.2, 0.05, 3),
+  }, 2, 0.2, 0.05, 3, 'alert', 0.34),
 
   elite: def((k, t) => {
     logDrum(k, t, 82, 1);
     logDrum(k, t + 0.2, 82, 0.8);
     k.rasp(t + 0.34, 0.22, { f: 700, f1: 1500, q: 2, g: 0.3, rate: 38, rate1: 80 });
-  }, 1, 0.5, 0.03, 0.9),
+  }, 1, 0.5, 0.03, 0.9, 'alert', 0.6),
 
   boss: def((k, t) => {
     logDrum(k, t, 73, 1, 0.45);
@@ -199,7 +210,7 @@ export const SOUNDS = {
     logDrum(k, t + 0.72, 49, 1.15, 0.7);
     k.noise(t + 0.72, 0.35, { f: 300, type: 'lowpass', g: 0.6 });
     k.ring(t + 0.72, 233, BELL, 0.95, 0.24);
-  }, 1, 1, 0.02, 0.75),
+  }, 1, 1, 0.02, 0.75, 'alert', 1.1),
 
   bossDeath: def((k, t) => {
     k.noise(t, 0.6, { f: 4200, f1: 180, type: 'lowpass', g: 1.1 });
@@ -242,6 +253,32 @@ export const SOUNDS = {
     k.ring(t + 0.16, 1320, BAR, 0.8, 0.32);
     k.knock(t, 300, 0.4);
   }, 1, 0.4, 0.02, 0.6),
+
+  // Low health: two dull thumps, the second softer. Played on a timer while
+  // the player is under 30%, quicker under 15%.
+  heart: def((k, t) => {
+    k.tone(t, 0.13, { f: 96, f1: 58, g: 1 });
+    k.tone(t, 0.06, { f: 176, f1: 120, g: 0.35 });
+    k.noise(t, 0.03, { f: 260, type: 'lowpass', g: 0.5 });
+    // the part a phone speaker can carry: a soft knock over each thump
+    k.tone(t, 0.05, { f: 380, f1: 300, g: 0.5 });
+    k.noise(t, 0.02, { f: 700, q: 2, g: 0.3 });
+    k.tone(t + 0.17, 0.12, { f: 84, f1: 52, g: 0.7 });
+    k.tone(t + 0.17, 0.05, { f: 160, f1: 110, g: 0.22 });
+    k.noise(t + 0.17, 0.025, { f: 240, type: 'lowpass', g: 0.32 });
+    k.tone(t + 0.17, 0.045, { f: 340, f1: 270, g: 0.34 });
+    k.noise(t + 0.17, 0.018, { f: 640, q: 2, g: 0.2 });
+  }, 1, 0.3, 0.02, 0.8, 'alert'),
+
+  // The wave paid: tokens counted out onto the block, each a little higher.
+  paid: def((k, t) => {
+    const at = [0, 0.07, 0.14, 0.21, 0.31];
+    for (let i = 0; i < at.length; i++) {
+      k.ring(t + at[i]!, 2300 * Math.pow(2, [0, 2, 4, 7, 12][i]! / 12), TOKEN, i === 4 ? 0.16 : 0.07, i === 4 ? 0.34 : 0.24);
+      k.noise(t + at[i]!, 0.006, { f: 5600, type: 'highpass', g: 0.14 });
+    }
+    k.knock(t + 0.31, 300, 0.4, 0.05);
+  }, 1, 0.4, 0.02, 0.55),
 
   // ---------------------------------------------------------------- the bench
 
@@ -346,7 +383,7 @@ export const SOUNDS = {
     k.ring(t + 0.42, 1500, BAR.slice(0, 3), 0.16, 0.24);
     k.knock(t + 0.5, 250, 0.35, 0.05);
     k.ring(t + 0.63, 1350, BAR.slice(0, 2), 0.1, 0.12);
-  }, 1, 1, 0.02, 0.9),
+  }, 1, 1, 0.02, 0.9, 'alert', 1),
 
   // Twelve waves done: the triangle rung hard and a drum under it.
   win: def((k, t) => {

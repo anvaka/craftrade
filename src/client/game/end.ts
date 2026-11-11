@@ -1,9 +1,10 @@
-// Run end: the recap and the choice of what to carry home.
+// Run end. The recap is one sheet and it belongs to the town (see
+// town/homecoming.ts). The game only stops here when there is something to
+// choose: more items that could go home than may. Then it asks that one
+// question and nothing else.
 import type { Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
 import { effectText, itemTier, type ItemSpec } from '../../shared/item.ts';
-import { DEATH_RAW_KEEP } from '../../shared/protocol.ts';
-import { RAWS } from '../../shared/vocab.ts';
 import { ENEMIES, ENEMY_INDEX, WEAPONS, WEAPON_INDEX, carryLimit, carryable, summary, type Run } from '../../sim/index.ts';
 import { cap, clock, el, ic, stamp, tier } from './dom.ts';
 
@@ -17,6 +18,30 @@ export function killerName(run: Run): string | null {
   const id = run.killedBy;
   if (!id || id === 'abandoned') return null;
   return ENEMIES[ENEMY_INDEX[id]]?.name ?? SOURCE_NAME[id] ?? cap(id);
+}
+
+/** "The stag", "Old Tusk": a name as the subject of a sentence about one particular thing. */
+export function theName(name: string): string {
+  const n = name.trim();
+  return /^(the|old) /i.test(n) ? n : `The ${n.toLowerCase()}`;
+}
+
+/** "A mite got you.", "Old Tusk got you.": what hurt you, on the line a run ends on. */
+export function gotYou(name: string): string {
+  const n = name.trim();
+  if (/^(the|old) /i.test(n)) return `${n} got you.`;
+  const low = n.toLowerCase();
+  if (/s$/.test(low) || low === 'burn' || low === 'thorns') return `${cap(low)} got you.`;
+  return `${/^[aeiou]/.test(low) ? 'An' : 'A'} ${low} got you.`;
+}
+
+/** What goes home when nobody is asked: the highest tiers, up to the limit. */
+export function defaultCarry(run: Run): ItemSpec[] {
+  const limit = carryLimit(run);
+  const pool = carryable(run);
+  if (limit <= 0) return [];
+  return pool.map((it, i) => [itemTier(it), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]).slice(0, limit)
+    .map(([, i]) => i).sort((a, b) => a - b).map((i) => pool[i]);
 }
 
 export interface EndScreen { el: HTMLElement; destroy(): void }
@@ -54,96 +79,47 @@ export function createEndScreen(parent: HTMLElement, S: Sprites, run: Run, quit:
     const scroll = root.scrollTop;
     const head = el('header', 'page-head',
       el('div', '', el('div', 'label', sum.won ? 'Run won' : 'Run over'), el('h1', '', title)),
-      el('div', 'meta', el('span', 'note', `${clock(sum.seconds)} in the clearing`)));
+      el('div', 'meta', el('span', 'note', killer && !sum.won ? `${gotYou(killer)} ${clock(sum.seconds)} in the clearing.` : `${clock(sum.seconds)} in the clearing.`)));
 
-    // Recap.
-    const facts = el('table', 'ledger');
-    const row = (k: string, v: string): void => { facts.append(el('tr', '', el('td', '', k), el('td', 'num', v))); };
-    row('Waves cleared', `${sum.wavesCleared} of ${sum.totalWaves}`);
-    if (killer) row('Killed by', killer);
-    row('Time', clock(sum.seconds));
-    row('Level', String(sum.level));
-    row('Kills', String(sum.kills));
-    row('Scrip earned', String(sum.scripEarned));
-    row('Damage taken', String(Math.round(sum.damageTaken)));
-
-    const dmg = Object.entries(sum.damageBy).sort((a, b) => b[1] - a[1]);
-    const top = dmg.length ? dmg[0][1] : 1;
-    const bars = el('div', 'g-bars');
-    for (const [id, v] of dmg) {
-      const bar = el('i');
-      bar.style.width = `${Math.max(1, Math.round((v / top) * 100))}%`;
-      bars.append(el('div', 'g-bar', el('span', 'g-bar-name', sourceName(id)), el('span', 'g-bar-rule', bar), el('span', 'num', String(v))));
-    }
-    if (!dmg.length) bars.append(el('p', 'note', 'No damage dealt.'));
-
-    const raws = el('table', 'ledger');
-    raws.append(el('tr', '', el('th', '', 'Raw'), el('th', 'num wide', 'Gathered'), el('th', 'num', 'Mule'), el('th', 'num', 'Held'), el('th', 'num', 'Goes home')));
-    for (const r of RAWS) {
-      const home = sum.mule[r] + (sum.won ? sum.raws[r] : Math.floor(sum.raws[r] * DEATH_RAW_KEEP));
-      raws.append(el('tr', '',
-        el('td', '', el('div', 'thing', ic(S.icon.raw[r]), el('span', '', cap(r)))),
-        el('td', 'num wide', String(sum.rawsGathered[r])), el('td', 'num', String(sum.mule[r])), el('td', 'num', String(sum.raws[r])),
-        el('td', 'num g-home', String(home))));
-    }
-    const rule = sum.won
-      ? 'You won, so everything you hold goes home with the mule loads.'
-      : `Mule loads go home whole. Of the raws you held, ${Math.round(DEATH_RAW_KEEP * 100)}% go home, rounded down.`;
-
-    // Carry.
-    const carry = el('section', 'section');
-    carry.append(el('h2', '', 'Carry home'));
-    const nextAt = (Math.floor(sum.wavesCleared / 4) + 1) * 4;
-    if (limit <= 0) {
-      carry.append(el('p', 'note', nextAt <= sum.totalWaves
-        ? `No items go home this time. Clear wave ${nextAt} and you carry 1.`
-        : 'No items go home this time.'));
-    } else {
-      carry.append(el('p', 'note', `You may carry ${limit} ${limit === 1 ? 'item' : 'items'}: one for every 4 waves cleared.`));
-      if (pool.length === 0) carry.append(el('p', '', 'You hold nothing that can be carried.'));
-      const tbl = el('table', 'ledger g-items');
-      pool.forEach((it, i) => {
-        const on = chosen.has(i);
-        const btn = stamp(on ? 'Carrying' : 'Carry', `stamp--plain stamp--small${on ? ' is-pressed' : ''}`);
-        btn.setAttribute('aria-pressed', String(on));
-        btn.dataset.fk = `carry${i}`;
-        btn.addEventListener('click', (ev) => {
-          if (on) { chosen.delete(i); line = ''; }
-          else if (chosen.size >= limit) { line = `The limit is ${limit}. Put one back first.`; audio.play('lock', { pitch: 0.7, gain: 0.7 }); }
-          else { chosen.add(i); line = ''; audio.play('stamp'); }
-          render();
-          if ((ev as MouseEvent).detail === 0) (root.querySelector(`[data-fk="carry${i}"]`) as HTMLElement | null)?.focus();
-        });
-        tbl.append(el('tr', on ? 'g-carrying' : '',
-          el('td', '', el('div', 'thing', ic(S.icon.glyph[it.glyph]),
-            el('span', '', el('span', 'g-item-name', it.name, tier(itemTier(it))), el('span', 'g-sub', it.effects.map((e) => effectText(e)).join(', '))))),
-          el('td', 'act', btn)));
+    const carry = el('section', 'section g-first');
+    carry.append(el('h2', '', 'What comes home with you'));
+    carry.append(el('p', 'note', `You may carry ${limit} of these ${pool.length} items: one for every 4 waves cleared. The rest stay in the clearing.`));
+    const tbl = el('table', 'ledger g-items');
+    pool.forEach((it, i) => {
+      const on = chosen.has(i);
+      const btn = stamp(on ? 'Carrying' : 'Carry', `stamp--plain stamp--small${on ? ' is-pressed' : ''}`);
+      btn.setAttribute('aria-pressed', String(on));
+      btn.dataset.fk = `carry${i}`;
+      btn.addEventListener('click', (ev) => {
+        if (on) { chosen.delete(i); line = ''; }
+        else if (chosen.size >= limit) { line = `The limit is ${limit}. Put one back first.`; audio.play('lock', { pitch: 0.7, gain: 0.7 }); }
+        else { chosen.add(i); line = ''; audio.play('stamp'); }
+        render();
+        if ((ev as MouseEvent).detail === 0) (root.querySelector(`[data-fk="carry${i}"]`) as HTMLElement | null)?.focus();
       });
-      if (pool.length) carry.append(tbl);
-      if (run.player.itemKit.some(Boolean)) carry.append(el('p', 'note', 'Kit items are not listed. They wear out here.'));
-    }
+      tbl.append(el('tr', on ? 'g-carrying' : '',
+        el('td', '', el('div', 'thing', ic(S.icon.glyph[it.glyph]),
+          el('span', '', el('span', 'g-item-name', it.name, tier(itemTier(it))), el('span', 'g-sub', it.effects.map((e) => effectText(e)).join(', '))))),
+        el('td', 'act', btn)));
+    });
+    carry.append(tbl);
+    if (run.player.itemKit.some(Boolean)) carry.append(el('p', 'note', 'Kit items are not listed. They wear out here.'));
 
-    const go = stamp('Head back to town', 'stamp--town');
+    const go = stamp('Head home', 'stamp--town');
     go.dataset.fk = 'go';
     go.addEventListener('click', finish);
     const note = el('div', `notice g-reason g-reason--bad${line ? '' : ' is-empty'}`, el('span', 'tag', 'No'), el('span', 'text', line));
     note.setAttribute('role', 'status');
     const foot = el('div', 'g-foot', note,
       el('div', 'g-foot-row',
-        el('span', 'note', limit > 0 && pool.length ? `Carrying ${chosen.size} of ${limit}.` : ''),
+        el('span', 'note', `Carrying ${chosen.size} of ${limit}.`),
         el('div', 'g-foot-acts', go)));
 
-    root.replaceChildren(
-      el('div', 'page g-page', head,
-        el('div', 'g-cols',
-          el('div', 'g-main',
-            el('section', 'section g-first', el('h2', '', 'Raws'), raws, el('p', 'note', rule)),
-            carry),
-          el('aside', 'g-side',
-            el('section', 'section g-first', el('h2', '', 'The run'), facts),
-            el('section', 'section', el('h2', '', 'Damage by source'), bars)))),
-      foot);
+    root.replaceChildren(el('div', 'page g-page', head, carry), foot);
     root.scrollTop = scroll;
+    if (!document.activeElement || document.activeElement === document.body || document.activeElement === root) {
+      (root.querySelector('[data-fk="go"]') as HTMLElement | null)?.focus({ preventScroll: true });
+    }
   }
 
   parent.append(root);
