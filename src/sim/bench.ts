@@ -311,7 +311,8 @@ export function combineWeapons(run: Run, i: number): boolean {
 
 function tierUpRaws(run: Run, i: number): RawBag {
   const ch = CHARACTER[run.character], w = run.player.weapons[i];
-  return ch.noUpgradeRaws || run.player.sp[SP.noRawCost] > 0 ? emptyRaws() : recipeRaws(run, WEAPONS[w.def].raws, 1);
+  // The Company draft covers weapons bought at the bench, not work on weapons already held.
+  return ch.noUpgradeRaws ? emptyRaws() : recipeRaws(run, WEAPONS[w.def].raws, 1);
 }
 
 /** Why held weapon i cannot be raised a tier right now, or null. A tier opens at the bench where offers can first roll it. */

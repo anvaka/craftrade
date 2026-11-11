@@ -119,7 +119,7 @@ export const WAVE_HP: readonly number[] = [1, 1, 1, 1, 1, 1.1, 1.2, 1.35, 1.5, 1
 /** Damage multiplier for every enemy by wave number. Late waves have to be able to hurt a build with Armor. */
 export const WAVE_DMG: readonly number[] = [1, 1, 1, 1, 1, 1, 1.1, 1.15, 1.25, 1.35, 1.5, 1.6];
 /** Enemy health and spawn interval multipliers per hazard level. The rules do most of the work; these trim. */
-export const HAZARD_HP: readonly number[] = [1, 1.37, 1.4, 1.45, 1.45, 1.5];
+export const HAZARD_HP: readonly number[] = [1, 1.28, 1.4, 1.45, 1.45, 1.62];
 export const HAZARD_PACE: readonly number[] = [1, 0.97, 0.95, 0.93, 0.93, 0.92];
 /** Each shot of a hazard 4 volley does this share of a single spit. */
 export const VOLLEY_DMG = 0.7;
