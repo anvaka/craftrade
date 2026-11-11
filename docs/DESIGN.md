@@ -392,8 +392,8 @@ authored, and each breaks one rule of the game. None is a bigger number.
 | Hide blind | Nothing can hurt you while you work a node | 15.0% | 10,000 | 47.3% (+3.0) |
 | Pack saddle | Carry home one more item | 13.0% | 11,538 | 44.3% (a town rule: the fight is the same) |
 | Seed corn | A broken node grows back once in the same wave | 10.5% | 14,286 | 51.7% (+7.4) |
-| Company draft | Weapons at the bench need no raws | 9.0% | 16,667 | 55.0% (+10.7) |
-| Brandy flask | Once a run, a killing blow leaves you standing at half health | 8.0% | 18,750 | 57.7% (+13.4) |
+| Company draft | Weapons at the bench need half their raws | 9.0% | 16,667 | 68.7% (+13.4 over 55.3%, after the depth pass) |
+| Brandy flask | Once a run, a killing blow leaves you standing at a quarter health | 8.0% | 18,750 | 69.0% (+13.7 over 55.3%, after the depth pass) |
 | Saddle scabbard | Hold one more weapon | 7.5% | 20,000 | 54.3% (+10.0) |
 
 Win rates are the balance bot as a Greenhorn over 300 seeds with the relic

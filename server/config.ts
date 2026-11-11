@@ -66,6 +66,8 @@ export const RUN_RATE = { perHour: 12, perDay: 80, ipMul: 3 };
 export const MARKS_PER_WAVE = 3;
 /** Scrip held at the end pays one mark for this much. It was 10: hoarding scrip on the last wave paid better than spending it. */
 export const SCRIP_PER_MARK = 20;
+/** Report caps grow by this share per hazard level. Measured: hazard adds no scrip or raws and at most 6.5% kills (docs/critique/depth-after.md). */
+export const HAZARD_REPORT_SLACK = 0.1;
 
 // Hazard, the kit cap, the sinks and the market gates are shared with the town pages: src/shared/rules.ts.
 export {

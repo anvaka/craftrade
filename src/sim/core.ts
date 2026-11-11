@@ -444,9 +444,9 @@ export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, o
       p.iframes = 1.2;
       emit(run, 'secondWind', p.x, p.y, p.hp);
     } else if (sp[SP.secondLife] > 0 && !p.secondLifeUsed) {
-      // Brandy flask: once a run, back on the feet at half health.
+      // Brandy flask: once a run, back on the feet at a quarter health.
       p.secondLifeUsed = true;
-      p.hp = Math.max(1, Math.ceil(p.maxHp / 2));
+      p.hp = Math.max(1, Math.ceil(p.maxHp / 4));
       p.iframes = 0.8;
       emit(run, 'secondWind', p.x, p.y, p.hp);
     } else {

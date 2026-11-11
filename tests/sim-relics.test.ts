@@ -207,7 +207,7 @@ describe('relics: one rule each', () => {
     expect(bare.nodes[0].alive).toBe(false);
   });
 
-  it('Company draft: weapons at the bench need no raws', () => {
+  it('Company draft: weapons at the bench need half their raws', () => {
     const rawsAsked = (kit: ItemSpec[]): { weapon: number; item: number } => {
       const total = { weapon: 0, item: 0 };
       for (let seed = 1; seed <= 6; seed++) {
@@ -223,7 +223,9 @@ describe('relics: one rule each', () => {
     };
     const bare = rawsAsked([]), held = rawsAsked([relic('companydraft')]);
     expect(bare.weapon).toBeGreaterThan(10);
-    expect(held.weapon).toBe(0);
+    // Half each raw, rounded down, so at most half the total and well short of it.
+    expect(held.weapon).toBeGreaterThan(0);
+    expect(held.weapon).toBeLessThanOrEqual(Math.floor(bare.weapon / 2));
     // Items are not weapons: they cost what they always cost.
     expect(held.item).toBe(bare.item);
     expect(held.item).toBeGreaterThan(10);
@@ -235,13 +237,13 @@ describe('relics: one rule each', () => {
     expect(q.raws.timber + q.raws.ore + q.raws.hide).toBeGreaterThan(0);
   });
 
-  it('Brandy flask: once a run, a killing blow leaves you standing at half health', () => {
+  it('Brandy flask: once a run, a killing blow leaves you standing at a quarter health', () => {
     const run = quietRun([relic('brandyflask')]);
     disarm(run);
     run.player.base[ST.maxHp] = 40; rebuild(run); run.player.hp = 3;
     expect(hurtPlayer(run, 500, 0, -1, 0)).toBe(true);
     expect(run.phase).toBe('wave');
-    expect(run.player.hp).toBe(Math.ceil(run.player.maxHp / 2));
+    expect(run.player.hp).toBe(Math.ceil(run.player.maxHp / 4));
     expect(run.player.secondLifeUsed).toBe(true);
     expect(run.player.iframes).toBeGreaterThan(0.5);
     // Once a run, not once a wave: it is still spent after the bench.

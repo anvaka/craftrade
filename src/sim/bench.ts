@@ -101,8 +101,9 @@ function setWeaponOffer(run: Run, o: Offer, def: number, tier: number): void {
   const w = WEAPONS[def];
   o.kind = 'weapon'; o.id = w.id; o.tier = tier; o.item = null; o.commission = false;
   o.price = weaponPrice(run, w.id, tier, run.bench.index);
-  // Company draft: weapons are had on account. Items still cost their raws.
-  o.raws = run.player.sp[SP.noRawCost] > 0 ? emptyRaws() : recipeRaws(run, w.raws, w.plainAtOne ? tier - 1 : tier);
+  // Company draft: half the raws of a bench weapon go on account (rounded in the buyer's favour). Items still cost theirs.
+  o.raws = recipeRaws(run, w.raws, w.plainAtOne ? tier - 1 : tier);
+  if (run.player.sp[SP.noRawCost] > 0) for (const r of RAWS) o.raws[r] = Math.floor(o.raws[r] / 2);
 }
 
 /** Highest tier this bench can roll. */

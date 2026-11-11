@@ -12,7 +12,7 @@ import { RAWS, emptyRaws, type RawBag } from '../src/shared/vocab.ts';
 import { ENEMIES, WAVES, WAVE_PLAN, createRun, offerOdds } from '../src/sim/index.ts';
 import { awardTitles, note } from './almanac.ts';
 import {
-  BOSS_WAVE_MIN_SECONDS, CHARACTERS, DURATION_SLACK_SECONDS, FEATURE_AT, HAZARD_MARKS, MARKS_PER_WAVE, MAX_HAZARD, MIN_REPORT_SECONDS,
+  BOSS_WAVE_MIN_SECONDS, CHARACTERS, DURATION_SLACK_SECONDS, FEATURE_AT, HAZARD_MARKS, HAZARD_REPORT_SLACK, MARKS_PER_WAVE, MAX_HAZARD, MIN_REPORT_SECONDS,
   REPORT_CAPS, RUN_RATE, SCRIP_PAID_CAP, SCRIP_PER_MARK, TICKET_TTL_MS, UNCHECKED_PAY, charactersFor, featuresFor,
 } from './config.ts';
 import { tx } from './db.ts';
@@ -184,9 +184,9 @@ function checkReport(ctx: Ctx, t: Ticket, r: RunEndReq) {
   const elapsed = ctx.now() - t.started;
   if (elapsed < minDurationMs(r.wavesCleared, t.waves)) throw forged('The run ended sooner than its waves allow.', 'too_fast');
 
-  // Until the sim's hazard scaling has been measured, a level is allowed a quarter more of everything.
+  // A hazard level is allowed a little more of everything (measured slack, see config).
   const k = capIndex(t, r.wavesCleared);
-  const slack = 1 + 0.25 * t.hazard;
+  const slack = 1 + HAZARD_REPORT_SLACK * t.hazard;
   const tiers = JSON.parse(t.stations || '{}') as Partial<Record<StationId, number>>;
   const stationOf: Record<string, StationId> = { timber: 'sawmill', ore: 'smelter', hide: 'tannery' };
   const lift = (tier: number) => 1 + REPORT_CAPS.rawsPerStationTier * Math.max(0, tier - 1);
@@ -356,7 +356,7 @@ export async function endRun(ctx: Ctx, player: Player, r: RunEndReq): Promise<Ru
       }
       // Scrip held pays only up to what a run can plausibly hold at that point; hazard pays a little more.
       const k = capIndex(t, r.wavesCleared);
-      const slack = 1 + 0.25 * t.hazard;
+      const slack = 1 + HAZARD_REPORT_SLACK * t.hazard;
       let heldPaid = Math.min(r.scripHeld, Math.round(SCRIP_PAID_CAP[k] * slack));
       if (ctx.replay !== 'off' && verified !== 1) {
         // Not played again by the server: taken, but paid no better than an ordinary run.
