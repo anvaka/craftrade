@@ -152,7 +152,7 @@
   position: absolute;
   right: 2px;
   top: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
 }
@@ -229,6 +229,10 @@
 }
 .g-tl .hp {
   align-self: stretch;
+  max-width: none;
+}
+.g-tl .hp .num {
+  white-space: nowrap;
 }
 .g-tl .hp .bar {
   flex: 1 1 auto;
@@ -259,6 +263,66 @@
   font-size: 16px;
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* A phone on its side: the side columns are too narrow to share a row with
+   the elite bar, so the middle pieces take a row of their own. */
+@media (min-width: 621px) and (max-width: 960px) {
+  .hud.g-hud {
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      'tl tc tr'
+      'sl sl bk'
+      'mid mid mid'
+      '. . .'
+      '. . snd';
+  }
+  .g-tl {
+    justify-self: stretch;
+  }
+  .g-tl .hp .bar {
+    min-width: 60px;
+  }
+}
+
+/* The same phone is also short. The elite bar and the notices would sit on
+   the player's head, so they go to the foot, between the thumbs. Touches pass
+   through them. */
+@media (min-width: 621px) and (max-height: 520px) {
+  .hud.g-hud {
+    grid-template-rows: auto auto 1fr auto auto;
+    grid-template-areas:
+      'tl tc tr'
+      'sl . bk'
+      '. . .'
+      'mid mid mid'
+      '. . snd';
+  }
+  .g-mid {
+    flex-direction: column-reverse;
+  }
+}
+
+/* Touch: the foot of the screen belongs to the thumbs. Pause moves up beside
+   the weapon slots; sound and volume are one press away in the pause panel. */
+@media (pointer: coarse) {
+  .hud.g-hud .g-snd {
+    grid-area: bk;
+    align-self: start;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .hud.g-hud .g-snd .mute,
+  .hud.g-hud .g-snd .vol {
+    display: none;
+  }
+  .hud.g-hud .g-snd .stamp {
+    min-width: 64px;
+  }
+  .g-panel-rows .stamp--small {
+    min-width: 64px;
+  }
 }
 
 @media (max-width: 620px) {
@@ -329,6 +393,13 @@
   inset: 0;
   -webkit-user-select: text;
   user-select: text;
+}
+/* The sheets over the run scroll up and down and nothing else: a pinch here
+   would leave the clearing zoomed, and the clearing takes no pinch to undo it. */
+.g-bench,
+.g-end,
+.g-pause {
+  touch-action: pan-y;
 }
 .g-bench,
 .g-end {
@@ -445,7 +516,7 @@
 }
 .g-foot-acts {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-left: auto;
 }
 .g-reason {
@@ -554,7 +625,7 @@
 .g-anvil-picks {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 0 10px;
   border-bottom: var(--hair) solid var(--ink);
 }
@@ -719,7 +790,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  overflow-y: auto;
   background-image: var(--hatch);
 }
 .g-panel {

@@ -909,3 +909,18 @@ p.num,
 .stamp.is-armed {
   min-width: 0;
 }
+
+/* ---- touch ---------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  .field {
+    min-height: 44px;
+  }
+  .step-b {
+    min-width: 44px;
+  }
+  .step-n {
+    min-height: 44px;
+    width: 52px;
+  }
+}

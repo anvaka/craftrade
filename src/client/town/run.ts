@@ -85,6 +85,18 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
   try {
     const mounting = loadMountRun();
     mounting.catch(() => {});
+    if (!app.online) {
+      // On a slow phone line the first hello may still be on its way. Give it
+      // a few seconds before settling for a run the town will never hear of.
+      try {
+        const h = await api.hello(6000);
+        setProfile(h.profile);
+        app.stations = h.stations;
+        app.online = true;
+      } catch {
+        // really out of reach: go on alone
+      }
+    }
     if (app.online) {
       try {
         ticket = await api.runStart(mode, launch.character, launch.kit);
@@ -184,28 +196,38 @@ export async function headOut(mode: Mode = 'run'): Promise<void> {
   }
 }
 
+/** Waits between tries when the town cannot be reached with a finished run in hand. A phone drops out for seconds at a time. */
+const REPORT_RETRY_MS = [2500, 5000];
+
 async function sendReport(runId: string, recap: RunRecap): Promise<Report> {
-  try {
-    const res = await api.runEnd({ ...recap.report, runId });
-    setProfile(res.profile);
-    app.online = true;
-    return { state: 'saved', res };
-  } catch (e) {
-    const fail = asFail(e);
-    if (fail.unreachable) {
-      app.online = false;
-      watchReach();
-    } else if (fail.code === 'run_ended') {
-      // An earlier try landed and its reply was lost. The account has the goods.
-      try {
-        const h = await api.hello(4000);
-        setProfile(h.profile);
-      } catch {
-        // the town head will catch up on the next answer
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await api.runEnd({ ...recap.report, runId });
+      setProfile(res.profile);
+      app.online = true;
+      return { state: 'saved', res };
+    } catch (e) {
+      const fail = asFail(e);
+      if (fail.unreachable) {
+        const wait = REPORT_RETRY_MS[attempt];
+        if (wait !== undefined) {
+          await new Promise((r) => setTimeout(r, wait));
+          continue;
+        }
+        app.online = false;
+        watchReach();
+      } else if (fail.code === 'run_ended') {
+        // An earlier try landed and its reply was lost. The account has the goods.
+        try {
+          const h = await api.hello(4000);
+          setProfile(h.profile);
+        } catch {
+          // the town head will catch up on the next answer
+        }
+        return { state: 'lost-reply' };
       }
-      return { state: 'lost-reply' };
+      return { state: 'refused', fail };
     }
-    return { state: 'refused', fail };
   }
 }
 

@@ -76,13 +76,13 @@ class AudioEngine {
   private arm(): void {
     if (this.armed || typeof window === 'undefined') return;
     this.armed = true;
+    // Kept for the life of the page: iOS Safari only counts touchend and click
+    // as a gesture, and it can put a running context back to sleep
+    // ("interrupted") after a call, an alarm or a trip to another app.
     const go = (): void => {
-      this.unlock();
-      if (this.ac && this.ac.state === 'running') {
-        for (const ev of ['pointerdown', 'keydown', 'touchend'] as const) window.removeEventListener(ev, go, true);
-      }
+      if (!this.ac || this.ac.state !== 'running') this.unlock();
     };
-    for (const ev of ['pointerdown', 'keydown', 'touchend'] as const) window.addEventListener(ev, go, true);
+    for (const ev of ['pointerdown', 'keydown', 'touchend', 'click'] as const) window.addEventListener(ev, go, { capture: true, passive: true });
     document.addEventListener('visibilitychange', () => {
       if (!this.ac) return;
       if (document.hidden) void this.ac.suspend();

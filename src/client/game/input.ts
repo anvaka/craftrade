@@ -34,27 +34,40 @@ export function createInput(stage: HTMLElement): MoveInput {
     if (e.code.startsWith('Arrow') && !stage.hidden) e.preventDefault();
   };
   const onKeyUp = (e: KeyboardEvent): void => { down.delete(e.code); };
-  const clear = (): void => { down.clear(); endTouch(); };
+  const clear = (): void => { down.clear(); spare.clear(); endTouch(); };
 
   function endTouch(): void {
     touchId = -1; tx = 0; ty = 0;
     stick.hidden = true;
   }
-  const onPointerDown = (e: PointerEvent): void => {
-    if (e.pointerType === 'mouse' || touchId !== -1) return;
-    if ((e.target as HTMLElement).closest('button, input, a, .g-overlay')) return;
-    touchId = e.pointerId;
-    const r = stage.getBoundingClientRect();
-    ox = e.clientX - r.left; oy = e.clientY - r.top; tx = 0; ty = 0;
+  // Other fingers resting on the clearing, and where each one is now. When the
+  // steering finger lifts, the newest of these takes the stick over, so a
+  // player can change thumbs without the character stopping dead for good.
+  const spare = new Map<number, { x: number; y: number }>();
+  function plant(id: number, x: number, y: number): void {
+    touchId = id;
+    ox = x; oy = y; tx = 0; ty = 0;
     stick.style.left = `${ox - 56}px`;
     stick.style.top = `${oy - 56}px`;
     stick.style.setProperty('--x', '0px');
     stick.style.setProperty('--y', '0px');
     stick.hidden = false;
+  }
+  const onPointerDown = (e: PointerEvent): void => {
+    if (e.pointerType === 'mouse') return;
+    if ((e.target as HTMLElement).closest('button, input, a, .g-overlay')) return;
+    const r = stage.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    if (touchId !== -1) { spare.set(e.pointerId, { x, y }); e.preventDefault(); return; }
+    plant(e.pointerId, x, y);
     e.preventDefault();
   };
   const onPointerMove = (e: PointerEvent): void => {
-    if (e.pointerId !== touchId) return;
+    if (e.pointerId !== touchId) {
+      const sp = spare.get(e.pointerId);
+      if (sp) { const r = stage.getBoundingClientRect(); sp.x = e.clientX - r.left; sp.y = e.clientY - r.top; }
+      return;
+    }
     const r = stage.getBoundingClientRect();
     let dx = e.clientX - r.left - ox, dy = e.clientY - r.top - oy;
     const d = Math.hypot(dx, dy);
@@ -70,7 +83,22 @@ export function createInput(stage: HTMLElement): MoveInput {
     stick.style.setProperty('--x', `${dx}px`);
     stick.style.setProperty('--y', `${dy}px`);
   };
-  const onPointerUp = (e: PointerEvent): void => { if (e.pointerId === touchId) endTouch(); };
+  const onPointerUp = (e: PointerEvent): void => {
+    if (e.pointerId !== touchId) { spare.delete(e.pointerId); return; }
+    endTouch();
+    let last = -1;
+    for (const id of spare.keys()) last = id;
+    if (last !== -1) {
+      const sp = spare.get(last)!;
+      spare.delete(last);
+      plant(last, sp.x, sp.y);
+    }
+  };
+  // iOS Safari: a touch that starts on the clearing must never scroll, zoom,
+  // select or start an edge swipe. touch-action covers most of it; this covers the rest.
+  const onTouch = (e: TouchEvent): void => {
+    if (!(e.target as HTMLElement).closest('button, input, a, .g-overlay') && e.cancelable) e.preventDefault();
+  };
 
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
@@ -79,6 +107,8 @@ export function createInput(stage: HTMLElement): MoveInput {
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', onPointerUp);
+  stage.addEventListener('touchstart', onTouch, { passive: false });
+  stage.addEventListener('touchmove', onTouch, { passive: false });
 
   const self: MoveInput = {
     used: false,
@@ -122,6 +152,8 @@ export function createInput(stage: HTMLElement): MoveInput {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
+      stage.removeEventListener('touchstart', onTouch);
+      stage.removeEventListener('touchmove', onTouch);
       stick.remove();
     },
   };

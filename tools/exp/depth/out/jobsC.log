@@ -1,0 +1,6 @@
+135 jobs
+toolsOnly greenhorn: 9/200 = 4.5%
+toolsHeavy greenhorn: 49/200 = 24.5%
+fuseProc greenhorn: 83/200 = 41.5%
+fuseProcSmart greenhorn: 82/200 = 41.0%
+fuseProcAlways greenhorn: 80/200 = 40.0%

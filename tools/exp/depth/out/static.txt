@@ -1,0 +1,59 @@
+## Content counts
+
+characters 6; weapons 12 x 4 tiers; items 43 (tier 1/2/3/4: 20/12/7/4); stats 13; special primitives 24; enemies 10 (7 regular, 2 elites, 1 boss); waves 12; weapon classes 4
+primitives carried by exactly one authored item: mend, dodge, speed, nodeHeal, richNodes, hoardTimber, hoardOre, hoardHide, lowHpRate, movingDodge, hurtBlast, eliteDamage, magnet, xpGain, secondWind
+primitives carried by no authored item: none
+items with a drawback: 28 of 43; items that change a rule rather than add a number (special primitive): 34
+mean points per item by tier: 8.8 / 18.6 / 33.1 / 69.3
+
+## Weapons: single-target damage per second with no stats, and per scrip of base price
+
+| weapon | class | T1 dps | T4 dps | T4/T1 | T1 dps per base scrip | T4 dps per scrip spent on 8 T1 copies | dps gained per point of its stat | per tier I upgrade pick | hits many |
+|---|---|---|---|---|---|---|---|---|---|
+| hatchet | edge/tool | 5.4 | 23.8 | 4.4 | 0.45 | 0.25 | 0.84 (melee) | 1.68 | arc 110 |
+| pick | blunt/tool | 6.1 | 26.1 | 4.3 | 0.51 | 0.27 | 0.78 (melee) | 1.57 | line 38px |
+| knife | edge/tool | 7.2 | 31.6 | 4.4 | 0.60 | 0.33 | 1.00 (melee) | 2.00 | line 30px |
+| maul | blunt | 7.5 | 30.8 | 4.1 | 0.42 | 0.21 | 0.63 (melee) | 1.25 | arc 170 |
+| pike | edge | 7.0 | 29.2 | 4.2 | 0.44 | 0.23 | 0.67 (melee) | 1.33 | line 30px |
+| sling | shot | 7.5 | 27.0 | 3.6 | 0.83 | 0.37 | 1.09 (ranged) | 1.09 | no |
+| bow | shot | 7.2 | 27.7 | 3.9 | 0.48 | 0.23 | 1.02 (ranged) | 1.02 | pierce 1 |
+| musket | shot | 8.4 | 34.4 | 4.1 | 0.42 | 0.21 | 0.75 (ranged) | 0.75 | pierce 2 |
+| axe | edge/shot | 6.7 | 25.7 | 3.8 | 0.42 | 0.20 | 0.45 (ranged) | 0.45 | bounce 1 |
+| brand | blunt | 6.0 | 23.5 | 3.9 | 0.40 | 0.20 | 0.50 (melee) | 1.00 | arc 120 |
+| bola | shot | 2.2 | 9.5 | 4.3 | 0.20 | 0.11 | 0.44 (ranged) | 0.44 | no |
+| buckler | blunt | 5.9 | 25.7 | 4.4 | 0.39 | 0.21 | 0.59 (melee) | 1.18 | line 56px |
+
+Six tier 1 copies against one tier 4 (8 copies merged, 1 slot): a T4 is worth this many T1 of the same weapon in dps:
+hatchet 4.4, pick 4.3, knife 4.4, maul 4.1, pike 4.2, sling 3.6, bow 3.9, musket 4.1, axe 3.8, brand 3.9, bola 4.3, buckler 4.4
+
+## Set bonuses against one upgrade pick
+
+edge: +3 / 6 / 10 crit at 2 / 4 / 6 held = 1.0 / 2.0 / 3.3 tier I picks of crit
+blunt: +2 / 4 / 7 maxHp at 2 / 4 / 6 held = 0.7 / 1.3 / 2.3 tier I picks of maxHp
+shot: +15 / 30 / 50 reach at 2 / 4 / 6 held = 1.0 / 2.0 / 3.3 tier I picks of reach
+tool: +5 / 10 / 16 harvest at 2 / 4 / 6 held = 1.0 / 2.0 / 3.2 tier I picks of harvest
+
+## Enemy health and damage by wave (linear)
+
+| enemy | hp w1 | hp w6 | hp w12 | x | dmg w1 | dmg w12 | x |
+|---|---|---|---|---|---|---|---|
+| mite | 4 | 15.0 | 28.2 | 7.1 | 1 | 10.3 | 10.3 |
+| gnat | 1.5 | 6.0 | 11.4 | 7.6 | 0.6 | 6.7 | 11.1 |
+| boar | 9 | 25.0 | 44.2 | 4.9 | 1.5 | 11.4 | 7.6 |
+| spitter | 7 | 19.5 | 34.5 | 4.9 | 1.5 | 10.3 | 6.9 |
+| magpie | 6 | 18.0 | 32.4 | 5.4 | 0 | 0.0 | - |
+| burrower | 10 | 27.0 | 47.4 | 4.7 | 1.5 | 11.4 | 7.6 |
+| brute | 40 | 95.0 | 161.0 | 4.0 | 3 | 14.6 | 4.9 |
+| stag | 190 | 320.0 | 476.0 | 2.5 | 2.5 | 6.9 | 2.8 |
+| rotwood | 260 | 460.0 | 700.0 | 2.7 | 4 | 9.5 | 2.4 |
+| tusk | 1500 | 2450.0 | 3590.0 | 2.4 | 4 | 9.5 | 2.4 |
+
+Player starts with 10 max HP and gains 1 per level. A wave 12 mite hit is 10.3 before armor.
+
+## Bench price of a base-48 (tier 3) item and a tier 1 sling by bench
+
+| bench | 1 | 3 | 5 | 7 | 9 | 11 |
+|---|---|---|---|---|---|---|
+| item, base 48 | 53 | 65 | 77 | 88 | 100 | 111 |
+| item, base 16 | 18 | 23 | 29 | 34 | 39 | 44 |
+| sling T1, base 9 | 10 | 14 | 18 | 22 | 26 | 29 |

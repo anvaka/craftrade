@@ -83,6 +83,8 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Pan and pinch stay; the double-tap zoom and its 300 ms wait go. */
+  touch-action: manipulation;
 }
 
 body {
@@ -172,7 +174,9 @@ canvas.icon {
   width: 100%;
   max-width: 1040px;
   margin: 0 auto;
-  padding: 0 var(--gutter) 48px;
+  /* A notch or a home indicator pushes the gutter in; without one this is the plain 16px. */
+  padding: env(safe-area-inset-top, 0px) max(var(--gutter), env(safe-area-inset-right, 0px)) calc(48px + env(safe-area-inset-bottom, 0px))
+    max(var(--gutter), env(safe-area-inset-left, 0px));
 }
 
 /* .page-head: title left, meta right, on a heavy rule over a hair rule. */
@@ -327,8 +331,8 @@ canvas.icon {
     display: none;
   }
   .ledger th {
-    font-size: 11px;
-    letter-spacing: 0.06em;
+    font-size: 12px;
+    letter-spacing: 0.04em;
     padding-right: 6px;
   }
   .ledger td {
@@ -971,6 +975,36 @@ canvas.icon {
 }
 .meter--town::before {
   background-color: var(--woad);
+}
+
+/* ---- touch ---------------------------------------------------------------- */
+
+/* Under a finger every control is at least 44px on its short side. The mouse
+   layout above keeps its tighter rows. */
+@media (pointer: coarse) {
+  .stamp,
+  .stamp--small {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .tab {
+    min-height: 44px;
+  }
+  .tab[aria-selected='true'] {
+    min-height: 50px;
+  }
+  .vol {
+    height: 44px;
+  }
+  .vol::-webkit-slider-thumb {
+    width: 16px;
+    height: 30px;
+    margin-top: -13.5px;
+  }
+  .vol::-moz-range-thumb {
+    width: 16px;
+    height: 30px;
+  }
 }
 
 /* ---- motion --------------------------------------------------------------- */

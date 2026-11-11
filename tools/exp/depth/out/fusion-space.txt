@@ -1,0 +1,29 @@
+authored items 43; tier 4 (cannot be fused) 4; all pairs 903
+
+== generation 1: authored x authored, procedural provider ==
+legal pairs 741; distinct outputs 717 (96.8% of pairs); not seen before 717
+distinct sets of positive primitives (levels ignored) 631
+output tiers 1/2/3/4: 47 / 323 / 326 / 21
+positive effects per output: mean 2.48; inherited from a parent 99.0%; a parent's positive effect is dropped 24.0% of the time
+pairs with a parent drawback 85.8%; outputs with a drawback 59.5%
+net points out - (A + B): mean 1.20, min -4, max 8, against a mean A + B of 32.4; share of pairs with net gain <= 0: 42.1%
+positive points out - (A + B): mean -1.49
+primitives never produced: none
+most produced: luck 8.7%, ranged 6.5%, crit 4.3%, burn 4.1%, rate 4.0%, harvest 3.8%; least: mend 1.7%, killScrip 1.6%, richNodes 1.5%, movingDodge 1.4%, damage 1.0%, dodge 1.0%
+
+== generation 1 with the bot's standInFusion ==
+legal pairs 741; distinct outputs 730; net points gain mean 1.82
+
+== generation 2: (authored + 696 open gen-1 outputs), pairs with at least one gen-1 item ==
+legal pairs 269004; distinct outputs 143551 (53.4% of pairs); not seen before 143262
+distinct sets of positive primitives (levels ignored) 7292
+output tiers 1/2/3/4: 91 / 3836 / 63221 / 76403
+positive effects per output: mean 2.98; inherited from a parent 99.2%; a parent's positive effect is dropped 36.5% of the time
+pairs with a parent drawback 83.1%; outputs with a drawback 58.7%
+net points out - (A + B): mean 3.13, min -33, max 11, against a mean A + B of 63.4; share of pairs with net gain <= 0: 18.1%
+positive points out - (A + B): mean 0.79
+primitives never produced: none
+most produced: luck 6.4%, ranged 6.3%, rate 5.3%, burn 4.9%, armor 4.1%, thorns 4.0%; least: reach 1.2%, interest 1.0%, richNodes 1.0%, movingDodge 0.9%, dodge 0.7%, damage 0.3%
+
+reachable in two generations: 143979 distinct fused items, 7314 distinct primitive sets
+vocabulary: 37 primitives; sets of 1-3 positive primitives: 8473

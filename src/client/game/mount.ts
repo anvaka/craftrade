@@ -101,7 +101,11 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   let beatT = 0;
   let endScreen: EndScreen | null = null;
   let stealAt = -10, stolen = 0;
-  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  // A phone, by its pointer or by having no hover and a touch screen; and any device the moment it is touched.
+  let coarse = typeof matchMedia === 'function' &&
+    (matchMedia('(pointer: coarse)').matches || (matchMedia('(hover: none)').matches && navigator.maxTouchPoints > 0));
+  const onFirstTouch = (): void => { coarse = true; };
+  stage.addEventListener('touchstart', onFirstTouch, { passive: true, once: true });
 
   // ---- first-run teaching: one line near the player, each shown once -------
   let teachMove = host.firstRun, teachWork = host.firstRun;
@@ -170,6 +174,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       pauseSound?.dispose(); pauseSound = null;
       last = performance.now();
       acc = 0;
+      slowN = 0; slowBad = 0; slowSkip = 30;
     }
   }
   root.append(pausePanel);
@@ -291,6 +296,29 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     frameMs.length = 0; workMs.length = 0; perfAt = now; perfEnemies = 0;
   }
 
+  // ---- slow devices -----------------------------------------------------------------
+  // Filling the canvas is the main cost of a frame. If most frames over two
+  // seconds of play run slower than 25 a second (so a phone capped at 30 is
+  // left alone), draw fewer pixels: device
+  // ratio x 0.75, then x 0.5. It only ever steps down, at most twice a run.
+  const SLOW_MS = 40, SLOW_WINDOW = 90;
+  let slowN = 0, slowBad = 0, slowSkip = 120;
+  function slowWatch(ms: number): void {
+    if (quality <= 0.5 || ms > 250) return;
+    if (slowSkip > 0) { slowSkip--; return; }
+    slowN++;
+    if (ms > SLOW_MS) slowBad++;
+    if (slowN < SLOW_WINDOW) return;
+    const bad = slowBad / slowN;
+    slowN = 0; slowBad = 0;
+    if (bad < 0.6) return;
+    if (capDpr(window.devicePixelRatio || 1) * quality <= 1) { quality = 0.5; return; }
+    quality = quality > 0.75 ? 0.75 : 0.5;
+    slowSkip = 90; // let the rebake and the resize settle before judging again
+    fit();
+    (window as unknown as { __quality?: number }).__quality = quality;
+  }
+
   // ---- the loop --------------------------------------------------------------------
   function frame(now: number): void {
     if (!alive) return;
@@ -299,6 +327,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     last = now;
     if (!(dt > 0)) dt = 0;
     if (dev.perf && state === 'wave' && !paused && dt > 0) frameMs.push(dt * 1000);
+    if (state === 'wave' && !paused && dt > 0 && !dev.slow) slowWatch(dt * 1000);
     if (dt > 0.25) dt = 0.25;
     if (dev.slow) dt /= dev.slow;
     if (paused || state === 'bench' || state === 'end' || state === 'done') return;
@@ -364,13 +393,17 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   // Two sprite sets may be live: `sprites` at the device pixel ratio for DOM
   // icons, and `world` at ratio x zoom so the clearing is blitted 1:1 on phones.
   let world: Sprites = sprites;
+  // The canvas may be drawn below the device ratio (never below 1) when the
+  // device cannot keep up; see slowWatch(). DOM icons stay at the full ratio.
+  let quality = 1;
   function fit(): void {
     if (!alive) return;
-    const ratio = capDpr(window.devicePixelRatio || 1);
-    if (ratio !== sprites.dpr) {
-      sprites = bakeAll(ratio);
+    const full = capDpr(window.devicePixelRatio || 1);
+    if (full !== sprites.dpr) {
+      sprites = bakeAll(full);
       hud.rebind(sprites);
     }
+    const ratio = Math.max(1, full * quality);
     const r = stage.getBoundingClientRect();
     renderer.resize(r.width, r.height, ratio);
     const want = capDpr(ratio * renderer.zoom());
@@ -399,6 +432,9 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     e.preventDefault();
     setPaused(!paused);
   };
+  // Safari's own pinch event, for versions that let it through touch-action.
+  const onGesture = (e: Event): void => { e.preventDefault(); };
+  root.addEventListener('gesturestart', onGesture);
   window.addEventListener('blur', onBlur);
   document.addEventListener('visibilitychange', onVis);
   window.addEventListener('keydown', onKey);

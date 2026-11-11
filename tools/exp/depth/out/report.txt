@@ -1,0 +1,363 @@
+
+## 0. Baseline: shipped bot, all characters
+
+| character | runs | win | 95% CI | median death wave | mean level | mean HP at win | won run seconds | scrip held at end (winners, median) | raws gathered |
+|---|---|---|---|---|---|---|---|---|---|
+| greenhorn | 200 | 40% | 33-46 | 10 | 14.9 | 80% | 518 | 981 | 91.7 |
+| sawyer | 200 | 49% | 42-56 | 11 | 15.9 | 82% | 513 | 860 | 122.7 |
+| smith | 200 | 41% | 34-47 | 10 | 15.1 | 85% | 509 | 589 | 101.0 |
+| trapper | 200 | 52% | 45-59 | 10 | 15.6 | 83% | 515 | 978 | 102.0 |
+| tinker | 200 | 28% | 22-34 | 10 | 14.4 | 73% | 520 | 904 | 103.9 |
+| clerk | 200 | 24% | 18-30 | 10 | 13.8 | 67% | 519 | 1165 | 80.1 |
+
+
+## 1a. Build archetypes among winners
+
+| character | wins | damage archetypes | with >= 5% share | effective number | top archetypes | archetype x top-2 stats | effective number | distinct weapon sets | weapon types held |
+|---|---|---|---|---|---|---|---|---|---|
+| greenhorn | 79 | 5 | 5 | 3.8 | mixed 52%, melee 15%, ranged 14%, ranged+burst 11% | 54 | 44.8 | 73 | 5.5 |
+| sawyer | 98 | 6 | 3 | 3.4 | melee 44%, mixed 39%, mixed+burst 11%, ranged+burst 2% | 54 | 43.4 | 89 | 5.4 |
+| smith | 81 | 6 | 4 | 3.7 | melee 44%, mixed 33%, mixed+burst 11%, ranged 6% | 48 | 39.0 | 73 | 5.4 |
+| trapper | 104 | 5 | 5 | 3.4 | mixed 57%, ranged 21%, mixed+burst 10%, ranged+burst 7% | 58 | 49.3 | 99 | 5.4 |
+| tinker | 55 | 6 | 3 | 3.7 | melee 44%, mixed+burst 27%, mixed 22%, melee+burst 4% | 35 | 27.8 | 48 | 3.7 |
+| clerk | 47 | 5 | 5 | 4.1 | mixed 45%, melee 21%, ranged 17%, mixed+burst 11% | 40 | 38.2 | 44 | 5.4 |
+
+Damage archetype: melee if melee weapons deal > 70% of weapon damage, ranged if < 30%, else mixed; "+x" when burn, burst, thorns, recoil or shards deal > 20% of all damage. Effective number = exp(Shannon entropy).
+
+
+## 1b. Weapons: who holds them, and do they help (shipped bot, all characters pooled)
+
+| weapon | held at end: winners | losers | share of winners' damage | runs buying it by bench 6 | win if bought early | win if not | z | only this weapon: win (CI) | mean end wave | as start weapon |
+|---|---|---|---|---|---|---|---|---|---|---|
+| hatchet | 59% | 52% | 8.7% | 627 | 42% | 38% | 1.4 | 2% (1-4) | 7.7 | - |
+| pick | 55% | 49% | 8.5% | 556 | 41% | 40% | 0.5 | 3% (1-6) | 8.2 | - |
+| knife | 56% | 60% | 6.3% | 670 | 39% | 42% | -1.2 | 2% (1-4) | 8.3 | - |
+| maul | 29% | 27% | 5.4% | 339 | 41% | 40% | 0.3 | - | - | - |
+| pike | 47% | 27% | 12.5% | 449 | 49% | 34% | 5.1 | - | - | - |
+| sling | 64% | 59% | 11.8% | 658 | 40% | 41% | -0.5 | - | - | - |
+| bow | 57% | 48% | 12.5% | 557 | 44% | 37% | 2.5 | - | - | - |
+| musket | 28% | 26% | 4.8% | 361 | 42% | 40% | 0.7 | - | - | - |
+| axe | 40% | 32% | 7.2% | 435 | 45% | 37% | 2.6 | - | - | - |
+| brand | 30% | 38% | 3.7% | 395 | 35% | 43% | -2.7 | - | - | - |
+| bola | 28% | 34% | 1.7% | 325 | 38% | 41% | -1.2 | - | - | - |
+| buckler | 26% | 25% | 1.9% | 272 | 41% | 40% | 0.2 | - | - | - |
+
+Set bonuses among 464 winners: largest class count >= 2: 100%, >= 4: 35%, 6: 0%.
+Winners hold 5.7 weapons, 2.5 of them tier 4, 5.2 distinct types, 13.5 items.
+
+
+## 1c. Upgrade picks
+
+| stat | share of picks: winners | losers past wave 6 | win with 3 free tier I picks | 95% CI | points vs no gift | mean end wave vs no gift |
+|---|---|---|---|---|---|---|
+| maxHp | 12.6% | 11.7% | - | - | - | - |
+| mend | 1.8% | 2.6% | - | - | - | - |
+| armor | 12.2% | 12.5% | - | - | - | - |
+| dodge | 9.1% | 11.2% | - | - | - | - |
+| speed | 7.6% | 7.1% | - | - | - | - |
+| damage | 11.7% | 13.5% | - | - | - | - |
+| melee | 14.6% | 13.6% | - | - | - | - |
+| ranged | 6.8% | 6.8% | - | - | - | - |
+| rate | 14.7% | 12.1% | - | - | - | - |
+| crit | 4.3% | 4.7% | - | - | - | - |
+| reach | 2.0% | 0.9% | - | - | - | - |
+| harvest | 1.2% | 1.6% | - | - | - | - |
+| luck | 1.2% | 1.8% | - | - | - | - |
+
+No gift (greenhorn, same seeds): 40% win.
+
+
+## 1d. Items: bought, and do they help
+
+| item | tier | effects | runs that bought it | bought by bench 6 (reached wave 7) | win if bought early | win if not | z | win with it as a free kit | points vs no kit | mean end wave vs no kit |
+|---|---|---|---|---|---|---|---|---|---|---|
+| whetstone | 1 | crit2 | 26% | 213 | 45% | 39% | 1.6 | - | - | - |
+| tallow | 1 | rate2 armor1- | 35% | 312 | 46% | 38% | 2.6 | - | - | - |
+| hobnails | 1 | speed2 knockback1 | 17% | 144 | 40% | 40% | 0.0 | - | - | - |
+| saltpork | 1 | maxHp2 | 45% | 424 | 44% | 38% | 1.8 | - | - | - |
+| pitch | 1 | burn1 | 8% | 99 | 41% | 40% | 0.2 | - | - | - |
+| lodestone | 1 | magnet2 | 1% | 16 | 31% | 40% | -0.7 | - | - | - |
+| tallybook | 1 | interest1 damage1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| burrs | 1 | thorns2 speed1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| splint | 1 | mend2 | 27% | 227 | 38% | 41% | -0.8 | - | - | - |
+| baitbag | 1 | killScrip2 | 46% | 377 | 39% | 41% | -0.5 | - | - | - |
+| saptap | 1 | nodeHeal2 | 39% | 455 | 35% | 44% | -3.1 | - | - | - |
+| fellingwedge | 1 | harvest2 knockback1 | 16% | 150 | 41% | 40% | 0.1 | - | - | - |
+| rabbitfoot | 1 | luck2 | 3% | 31 | 35% | 40% | -0.5 | - | - | - |
+| leadshot | 1 | ranged2 speed1- | 15% | 124 | 35% | 41% | -1.1 | - | - | - |
+| rawhidegrip | 1 | melee2 | 38% | 350 | 44% | 39% | 1.7 | - | - | - |
+| slate | 1 | xpGain2 | 49% | 410 | 38% | 42% | -1.3 | - | - | - |
+| oilcloth | 1 | waveShield2 | 45% | 383 | 47% | 37% | 3.4 | - | - | - |
+| fishhook | 1 | pierce1 | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| springsteel | 1 | bounce1 | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| smellingsalts | 1 | lowHpRate3 maxHp1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| ballastbelt | 2 | hoardOre3 armor1 speed1- | 8% | 47 | 23% | 41% | -2.4 | - | - | - |
+| timbersledge | 2 | hoardTimber3 harvest1 dodge1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| hidebundle | 2 | hoardHide3 maxHp1 speed1- | 8% | 38 | 34% | 40% | -0.8 | - | - | - |
+| tripod | 2 | stillDamage3 reach2 speed2- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| moccasins | 2 | movingDodge2 dodge2 armor1- | 50% | 172 | 37% | 41% | -0.9 | - | - | - |
+| powderhorn | 2 | killBlast2 ranged2 mend1- | 41% | 186 | 60% | 37% | 5.9 | - | - | - |
+| quarrycharge | 2 | nodeBurst2 harvest2 luck1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| coiledspring | 2 | hurtBlast3 knockback2 rate1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| favourlist | 2 | rerollCut3 luck2 damage1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| gaffhook | 2 | eliteDamage3 melee2 rate1- | 48% | 214 | 40% | 40% | -0.2 | - | - | - |
+| prospectorpan | 2 | richNodes3 luck1 melee1- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| boilerplate | 2 | armor4 thorns1 speed3- | 47% | 214 | 37% | 41% | -0.9 | - | - | - |
+| strongbox | 3 | interest4 waveShield2 luck1 speed2- | 38% | 73 | 34% | 41% | -1.1 | - | - | - |
+| horseshoe | 3 | secondWind3 luck3 damage2- | 18% | 47 | 34% | 41% | -0.9 | - | - | - |
+| emberjar | 3 | burn3 killBlast2 damage2 armor2- | 46% | 86 | 50% | 39% | 1.9 | - | - | - |
+| barbedquiver | 3 | pierce3 ranged3 crit1 melee2- | 11% | 28 | 50% | 40% | 1.1 | - | - | - |
+| drillbrace | 3 | rate4 harvest3 dodge2- | 27% | 44 | 59% | 39% | 2.6 | - | - | - |
+| surveyorglass | 3 | reach4 crit3 maxHp2- | 2% | 3 | 100% | 40% | 2.1 | - | - | - |
+| skippingstones | 3 | bounce3 ranged2 luck2 armor1- | 7% | 14 | 43% | 40% | 0.2 | - | - | - |
+| blastingkit | 4 | nodeBurst4 killBlast4 harvest4 armor3- | 1% | 0 | - | 40% | 0.0 | - | - | - |
+| anvil | 4 | armor5 stillDamage4 knockback5 speed3- | 2% | 0 | - | 40% | 0.0 | - | - | - |
+| factorseal | 4 | interest5 rerollCut5 killScrip3 damage2- | 0% | 0 | - | 40% | 0.0 | - | - | - |
+| forgebellows | 4 | burn4 rate4 damage5 dodge3- | 12% | 0 | - | 40% | 0.0 | - | - | - |
+
+Item buys by tier 1/2/3/4: 47% / 33% / 19% / 1% of 14019 item buys; items per run 11.7; weapons bought per run 13.5
+
+
+## 1e. Special primitives held by winners and losers (levels summed over items held at the end)
+
+| primitive | winners holding any | losers (died wave 9+) holding any |
+|---|---|---|
+| thorns | 56% | 47% |
+| nodeBurst | 2% | 1% |
+| nodeHeal | 33% | 42% |
+| richNodes | 0% | 0% |
+| killScrip | 49% | 49% |
+| interest | 48% | 39% |
+| hoardTimber | 0% | 0% |
+| hoardOre | 7% | 9% |
+| hoardHide | 10% | 9% |
+| lowHpRate | 0% | 0% |
+| stillDamage | 4% | 2% |
+| movingDodge | 61% | 49% |
+| waveShield | 80% | 65% |
+| killBlast | 87% | 62% |
+| hurtBlast | 0% | 0% |
+| pierce | 17% | 8% |
+| bounce | 13% | 5% |
+| burn | 77% | 45% |
+| knockback | 30% | 26% |
+| rerollCut | 0% | 0% |
+| eliteDamage | 58% | 49% |
+| magnet | 1% | 1% |
+| xpGain | 48% | 51% |
+| secondWind | 28% | 14% |
+
+
+## 2. Forced strategies (greenhorn, 200 seeds unless noted)
+
+| strategy | runs | win | 95% CI | z vs default | mean end wave | median death wave | mean level | raws gathered | fusions | boss killed (of wins) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| default | 200 | 40% | 33-46 | 0.0 | 10.4 | 10 | 14.9 | 91.7 | 1.09 | 92% |
+| meleeOnly | 200 | 30% | 24-37 | -2.0 | 10.0 | 10 | 14.0 | 122.5 | 1.91 | 90% |
+| rangedOnly | 200 | 10% | 7-15 | -6.8 | 8.0 | 8 | 10.0 | 51.2 | 0.51 | 100% |
+| toolsOnly | 200 | 5% | 2-8 | -8.4 | 8.2 | 8 | 9.8 | 174.6 | 2.13 | 67% |
+| toolsHeavy | 200 | 25% | 19-31 | -3.2 | 9.5 | 9 | 12.1 | 216.8 | 2.29 | 82% |
+| gatherNever | 200 | 5% | 3-9 | -8.3 | 9.8 | 10 | 13.3 | 13.5 | 0.01 | 10% |
+| gatherMax | 200 | 32% | 25-38 | -1.7 | 9.9 | 9 | 12.9 | 158.7 | 1.91 | 94% |
+| nofuse | 200 | 41% | 34-47 | 0.2 | 10.4 | 10 | 15.0 | 91.0 | 0.00 | 94% |
+| fuseProc | 200 | 42% | 35-48 | 0.4 | 10.6 | 10 | 15.1 | 92.0 | 1.09 | 96% |
+| fuseProcAlways | 200 | 40% | 33-47 | 0.1 | 10.3 | 10 | 14.7 | 90.4 | 1.92 | 91% |
+| fuseProcSmart | 200 | 41% | 34-48 | 0.3 | 10.4 | 10 | 15.0 | 89.1 | 1.36 | 87% |
+| hoardLight | 200 | 14% | 10-19 | -5.8 | 9.0 | 9 | 11.3 | 62.0 | 0.57 | 96% |
+| hoardFull | 200 | 14% | 10-19 | -5.8 | 8.9 | 8 | 11.6 | 70.7 | 1.14 | 93% |
+| thorns | 200 | 11% | 7-16 | -6.6 | 9.8 | 10 | 13.3 | 75.5 | 0.84 | 23% |
+| tank | 200 | 24% | 19-30 | -3.3 | 10.2 | 10 | 14.1 | 77.2 | 0.97 | 42% |
+| glass | 200 | 63% | 56-69 | 4.7 | 10.4 | 8 | 15.2 | 101.8 | 1.14 | 100% |
+| evade | 200 | 35% | 28-41 | -1.0 | 10.3 | 10 | 14.6 | 89.8 | 1.21 | 70% |
+| nomule | 200 | 49% | 42-56 | 1.9 | 10.5 | 10 | 15.0 | 92.2 | 1.38 | 94% |
+| freeRaws | 200 | 61% | 54-67 | 4.3 | 10.9 | 10 | 15.6 | 95.3 | 3.06 | 97% |
+| gatherNeverFreeRaws | 200 | 67% | 60-73 | 5.5 | 11.0 | 10 | 16.0 | 16.4 | 3.38 | 98% |
+| noItems | 200 | 6% | 3-10 | -8.1 | 9.9 | 10 | 13.4 | 89.3 | 0.00 | 45% |
+| noWeapons | 200 | 1% | 0-3 | -9.8 | 7.7 | 8 | 5.2 | 27.2 | 0.42 | 0% |
+| noBuy | 200 | 1% | 0-3 | -9.8 | 7.5 | 8 | 4.7 | 25.1 | 0.00 | 0% |
+| randomBuy | 200 | 14% | 10-19 | -5.8 | 8.9 | 9 | 11.3 | 70.3 | 1.02 | 96% |
+| randomUpgrade | 200 | 26% | 20-32 | -3.0 | 10.0 | 10 | 14.1 | 91.9 | 1.15 | 96% |
+| randomAll | 200 | 8% | 5-13 | -7.4 | 8.4 | 8 | 10.3 | 67.1 | 0.89 | 94% |
+| noReroll | 200 | 6% | 3-10 | -8.1 | 9.0 | 9 | 11.9 | 73.4 | 1.11 | 45% |
+| afk | 200 | 0% | 0-2 | -9.9 | 2.0 | 2 | 1.0 | 0.0 | 0.00 | - |
+| circle | 200 | 0% | 0-2 | -9.9 | 3.2 | 3 | 2.9 | 1.5 | 0.00 | - |
+
+
+## 2b. One weapon type only (greenhorn starts with it and may buy no other)
+
+| weapon | class | win | 95% CI | mean end wave | median death wave | copies held at end | best tier |
+|---|---|---|---|---|---|---|---|
+| hatchet | edge/tool | 2% | 1-4 | 7.7 | 7 | 2.0 | 3.5 |
+| pick | blunt/tool | 3% | 1-6 | 8.2 | 8 | 2.2 | 3.7 |
+| knife | edge/tool | 2% | 1-4 | 8.3 | 8 | 2.2 | 3.7 |
+| maul | - | - | - | - | - | - | - |
+| pike | - | - | - | - | - | - | - |
+| sling | - | - | - | - | - | - | - |
+| bow | - | - | - | - | - | - | - |
+| musket | - | - | - | - | - | - | - |
+| axe | - | - | - | - | - | - | - |
+| brand | - | - | - | - | - | - | - |
+| bola | - | - | - | - | - | - | - |
+| buckler | - | - | - | - | - | - | - |
+
+
+## 2c. What the winning builds look like under each policy (greenhorn)
+
+| policy | wins | damage archetypes | effective number | damage sources (top 5) | weapon types held | max HP | armor | damage % | rate % | damage per second in wave 11 | lowest HP in wave 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| default | 79 | mixed 52%, melee 15%, ranged 14% | 3.8 | sling 19%, pike 14%, burst 13%, bow 12%, axe 7% | 5.5 | 46 | 6.0 | 28 | 43 | 219 | 80% |
+| glass | 126 | mixed 58%, ranged 26%, melee 9% | 3.1 | sling 24%, burst 11%, pike 11%, bow 11%, axe 7% | 5.5 | 24 | -2.8 | 44 | 61 | 230 | 97% |
+| tank | 48 | mixed 48%, melee 31%, ranged+burst 6% | 3.7 | sling 16%, pike 11%, bow 11%, maul 10%, hatchet 10% | 5.3 | 55 | 11.4 | 6 | 18 | 189 | 48% |
+| thorns | 22 | melee 41%, mixed 41%, mixed+recoil 14% | 3.1 | pick 13%, recoil 13%, sling 12%, maul 9%, brand 8% | 5.5 | 61 | 15.6 | -3 | -2 | 177 | 49% |
+| evade | 69 | mixed 36%, mixed+burst 20%, ranged 17% | 4.6 | sling 20%, burst 17%, bow 11%, pike 9%, axe 9% | 5.4 | 40 | 0.2 | 19 | 28 | 213 | 72% |
+| meleeOnly | 60 | melee 95%, melee+burst 5% | 1.2 | pike 26%, hatchet 24%, pick 13%, knife 9%, maul 8% | 4.8 | 44 | 7.8 | 28 | 40 | 197 | 64% |
+| rangedOnly | 20 | ranged 75%, ranged+burst 25% | 1.8 | sling 39%, bow 23%, burst 13%, axe 11%, musket 8% | 3.8 | 44 | 2.7 | 19 | 41 | 230 | 93% |
+| freeRaws | 122 | mixed 48%, ranged 23%, mixed+burst 15% | 3.8 | sling 22%, burst 14%, bow 10%, pike 9%, axe 9% | 5.4 | 46 | 9.3 | 37 | 57 | 225 | 89% |
+
+
+## 3. Gathering
+
+| policy | win | 95% CI | raws gathered per run | wave time spent working | damage taken per second while working | while not working | deaths that happened while working | purchases per run | raws unspent at a win (held + muled) | offers blocked by raws per bench (of 4) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gatherNever | 5% | 3-9 | 13.5 | 1.3% | 0.21 | 0.27 | 1% | 19.2 | 7.2 | 3.0 |
+| default | 40% | 33-46 | 91.7 | 13.8% | 0.01 | 0.20 | 0% | 24.7 | 35.2 | 0.7 |
+| gatherMax | 32% | 25-38 | 158.7 | 26.4% | 0.04 | 0.22 | 1% | 21.3 | 116.8 | 0.2 |
+| toolsHeavy | 25% | 19-31 | 216.8 | 21.6% | 0.04 | 0.27 | 1% | 21.0 | 245.5 | 0.2 |
+| toolsOnly | 5% | 2-8 | 174.6 | 17.3% | 0.06 | 0.26 | 1% | 14.8 | 258.4 | 0.1 |
+| nomule | 49% | 42-56 | 92.2 | 13.7% | 0.02 | 0.19 | 1% | 25.9 | 21.0 | 0.6 |
+| freeRaws | 61% | 54-67 | 95.3 | 13.9% | 0.02 | 0.16 | 3% | 30.7 | 174.4 | 0.0 |
+| gatherNeverFreeRaws | 67% | 60-73 | 16.4 | 1.4% | 0.07 | 0.12 | 0% | 32.0 | 155.5 | 0.0 |
+
+Shipped bot, all characters, by wave:
+
+| wave | time working | damage per second while working | while not working | mean max HP |
+|---|---|---|---|---|
+| 1 | 32.3% | 0.03 | 0.07 | 10.5 |
+| 2 | 19.0% | 0.05 | 0.17 | 12.0 |
+| 3 | 22.5% | 0.02 | 0.13 | 14.2 |
+| 4 | 20.2% | 0.01 | 0.08 | 16.6 |
+| 5 | 18.5% | 0.02 | 0.10 | 19.6 |
+| 6 | 16.8% | 0.01 | 0.07 | 22.8 |
+| 7 | 10.7% | 0.00 | 0.10 | 26.0 |
+| 8 | 7.2% | 0.02 | 0.18 | 29.9 |
+| 9 | 7.3% | 0.09 | 0.23 | 34.5 |
+| 10 | 5.7% | 0.05 | 0.37 | 38.8 |
+| 11 | 5.6% | 0.02 | 0.46 | 42.7 |
+| 12 | 6.2% | 0.04 | 0.50 | 46.1 |
+
+
+## 4. Fusion
+
+| policy | win | 95% CI | mean end wave | fusions per run | benches with a legal pair | benches with an affordable pair | fused items held at a win |
+|---|---|---|---|---|---|---|---|
+| nofuse | 41% | 34-47 | 10.4 | 0.00 | 66% | 30% | 0.0 |
+| default | 40% | 33-46 | 10.4 | 1.09 | 66% | 24% | 1.0 |
+| fuseProc | 42% | 35-48 | 10.6 | 1.09 | 66% | 24% | 1.0 |
+| fuseProcSmart | 41% | 34-48 | 10.4 | 1.36 | 66% | 21% | 1.1 |
+| fuseProcAlways | 40% | 33-47 | 10.3 | 1.92 | 64% | 17% | 1.6 |
+
+| character | win with fusion (shipped bot) | win with fusion off | z | fusions per run |
+|---|---|---|---|---|
+| greenhorn | 40% | 41% | -0.2 | 1.09 |
+
+
+## 5. Characters
+
+| character | win | killed by (top 3) | winners' damage (top 4 sources) | melee share of weapon damage | winners' upgrade picks (top 4) | raws gathered | fusions |
+|---|---|---|---|---|---|---|---|
+| greenhorn | 40% | brute 31%, spitter 25%, mite 18% | sling 19%, pike 14%, burst 13%, bow 12% | 47% | rate 15%, damage 13%, maxHp 13%, armor 12% | 91.7 | 1.09 |
+| sawyer | 49% | spitter 42%, brute 35%, mite 8% | hatchet 17%, pike 14%, burst 11%, axe 9% | 64% | melee 19%, rate 15%, armor 13%, maxHp 12% | 122.7 | 1.88 |
+| smith | 41% | spitter 46%, brute 28%, mite 8% | pick 17%, pike 11%, burst 11%, maul 9% | 65% | melee 19%, rate 14%, armor 13%, maxHp 12% | 101.0 | 1.69 |
+| trapper | 52% | brute 26%, spitter 24%, gnat 20% | bow 24%, burst 13%, sling 12%, pike 10% | 42% | rate 15%, maxHp 12%, damage 12%, armor 11% | 102.0 | 1.05 |
+| tinker | 28% | spitter 39%, brute 30%, mite 11% | knife 17%, burst 15%, pike 14%, hatchet 8% | 69% | melee 19%, rate 13%, armor 13%, maxHp 12% | 103.9 | 3.06 |
+| clerk | 24% | brute 30%, mite 23%, spitter 20% | sling 22%, burst 13%, pike 13%, bow 8% | 50% | rate 16%, maxHp 14%, damage 12%, melee 11% | 80.1 | 0.89 |
+
+Noise floor (same character, odd seeds against even seeds): greenhorn 0.09 / 0.08 / 0.13; sawyer 0.10 / 0.08 / 0.11; smith 0.09 / 0.06 / 0.10; trapper 0.09 / 0.08 / 0.12; tinker 0.14 / 0.10 / 0.16; clerk 0.12 / 0.11 / 0.12
+
+Total variation distance between winners' profiles (0 = identical, 1 = disjoint): damage sources / upgrade picks / item buys
+
+|  | greenhorn | sawyer | smith | trapper | tinker | clerk |
+|---|---|---|---|---|---|---|
+| greenhorn | - | 0.20 / 0.11 / 0.15 | 0.23 / 0.11 / 0.15 | 0.16 / 0.03 / 0.13 | 0.20 / 0.11 / 0.16 | 0.07 / 0.05 / 0.10 |
+| sawyer | 0.20 / 0.11 / 0.15 | - | 0.16 / 0.02 / 0.10 | 0.26 / 0.11 / 0.16 | 0.19 / 0.03 / 0.08 | 0.21 / 0.11 / 0.10 |
+| smith | 0.23 / 0.11 / 0.15 | 0.16 / 0.02 / 0.10 | - | 0.25 / 0.11 / 0.20 | 0.21 / 0.03 / 0.08 | 0.21 / 0.13 / 0.13 |
+| trapper | 0.16 / 0.03 / 0.13 | 0.26 / 0.11 / 0.16 | 0.25 / 0.11 / 0.20 | - | 0.26 / 0.12 / 0.18 | 0.19 / 0.04 / 0.12 |
+| tinker | 0.20 / 0.11 / 0.16 | 0.19 / 0.03 / 0.08 | 0.21 / 0.03 / 0.08 | 0.26 / 0.12 / 0.18 | - | 0.20 / 0.13 / 0.11 |
+| clerk | 0.07 / 0.05 / 0.10 | 0.21 / 0.11 / 0.10 | 0.21 / 0.13 / 0.13 | 0.19 / 0.04 / 0.12 | 0.20 / 0.13 / 0.11 | - |
+
+Win rate by strategy and character (default 200 seeds; greenhorn 200; other cells 100):
+
+| strategy | greenhorn | sawyer | smith | trapper | tinker | clerk |
+|---|---|---|---|---|---|---|
+| default | 40% | 49% | 41% | 52% | 28% | 24% |
+
+| character | best forced strategy | worst | spread (points) |
+|---|---|---|---|
+| greenhorn | - | - | - |
+| sawyer | - | - | - |
+| smith | - | - | - |
+| trapper | - | - | - |
+| tinker | - | - | - |
+| clerk | - | - | - |
+
+
+## 6. Bench decisions (shipped bot, all characters)
+
+| bench | n | scrip in | scrip out | left unspent | raws in | offers affordable (of 4) | blocked by scrip | blocked by raws | blocked by slots | offers the bot rates worth it | nothing worth buying | exactly one | real choice (2+ worth it, cannot afford all) | buy everything (2+ worth it, all affordable) | bought | rerolls | benches using lock | upgrade picks | second-best pick utility / best |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1200 | 20 | 6 | 30% | 6.9 | 2.42 | 0.76 | 0.83 | 0.00 | 3.25 | 8% | 22% | 69% | 2% | 1.0 | 0.0 | 56% | 0.8 | 0.74 |
+| 2 | 1191 | 48 | 9 | 19% | 11.5 | 3.20 | 0.04 | 0.76 | 0.00 | 3.06 | 0% | 12% | 47% | 41% | 2.1 | 0.3 | 26% | 1.1 | 0.72 |
+| 3 | 1179 | 54 | 10 | 18% | 18.6 | 3.60 | 0.06 | 0.32 | 0.02 | 2.76 | 3% | 13% | 55% | 28% | 2.0 | 0.3 | 20% | 1.1 | 0.71 |
+| 4 | 1169 | 80 | 12 | 15% | 26.3 | 3.66 | 0.05 | 0.19 | 0.10 | 2.46 | 4% | 18% | 36% | 42% | 2.4 | 0.6 | 17% | 1.3 | 0.69 |
+| 5 | 1159 | 121 | 14 | 12% | 23.7 | 3.51 | 0.02 | 0.21 | 0.26 | 2.17 | 8% | 25% | 16% | 51% | 3.0 | 1.3 | 15% | 1.5 | 0.70 |
+| 6 | 1153 | 148 | 17 | 12% | 35.8 | 3.29 | 0.00 | 0.14 | 0.57 | 1.88 | 11% | 29% | 12% | 48% | 3.0 | 1.6 | 14% | 1.2 | 0.68 |
+| 7 | 1088 | 178 | 21 | 12% | 38.1 | 2.99 | 0.01 | 0.22 | 0.78 | 1.50 | 19% | 39% | 8% | 34% | 2.9 | 2.1 | 16% | 1.2 | 0.73 |
+| 8 | 1039 | 356 | 54 | 15% | 37.7 | 2.78 | 0.00 | 0.44 | 0.78 | 1.41 | 25% | 37% | 0% | 38% | 4.2 | 3.8 | 11% | 2.0 | 0.73 |
+| 9 | 912 | 429 | 101 | 24% | 26.2 | 2.58 | 0.00 | 0.58 | 0.84 | 1.29 | 30% | 41% | 0% | 29% | 3.7 | 4.2 | 7% | 1.7 | 0.73 |
+| 10 | 741 | 648 | 330 | 51% | 21.6 | 1.97 | 0.00 | 1.39 | 0.65 | 1.24 | 44% | 38% | 0% | 18% | 3.0 | 4.9 | 2% | 2.0 | 0.71 |
+| 11 | 532 | 876 | 577 | 66% | 20.1 | 1.65 | 0.00 | 1.64 | 0.71 | 1.11 | 53% | 34% | 0% | 12% | 2.4 | 4.9 | 0% | 1.6 | 0.71 |
+
+Winners: scrip held at the end, median 896, mean 908; scrip earned mean 2827; so 32% of all scrip earned is never spent.
+Raws: winners gather 118.7, mule 22.6, end holding 18.3.
+noReroll: win 6% (3-10) vs default 40%; mean end wave 9.0 vs 10.4
+randomBuy: win 14% (10-19) vs default 40%; mean end wave 8.9 vs 10.4
+randomUpgrade: win 26% (20-32) vs default 40%; mean end wave 10.0 vs 10.4
+randomAll: win 8% (5-13) vs default 40%; mean end wave 8.4 vs 10.4
+noBuy: win 1% (0-3) vs default 40%; mean end wave 7.5 vs 10.4
+noItems: win 6% (3-10) vs default 40%; mean end wave 9.9 vs 10.4
+noWeapons: win 1% (0-3) vs default 40%; mean end wave 7.7 vs 10.4
+
+## 7. Difficulty curve (shipped bot)
+
+| deaths in wave | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | wins |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| greenhorn | 0 | 1 | 2 | 5 | 2 | 0 | 9 | 10 | 14 | 32 | 37 | 9 | 79 |
+| sawyer | 0 | 0 | 2 | 0 | 0 | 0 | 9 | 4 | 16 | 17 | 43 | 11 | 98 |
+| smith | 0 | 1 | 0 | 0 | 1 | 0 | 13 | 4 | 30 | 25 | 41 | 4 | 81 |
+| trapper | 0 | 7 | 2 | 2 | 5 | 1 | 4 | 5 | 11 | 19 | 17 | 23 | 104 |
+| tinker | 0 | 0 | 0 | 0 | 2 | 1 | 20 | 11 | 34 | 30 | 39 | 8 | 55 |
+| clerk | 0 | 0 | 6 | 3 | 0 | 4 | 10 | 15 | 22 | 48 | 32 | 13 | 47 |
+
+| wave | runs entering | die here | damage taken / max HP | lowest HP (survivors, mean) | survivors who dropped below half HP | survivors untouched | damage dealt per second | kills | peak enemies alive | alive at the bell | seconds of all damage to kill one mite | one brute |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1200 | 0.0% | 0.11 | 89% | 1% | 35% | 4.2 | 20.5 | 10 | 6 | 0.95 | 9.5 |
+| 2 | 1200 | 0.8% | 0.32 | 69% | 19% | 15% | 7.8 | 42.7 | 21 | 15 | 0.79 | 6.5 |
+| 3 | 1191 | 1.0% | 0.23 | 79% | 13% | 43% | 13.0 | 40.6 | 15 | 10 | 0.65 | 4.8 |
+| 4 | 1179 | 0.8% | 0.15 | 87% | 5% | 53% | 18.1 | 66.5 | 23 | 13 | 0.59 | 4.0 |
+| 5 | 1169 | 0.9% | 0.18 | 84% | 8% | 50% | 28.0 | 92.8 | 21 | 9 | 0.46 | 3.0 |
+| 6 | 1159 | 0.5% | 0.12 | 89% | 4% | 58% | 31.4 | 87.0 | 18 | 6 | 0.48 | 3.0 |
+| 7 | 1153 | 5.6% | 0.18 | 89% | 8% | 74% | 60.6 | 129.9 | 36 | 32 | 0.28 | 1.7 |
+| 8 | 1088 | 4.5% | 0.30 | 76% | 20% | 42% | 94.6 | 348.2 | 65 | 55 | 0.21 | 1.2 |
+| 9 | 1039 | 12.2% | 0.38 | 76% | 21% | 49% | 125.0 | 310.7 | 75 | 66 | 0.17 | 1.0 |
+| 10 | 912 | 18.8% | 0.51 | 70% | 32% | 44% | 179.9 | 467.4 | 71 | 54 | 0.13 | 0.8 |
+| 11 | 741 | 28.2% | 0.58 | 72% | 27% | 48% | 214.0 | 431.0 | 85 | 73 | 0.12 | 0.7 |
+| 12 | 532 | 12.8% | 0.37 | 80% | 17% | 59% | 343.6 | 315.5 | 86 | 71 | 0.08 | 0.5 |
+
+Boss: 532 runs reach wave 12; 87% win. Of the wins 93% kill Old Tusk (median at 28 s of 90); the rest outlast the clock. Winners' lowest HP in wave 12: mean 80%.
+Damage taken by source, all runs: spitter 26%, brute 20%, mite 19%, boar 14%, gnat 12%, tusk 4%, burrower 3%, stag 2%, rotwood 0%
+Killing blows: spitter 32%, brute 30%, mite 14%, boar 10%, gnat 7%, tusk 3%, burrower 3%, stag 0%
+afk: win 0%; deaths by wave 0 200 0 0 0 0 0 0 0 0 0 0; mean end wave 2.0
+circle: win 0%; deaths by wave 0 92 28 46 17 14 3 0 0 0 0 0; mean end wave 3.2
+noBuy: win 1%; deaths by wave 0 0 2 6 16 45 20 69 10 26 2 3; mean end wave 7.5
+
+Files read: 37
