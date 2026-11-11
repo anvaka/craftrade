@@ -342,10 +342,13 @@ function pairs(): HTMLElement {
 
 // ---- codex -----------------------------------------------------------------
 
-/** An item's name with what it does under it, for a recipe line. */
+/** An item's name on a recipe line. What it does is in its tooltip, so the line stays one name long. */
 function named(item: ItemSpec): HTMLElement {
   const fx = item.effects.map(effectText).filter(Boolean).join(', ');
-  return el('span', 'l-item', el('span', 'l-name', item.name), fx ? el('span', 'fx', fx) : null);
+  const n = el('span', 'term', item.name);
+  if (fx) setTip(n, `${item.name}: ${fx}.`);
+  n.tabIndex = 0;
+  return n;
 }
 
 function recipeRow(r: CodexRecipe): HTMLElement | null {

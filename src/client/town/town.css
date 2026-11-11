@@ -1102,13 +1102,3 @@ p.num,
 .next .bar--hazard .bar-text .note {
   white-space: normal;
 }
-/* A recipe line says what each item does, under its name. */
-.recipe .l-name {
-  font-weight: inherit;
-}
-.recipe .fx {
-  font-weight: 400;
-}
-.recipe {
-  padding: 6px 0;
-}
