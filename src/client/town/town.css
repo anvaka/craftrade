@@ -1,0 +1,911 @@
+/*
+  Town half: layout for the pages outside a run. The kit is ui/theme.css and
+  its rules hold here too: seven colours with fixed jobs, Zilla Slab only,
+  two rule weights (3px and 1px), rows and rules, no radius, shadow, blur,
+  gradient or fade. Nothing moves for longer than 80 ms.
+
+  Pieces:
+    #run                        the element handed to the game half
+    .notices                    notice lines under the tabs
+    .home                       stash tab grid
+    .bar .stamps                a ruled line with text left and stamps right
+    .chars .char                who heads out
+    .items .made .charges .pips stash rows, charge pips
+    .empty                      an empty state: one italic line
+    .anvil .slot .outcome       workshop anvil
+    .recipes .recipe            A + B = C rows
+    .factor .factor-row         the Factor's table
+    .step                       quantity stepper
+    .field                      text field: a heavy rule to write on
+    .post-form                  listing terms
+    .project .project-row       town project
+    .opened .copyline           homecoming pieces
+*/
+
+/* ---- views ---------------------------------------------------------------- */
+
+#town[hidden],
+#run[hidden] {
+  display: none;
+}
+#run {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  overflow: auto;
+  background: var(--bone);
+}
+body.in-run {
+  overflow: hidden;
+}
+
+/* ---- focus ---------------------------------------------------------------- */
+
+/* Stamps and tabs are clipped to their cut corner, which would hide the kit's
+   outline. Their focus mark is a heavy rule under the label instead. */
+.stamp:focus-visible,
+.tab:focus-visible {
+  outline: none;
+}
+.stamp:focus-visible::after,
+.tab:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 10px;
+  bottom: 5px;
+  border-bottom: var(--rule) solid currentColor;
+}
+.stamp--small:focus-visible::after {
+  bottom: 3px;
+  left: 6px;
+  right: 8px;
+}
+.tab:focus-visible::after {
+  bottom: 4px;
+}
+
+/* ---- head, tabs, notices -------------------------------------------------- */
+
+.head-name h1 .own {
+  padding: 0 7px 1px;
+}
+.page-head .meta {
+  gap: 8px 14px;
+}
+.tabs {
+  margin-top: 16px;
+}
+.tab .count {
+  font-size: 15px;
+}
+@media (max-width: 400px) {
+  .tabs {
+    gap: 3px;
+  }
+  .tab {
+    padding-left: 7px;
+    padding-right: 9px;
+    font-size: 14.5px;
+  }
+}
+.notices {
+  margin-top: 12px;
+}
+.notices:empty {
+  display: none;
+}
+.notice .text {
+  padding-right: 8px;
+}
+
+/* ---- shared pieces -------------------------------------------------------- */
+
+.section--first {
+  margin-top: 18px;
+}
+.thing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.thing > span {
+  min-width: 0;
+}
+
+/* .bar: one ruled line. Words on the left, stamps on the right. */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.bar-text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.stamps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.stamps--main {
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: var(--rule) solid var(--ink);
+  gap: 10px 12px;
+}
+.stamps--main .stamp {
+  min-width: 132px;
+  min-height: 46px;
+  font-size: 19px;
+}
+
+/* .empty: never an empty box. One line that says what will be here. */
+.empty {
+  padding: 12px 0 13px;
+  border-bottom: var(--hair) solid var(--ink);
+}
+
+/* .pips: square pips, n inked. Charges and station tiers. */
+.pips {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+.pips i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--ink);
+}
+.pips i.on {
+  background: var(--ink);
+}
+.charges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* .field: a place to write. A heavy rule under the words. */
+.field {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-bottom: var(--rule) solid var(--ink);
+  background: transparent;
+  padding: 4px 2px 2px;
+  min-height: 36px;
+  width: 190px;
+  max-width: 100%;
+  font-size: 17px;
+}
+.field::placeholder {
+  color: var(--ink);
+  font-style: italic;
+  opacity: 1;
+}
+.field::-webkit-search-cancel-button,
+.field::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
+}
+.field--num {
+  width: 110px;
+  font-size: 19px;
+  font-weight: 700;
+  text-align: right;
+}
+.field-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* .step: minus, figure, plus. */
+.step {
+  display: inline-flex;
+  align-items: stretch;
+  flex: none;
+}
+.step-b {
+  min-width: 34px;
+  padding: 0 8px;
+  font-size: 20px;
+  line-height: 1;
+}
+.step-n {
+  width: 46px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-top: var(--hair) solid var(--ink);
+  border-bottom: var(--hair) solid var(--ink);
+  background: transparent;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+.step-n:focus-visible {
+  outline-offset: -3px;
+}
+
+/* A row that is chosen carries a heavy side rule, as a locked offer does. */
+.ledger tr.is-on td:first-child > .thing {
+  border-left: 6px solid var(--ink);
+  padding-left: 8px;
+}
+.ledger .rank {
+  width: 72px;
+  padding-right: 18px;
+}
+.ledger td.mark {
+  font-size: 15px;
+}
+h3.sub {
+  margin-top: 18px;
+  padding-bottom: 3px;
+  border-bottom: var(--hair) solid var(--ink);
+}
+h3.sub .count {
+  font-weight: 400;
+}
+
+/* Effect lines outside a bench offer (anvil slots) use the same marks. */
+.slot-text .effects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.slot-text .effects li {
+  padding-left: 14px;
+  position: relative;
+}
+.slot-text .effects li::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 0.62em;
+  width: 7px;
+  border-top: var(--rule) solid var(--ink);
+}
+.slot-text .effects li.cost {
+  font-style: italic;
+}
+.slot-text .effects li.cost::before {
+  height: 7px;
+  top: 0.42em;
+  border: var(--hair) solid var(--ink);
+}
+
+/* ---- stash tab ------------------------------------------------------------ */
+
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.home > .next {
+  margin-top: 18px;
+}
+@media (min-width: 900px) {
+  .home {
+    grid-template-columns: minmax(0, 1fr) 344px;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      'next who'
+      'stash who'
+      'stash account';
+    column-gap: 40px;
+  }
+  .home > .next {
+    grid-area: next;
+  }
+  .home > .who-out {
+    grid-area: who;
+    margin-top: 18px;
+  }
+  .home > .stash {
+    grid-area: stash;
+  }
+  .home > .account {
+    grid-area: account;
+  }
+}
+.next .bar-text {
+  font-size: 19px;
+}
+.next .bar-text .note {
+  white-space: nowrap;
+}
+.next .bar > .stamp {
+  min-width: 132px;
+  min-height: 46px;
+  font-size: 19px;
+}
+.bar--daily .bar-text {
+  font-size: 17px;
+}
+.controls {
+  padding: 9px 0 10px;
+  border-bottom: var(--hair) solid var(--ink);
+}
+
+/* .char: one who can head out. The chosen one carries the side rule. A
+   locked one is its Ink silhouette and the count of runs left. */
+.char {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 60px;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: var(--hair) solid var(--ink);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.char canvas {
+  justify-self: center;
+}
+.char.is-shut {
+  cursor: default;
+}
+.char.is-on {
+  border-left: 6px solid var(--ink);
+  padding-left: 8px;
+}
+button.char:active {
+  transform: translate(var(--press), var(--press));
+}
+.char:focus-visible {
+  outline-offset: -3px;
+}
+.char-name {
+  display: block;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.15;
+}
+.char-twist {
+  display: block;
+  font-size: 15px;
+  line-height: 1.25;
+}
+.char.is-shut .char-twist {
+  font-style: italic;
+}
+.char-mark {
+  background: var(--ink);
+  color: var(--bone);
+  padding: 2px 7px;
+  margin-left: 10px;
+  vertical-align: 2px;
+}
+
+/* Stash rows use the kit's .offer. Under a note the list opens on a hair rule. */
+.items {
+  border-top: var(--hair) solid var(--ink);
+  margin-top: 8px;
+}
+.section > h2 + .items {
+  border-top: 0;
+  margin-top: 0;
+}
+.items .buy {
+  min-width: 0;
+  gap: 8px;
+}
+.made {
+  font-size: 15px;
+  font-weight: 400;
+}
+.stats--one {
+  column-count: 1 !important;
+  border-top: 0;
+}
+.stats dd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.stats dd .own {
+  font-size: 17px;
+}
+
+/* ---- workshop ------------------------------------------------------------- */
+
+.anvil {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.15fr);
+  gap: 0 14px;
+  align-items: stretch;
+  margin-top: 8px;
+  border-top: var(--hair) solid var(--ink);
+  border-bottom: var(--rule) solid var(--ink);
+}
+.anvil.is-done {
+  grid-template-columns: minmax(0, 1fr);
+}
+.anvil-made {
+  padding-top: 10px;
+}
+.slot,
+.outcome {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 0;
+  min-width: 0;
+  min-height: 132px;
+}
+.slot-blank {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border: var(--hair) solid var(--ink);
+  background-image: var(--hatch);
+}
+.slot-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.slot-text .name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.anvil-op {
+  align-self: center;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+.outcome {
+  border-left: var(--hair) solid var(--ink);
+  padding-left: 14px;
+}
+.outcome.is-revealed {
+  border-left: 0;
+  padding-left: 0;
+  min-height: 0;
+  flex-wrap: wrap;
+}
+.outcome-stamp {
+  margin-left: auto;
+  padding: 8px 14px 4px;
+}
+.budget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 19px;
+  font-weight: 700;
+}
+.strike-meter {
+  width: 220px;
+  max-width: 100%;
+}
+.anvil + .stamps {
+  margin-top: 10px;
+}
+.chooser {
+  margin-top: 14px;
+}
+@media (max-width: 760px) {
+  .anvil {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .anvil-op {
+    align-self: start;
+    font-size: 22px;
+  }
+  .slot,
+  .outcome {
+    min-height: 0;
+    padding: 8px 0 10px;
+  }
+  .outcome {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+/* .recipe: a sum. On a desk it runs along one line; on a phone it stacks
+   like a column of figures with the result under a rule. */
+.recipes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.recipe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) 14px minmax(0, 1.25fr) minmax(112px, auto);
+  gap: 2px 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.r-op {
+  font-size: 19px;
+  font-weight: 700;
+  text-align: center;
+}
+.r-out {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 700;
+}
+.r-by {
+  justify-self: end;
+  text-align: right;
+}
+.unknown {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: var(--hair) solid var(--ink);
+  background-image: var(--hatch);
+}
+.recipe .note {
+  font-weight: 400;
+}
+@media (max-width: 700px) {
+  .recipe {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    padding: 6px 0;
+  }
+  .recipe > :nth-child(1) {
+    grid-area: 1 / 2;
+  }
+  .recipe > :nth-child(2) {
+    grid-area: 2 / 1;
+  }
+  .recipe > :nth-child(3) {
+    grid-area: 2 / 2;
+  }
+  .recipe > :nth-child(4) {
+    grid-area: 3 / 1;
+  }
+  .recipe > :nth-child(5) {
+    grid-area: 3 / 2;
+    border-top: var(--hair) solid var(--ink);
+    padding-top: 2px;
+  }
+  .recipe > :nth-child(6) {
+    grid-area: 1 / 3 / 4 / 4;
+    align-self: center;
+  }
+}
+.codex-lists {
+  min-height: 80px;
+}
+
+/* ---- market --------------------------------------------------------------- */
+
+/* .factor: the Factor's table. A grid, not a table, so that on a phone each
+   raw can carry its stepper and stamps on a second line. */
+.factor-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) repeat(3, minmax(88px, 0.9fr)) 432px;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.factor-head {
+  align-items: end;
+  padding: 8px 0 4px;
+  border-bottom: var(--rule) solid var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.factor-head .num {
+  text-align: right;
+}
+.factor-head .f-act {
+  justify-content: flex-start;
+}
+.f-raw {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.f-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 18px;
+  line-height: 1.1;
+}
+.f-cap {
+  display: none;
+}
+.f-left {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.f-act {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.f-sell,
+.f-buy {
+  min-width: 150px;
+}
+@media (max-width: 899px) {
+  .factor-head {
+    display: none;
+  }
+  .factor {
+    border-top: var(--hair) solid var(--ink);
+    margin-top: 8px;
+  }
+  .factor-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 8px 0 10px;
+  }
+  .f-raw,
+  .f-act {
+    grid-column: 1 / -1;
+  }
+  .f-cap {
+    display: block;
+  }
+  .f-fig {
+    align-items: flex-start;
+  }
+  .f-left {
+    white-space: normal;
+  }
+  .f-sell,
+  .f-buy {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+}
+
+.l-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.l-name {
+  font-weight: 700;
+}
+.fx,
+.l-seller {
+  font-size: 15px;
+  line-height: 1.2;
+}
+.l-seller {
+  display: none;
+}
+@media (max-width: 560px) {
+  .l-seller {
+    display: block;
+    margin-top: 2px;
+  }
+}
+.ledger .act .stamp + .stamp {
+  margin-left: 4px;
+}
+.post-row td {
+  padding: 0;
+}
+.post-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 10px 0 12px 10px;
+  border-left: 6px solid var(--ink);
+}
+.post-terms {
+  flex: 1 1 320px;
+  white-space: normal;
+}
+
+/* ---- town ----------------------------------------------------------------- */
+
+.project-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.project-name {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.project-row {
+  display: grid;
+  grid-template-columns: 104px minmax(80px, 1fr) 128px 318px;
+  gap: 6px 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.p-raw {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.p-fig {
+  text-align: right;
+  font-size: 18px;
+}
+.p-give {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .project-row {
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+  }
+  .p-give {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+  .p-give .note {
+    margin-right: auto;
+  }
+}
+
+/* ---- homecoming ----------------------------------------------------------- */
+
+.opened {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.opened li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.opened .label {
+  flex: none;
+  background: var(--woad);
+  color: var(--bone);
+  padding: 3px 8px;
+}
+.opened canvas {
+  flex: none;
+}
+.copyline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.copy-text {
+  font-weight: 700;
+  white-space: normal;
+  user-select: all;
+  -webkit-user-select: all;
+}
+.came + .note,
+.came ~ .note {
+  margin-top: 8px;
+}
+.foot {
+  margin-top: 24px;
+}
+
+/* ---- the stand-in run ----------------------------------------------------- */
+
+.stub-run .stamps {
+  margin-top: 16px;
+}
+.stub-run p {
+  margin-top: 8px;
+}
+
+/* ---- fixes from looking --------------------------------------------------- */
+
+/* Sentences that carry figures wrap like any other sentence. */
+p.num,
+.bar-text.num,
+.post-terms {
+  white-space: normal;
+}
+.ledger .post-terms {
+  text-align: left;
+}
+/* A list straight under a section heading shares the heading's rule. */
+.section > h2 + .stats {
+  border-top: 0;
+}
+
+/* On a phone a ledger row with stamps keeps its figures on one line and
+   drops the stamps to a second, so names are not squeezed into a column. */
+@media (max-width: 560px) {
+  .listings tr,
+  .selling tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 56px 64px;
+    align-items: center;
+    border-bottom: var(--hair) solid var(--ink);
+  }
+  .listings tr:first-child,
+  .selling tr:first-child {
+    border-bottom: var(--rule) solid var(--ink);
+    align-items: end;
+  }
+  .listings th,
+  .selling th,
+  .listings td,
+  .selling td {
+    border-bottom: 0;
+    width: auto;
+  }
+  .listings th:last-child,
+  .selling th:last-child {
+    display: none;
+  }
+  .listings td.act,
+  .selling td.act {
+    grid-column: 1 / -1;
+    padding: 0 0 8px;
+  }
+  .selling td.act:empty {
+    display: none;
+  }
+  .selling tr.post-row {
+    display: block;
+  }
+  .selling tr.post-row td {
+    display: block;
+  }
+}
+
+/* Selected text is inked, not the browser's blue. */
+::selection {
+  background: var(--ink);
+  color: var(--bone);
+}
+.slot.is-empty {
+  min-height: 0;
+}
+.stamp.is-armed {
+  min-width: 0;
+}
