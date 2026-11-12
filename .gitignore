@@ -6,3 +6,4 @@ dist
 .env
 test-results
 .claude/worktrees
+docs/critique/mobile-ui/shots/
