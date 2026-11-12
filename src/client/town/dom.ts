@@ -209,6 +209,16 @@ export const isDocked = (): boolean => mq(DOCK_Q);
 /** Room for everything: folds are open and have no toggle. */
 export const isWide = (): boolean => mq(WIDE_Q);
 
+// A control focused from code wears its focus rule. After a tap on a touch
+// screen that rule reads as a stray underline, so code moves focus only for a
+// keyboard or a mouse.
+let keyed = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', () => void (keyed = true), true);
+  window.addEventListener('pointerdown', () => void (keyed = false), true);
+}
+export const focusFromCode = (): boolean => keyed || !mq('(pointer: coarse)');
+
 /** The dock: one ruled line at the foot of a phone screen with what the tab is for and its stamp. */
 export function dock(text: Kid, ...stamps: Kid[]): HTMLElement {
   return el('div', 'dock', el('div', 'dock-text', text), el('div', 'dock-acts', ...stamps));

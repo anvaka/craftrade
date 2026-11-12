@@ -8,7 +8,7 @@ import type { StationId } from '../../shared/protocol.ts';
 import { TOWN_FUND_PER_DAY } from '../../shared/rules.ts';
 import { RAWS, emptyRaws, type RawBag } from '../../shared/vocab.ts';
 import { api } from './api.ts';
-import { dock, el, empty, fmt, fold, icon, isDocked, pips, plural, sprites, stamp, stepper, thing, type Kid } from './dom.ts';
+import { dock, el, empty, fmt, fold, icon, isDocked, isWide, pips, plural, sprites, stamp, stepper, thing, type Kid } from './dom.ts';
 import { act, app, say, setProfile } from './state.ts';
 import { RAW_NAME, STATION_NAME, STATION_ORDER, STATION_TOP_TIER, stationDoes } from './words.ts';
 
@@ -178,7 +178,8 @@ function fundRow(name: string): HTMLElement {
     el('div', 'bar-text', el('span', 'label', 'With marks'), ' ', el('span', 'note', `Pay the Factor to deliver what the project needs most, at his asking price. He will carry ${TOWN_FUND_PER_DAY} units a day for one player. Marks that do not buy a whole unit stay with you.`)),
     el('span', 'stamps', stepper({ value: funding, min: 0, max, key: 'fund:marks', label: 'marks to pay', onChange: (v) => void ((funding = v), sync()) }), fund),
   );
-  return fold('fund', 'fold--sub', 'Pay the Factor instead', '', row);
+  // A desk shows the line as it is; narrower screens fold it under one heading line.
+  return isWide() ? row : fold('fund', 'fold--sub', 'Pay the Factor instead', '', row);
 }
 
 function stations(): HTMLElement {

@@ -81,7 +81,8 @@ function nextRun(): HTMLElement {
       ),
     );
   }
-  if (first) sec.append(el('p', 'controls', CONTROLS));
+  // Under a finger the first thing to say is the finger, not the keys.
+  if (first) sec.append(el('p', 'controls', typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'You only move: drag anywhere on the screen. Weapons fire on their own.' : CONTROLS));
   else sec.append(hazardRow());
   if (app.profile.features.includes('daily')) sec.append(dailyRow());
   return sec;
@@ -122,7 +123,7 @@ function hazardRow(): HTMLElement {
   const terms = now === 0 ? 'The plain clearing.' : `Pays ${Math.round(HAZARD_MARKS * now * 100)}% more marks.`;
   const kit: Kid[] = now >= MAX_HAZARD ? ['A packed item comes whole.'] : ['A packed item brings up to ', setTip(el('span', 'term', `${cap} points`), 'An item\u2019s points are the sum of its effects. A packed item stronger than this is cut down to it for the run, and comes home whole.'), '.'];
   const next = book.open < MAX_HAZARD ? ` A win at hazard ${book.open} as ${characterName(app.character)} opens hazard ${book.open + 1}.` : '';
-  if (isPhone()) {
+  if (isDocked()) {
     // One short line; the long terms are in the squares' tips and in the hazard word's.
     const short = now >= MAX_HAZARD ? 'packed items come whole' : `packed items bring up to ${cap} points`;
     row.append(el('div', 'bar-text', term('Hazard', 'hazard', 'label'), ' ', el('span', 'num', String(now)), ' ', el('span', 'note', now === 0 ? `Plain clearing, ${short}.` : `+${Math.round(HAZARD_MARKS * now * 100)}% marks, ${short}.`)), picks);
@@ -241,12 +242,14 @@ function stash(): HTMLElement {
   const p = app.profile;
   const sec = el('section', 'section stash', el('h2', '', 'Stash'));
   const phone = isPhone();
-  if (app.met && (items.length || p.stashBought > 0)) sec.append(shelfRow(phone && items.length > 0));
+  // A phone, or a short landscape screen, says how full the stash is and how much is packed in one line.
+  const brief = isDocked();
+  if (app.met && (items.length || p.stashBought > 0)) sec.append(shelfRow(brief && items.length > 0));
   if (!items.length) {
     sec.append(empty(app.met ? 'Nothing in the stash. One item from your build can come home for every four waves you clear, and it will be listed here.' : 'Your stash is kept in town and will be listed here when the town answers.'));
     return sec;
   }
-  if (!phone) sec.append(
+  if (!brief) sec.append(
     el(
       'p',
       'note',
@@ -390,7 +393,7 @@ export function account(): HTMLElement {
     );
   }
   // The phone head has only the mute stamp; the volume is set here, where nothing scrolls under the thumb at the top of a page.
-  if (isDocked()) row('Sound', soundControls());
+  if (isDocked()) row('Sound', soundControls({ icon: true }));
   row('Title worn', p.title && TITLE[p.title] ? TITLE[p.title].name : el('span', 'note', 'none'));
   row('Runs', fmt(p.runs));
   row('Wins', fmt(p.wins));

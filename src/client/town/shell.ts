@@ -9,7 +9,7 @@ import { SOLO_ONLY, api, isSolo, onReachable, setWorld } from './api.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
 import { renderAlmanac } from './almanac.ts';
 import { renderDaily } from './daily.ts';
-import { DOCK_Q, PHONE_Q, WIDE_Q, el, fmt, icon, isDocked, isPhone, sprites, type Kid } from './dom.ts';
+import { DOCK_Q, PHONE_Q, WIDE_Q, el, fmt, focusFromCode, icon, isDocked, isPhone, sprites, type Kid } from './dom.ts';
 import { renderHome } from './home.ts';
 import { renderMarket } from './market.ts';
 import { app, getPrefs, onRedraw, redraw, savePrefs, sayFail, setProfile, type TabId } from './state.ts';
@@ -51,8 +51,9 @@ audio.onChange(syncSound);
  * phone head has no room for a slider, and a slider at the top of a page that
  * scrolls takes the swipes meant for scrolling. The volume is in the account.
  */
-export function soundControls(o: { compact?: boolean } = {}): HTMLElement {
-  const mute = el('button', `stamp stamp--plain stamp--small mute${o.compact ? ' mute--icon' : ''}`, o.compact ? el('span', 'spk') : 'Sound');
+export function soundControls(o: { compact?: boolean; icon?: boolean } = {}): HTMLElement {
+  const asIcon = o.compact || o.icon;
+  const mute = el('button', `stamp stamp--plain stamp--small mute${asIcon ? ' mute--icon' : ''}`, asIcon ? el('span', 'spk') : 'Sound');
   mute.type = 'button';
   mute.dataset.fk = 'mute';
   mute.setAttribute('aria-pressed', String(audio.muted));
@@ -114,6 +115,8 @@ function townHead(): HTMLElement {
 
 const TAB_ORDER: TabId[] = ['stash', 'workshop', 'market', 'town', 'daily', 'almanac'];
 const tabName = (t: TabId): string => (t === 'stash' ? 'Stash' : t === 'almanac' ? 'Almanac' : FEATURE_TAB[t as Feature]);
+/** Names for the six slots of a phone's tab bar, where "Workshop" does not fit. */
+const TAB_SHORT: Partial<Record<TabId, string>> = { workshop: 'Anvil' };
 const TAB_TIP: Record<TabId, string> = {
   stash: 'Your items, your kit for the next run, and who heads out.',
   workshop: 'Fuse two stash items into one new item, and read the codex of known recipes.',
@@ -151,7 +154,7 @@ function tabs(): HTMLElement | null {
   for (const t of list) {
     const on = t === app.tab;
     const due = t === 'daily' && dailyDue();
-    const b = el('button', 'tab', el('span', 'tab-name', tabName(t)), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null, due ? el('span', 'tab-due') : null);
+    const b = el('button', 'tab', el('span', 'tab-name', tabName(t)), el('span', 'tab-short', TAB_SHORT[t] ?? tabName(t)), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null, due ? el('span', 'tab-due') : null);
     if (due) b.setAttribute('aria-description', 'not yet run today');
     b.type = 'button';
     b.dataset.fk = `tab:${t}`;
@@ -288,7 +291,7 @@ export function showTown(focusKey = 'headout'): void {
   if (!openTabs().includes(app.tab)) app.tab = 'stash';
   drawTown();
   window.scrollTo(0, 0);
-  (townRoot().querySelector(`[data-fk="${focusKey}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
+  if (focusFromCode()) (townRoot().querySelector(`[data-fk="${focusKey}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
   void loadTab(app.tab);
 }
 

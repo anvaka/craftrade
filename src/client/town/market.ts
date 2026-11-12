@@ -11,7 +11,7 @@ import { LISTING_MIN_RUNS, MAX_LOT, priceCeiling } from '../../shared/rules.ts';
 import { RAWS, type RawId } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
-import { el, empty, finder, fmt, fold, icon, isPhone, itemIcon, pips, plural, serial, sprites, stamp, stepper, tier, type Kid } from './dom.ts';
+import { el, empty, finder, fmt, fold, icon, isDocked, itemIcon, pips, plural, serial, sprites, stamp, stepper, tier, type Kid } from './dom.ts';
 import { loadTab } from './shell.ts';
 import { act, app, redraw, say, setProfile } from './state.ts';
 import { RAW_NAME } from './words.ts';
@@ -90,7 +90,7 @@ function factor(): HTMLElement {
   const sec = el('section', 'section section--first', el('h2', '', term('The Factor', 'factor')));
   sec.append(el('p', 'note', 'Buys and sells raws for marks at his own prices, which follow trade. He takes and gives only so much in a day.'));
   // A phone trades one raw at a time: three stamps choose which, and one card shows it.
-  const phone = isPhone();
+  const phone = isDocked();
   if (phone) {
     const seg = el('div', 'seg');
     seg.setAttribute('role', 'radiogroup');

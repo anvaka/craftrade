@@ -19,7 +19,7 @@ import { DEATH_RAW_KEEP, KIT_CHARGES, type RunStartRes } from '../../shared/prot
 import { RAWS } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import type { RunRecap } from '../seam.ts';
-import { charges, copyText, el, fmt, icon, isDocked, itemRow, ordinal, pips, sprite, sprites, stamp, thing, type Kid } from './dom.ts';
+import { charges, copyText, el, fmt, focusFromCode, icon, isDocked, itemRow, ordinal, pips, sprite, sprites, stamp, thing, type Kid } from './dom.ts';
 import { headOut, type Launch, type Report } from './run.ts';
 import { pageHead, showSheet, showTown, soundControls } from './shell.ts';
 import { app } from './state.ts';
@@ -59,8 +59,8 @@ export function showHomecoming(h: Homecoming): void {
     drawn = true;
     const root = showSheet(...sheet(h, report, copied, relicShown, { again, toTown, copy }));
     if (at) window.scrollTo(0, at);
-    const key = hadFocus && root.querySelector(`[data-fk="${hadFocus}"]`) ? hadFocus : 'again';
-    (root.querySelector(`[data-fk="${key}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
+    const key = hadFocus && root.querySelector(`[data-fk="${hadFocus}"]`) ? hadFocus : focusFromCode() ? 'again' : null;
+    if (key) (root.querySelector(`[data-fk="${key}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
   };
 
   const settle = async (): Promise<void> => {
