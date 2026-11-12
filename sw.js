@@ -8,8 +8,8 @@
 //     their name and never change.
 //   - /api/ is never touched: the shared town is live or it is out of reach.
 
-const VERSION = 'ee1c399ff8ba';
-const FILES = ["./","manifest.webmanifest","icon-192.png","assets/index-BhYrvmG4.js","assets/game-CDcbQgYX.js","assets/items-u0zmQNMz.js","assets/replay-DEjCYkoJ.js","assets/stubrun-kdf7HOre.js","assets/world-BaQZLpI9.js","assets/game-DYm6Tt-j.css","assets/index-gasFZJnm.css","assets/sql-wasm-CXIAVl5-.wasm","assets/verify-worker-DZosBLXb.js","assets/zilla-slab-latin-400-italic-D7_mW9QC.woff2","assets/zilla-slab-latin-400-normal-Dw3p-plB.woff2","assets/zilla-slab-latin-700-normal-CEKI1vVu.woff2"];
+const VERSION = 'd4cf4a253eca';
+const FILES = ["./","manifest.webmanifest","icon-192.png","assets/index-IMtALdNv.js","assets/game-DwvmiS34.js","assets/items-u0zmQNMz.js","assets/replay-0i3WvPXe.js","assets/stubrun-UA-89K9H.js","assets/world-B3PghUag.js","assets/game-DYm6Tt-j.css","assets/index-xCmspiU5.css","assets/sql-wasm-CXIAVl5-.wasm","assets/verify-worker-DZosBLXb.js","assets/zilla-slab-latin-400-italic-D7_mW9QC.woff2","assets/zilla-slab-latin-400-normal-Dw3p-plB.woff2","assets/zilla-slab-latin-700-normal-CEKI1vVu.woff2"];
 // Several builds can live on one site, each in its own folder (a preview per branch). Each keeps its own cache
 // and clears only its own old ones.
 const SCOPE = `scrip-${new URL(self.registration.scope).pathname}-`;
