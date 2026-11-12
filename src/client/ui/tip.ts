@@ -17,6 +17,10 @@ let hoverTimer = 0;
 let longTimer = 0;
 let lastHidden = 0;
 let swallowClick = false;
+/** Where and when a touch began: a tap opens a tip only if the finger barely moved. */
+let touchAt: { x: number; y: number; t: number; target: HTMLElement | null } | null = null;
+const TAP_SLOP = 10;
+const TAP_MS = 500;
 
 /** Give an element a tooltip. Empty text removes it. */
 export function setTip<T extends HTMLElement>(e: T, text: string): T {
@@ -142,28 +146,45 @@ export function installTips(): void {
 
   document.addEventListener('pointerdown', (ev) => {
     clearTimeout(longTimer);
+    // A hold that turned into a scroll never clicked: its swallow must not eat the next tap.
+    swallowClick = false;
+    touchAt = null;
     const t = tipTarget(ev.target);
     if (ev.pointerType === 'mouse') {
       if (!t || !isLive(t)) return;
       return hideTip(); // pressing a button puts its tip away
     }
-    if (!t) return hideTip();
     // In play a touch anywhere steers; a counter under the thumb is not a question.
-    if (t.closest('.g-hud')) return hideTip();
-    if (!isLive(t)) {
-      if (shownFor === t) hideTip();
-      else show(t);
-      return;
-    }
+    if (!t || t.closest('.g-hud')) return hideTip();
+    touchAt = { x: ev.clientX, y: ev.clientY, t: performance.now(), target: t };
+    if (!isLive(t)) return; // a tap on text opens its tip when the finger lifts, not when a scroll starts on it
     hideTip();
     longTimer = window.setTimeout(() => {
       swallowClick = true;
       show(t);
     }, LONG_MS);
   });
-  const cancelLong = () => clearTimeout(longTimer);
-  document.addEventListener('pointerup', cancelLong);
-  document.addEventListener('pointercancel', cancelLong);
+  document.addEventListener('pointermove', (ev) => {
+    if (!touchAt || ev.pointerType === 'mouse') return;
+    if (Math.hypot(ev.clientX - touchAt.x, ev.clientY - touchAt.y) > TAP_SLOP) {
+      clearTimeout(longTimer);
+      touchAt = null;
+    }
+  });
+  document.addEventListener('pointerup', (ev) => {
+    clearTimeout(longTimer);
+    const at = touchAt;
+    touchAt = null;
+    if (!at || ev.pointerType === 'mouse' || !at.target || isLive(at.target)) return;
+    if (performance.now() - at.t > TAP_MS) return;
+    if (shownFor === at.target) hideTip();
+    else show(at.target);
+  });
+  document.addEventListener('pointercancel', () => {
+    clearTimeout(longTimer);
+    touchAt = null;
+    swallowClick = false;
+  });
   // A long press read the tip; it should not also press the button.
   document.addEventListener(
     'click',
