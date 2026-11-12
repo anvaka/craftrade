@@ -111,3 +111,49 @@ You have Mining 12 and Smithing 9, and the forge is tier 2.
    fast. You name it "Glass tooth". Nobody else in the world knows this
    recipe yet.
 5. You keep one, and decide whether to sell the note or publish it.
+
+## Refining cost
+
+Refining is not free. It costs three things:
+
+- **Materials:** 4 raws make 1 refined good, and tier 2 and up also eat
+  lower-tier goods and a reagent.
+- **A coin fee** per batch that rises with tier. In a shared world half goes
+  to the town fund.
+- **Nothing in time.** It is instant and in bulk. No timers to wait on.
+
+It pays trade-skill progress to the matching gathering skill.
+
+## Inventory
+
+Three places, no weight.
+
+- **Bag (on an outing).** Slots with stacks of 20. The first bag has 12
+  slots; better bags are made by Outfitting, up to about 30. Tools, weapons
+  and armour are worn and take no bag slots. Two belt slots hold food. A
+  full bag means dropping something or heading home, so the bag paces an
+  outing. The 100/60/30 rule applies to the bag only; worn gear is never
+  lost, it wears.
+- **Storage (in town).** One store for the whole town, reachable from every
+  station, so crafting draws from it directly and nothing is carried between
+  buildings. The bag empties into it on return. It starts at about 40
+  stacks; the town shed and house chests add more.
+- **Loadout.** Weapon x2, tool x3, armour, trinket x2, bag.
+
+Chores to remove from day one: auto-sort, filters by family and tier, bulk
+salvage, "refine all".
+
+## Who can gather what
+
+A weak character cannot take high-tier resources. Three gates stack:
+
+1. **The node asks for a skill level.** Silver needs Mining 20. Below that
+   the node is visible, shows the number and cannot be worked. Tools only
+   change speed.
+2. **The zone has a gate.** A boss key, or a skill level as the second way
+   in, so a dedicated gatherer who fights badly still has a route.
+3. **The zone is dangerous.** Guards and the woken woods are of the zone's
+   tier, so staying alive there needs gear of about that tier, which needs
+   the crafting skills and station tiers to make.
+
+Charts carry a tier too and cannot be used below it.
