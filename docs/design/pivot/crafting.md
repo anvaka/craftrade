@@ -106,8 +106,8 @@ You have Mining 12 and Smithing 9, and the forge is tier 2.
    The screen shows quality 82-94 and says a smith's stew would make it
    86-98.
 4. You swap the head for saltglass. The screen says: untried; tier 2
-   budget; brittle and bright, likely crit and fragile. You make it. The
-   model returns: crit on worked nodes gives double yield, wears twice as
+   budget; brittle and bright, likely bursts of speed and fragile. You make it. The
+   model returns: every fifth stroke counts three times, wears twice as
    fast. You name it "Glass tooth". Nobody else in the world knows this
    recipe yet.
 5. You keep one, and decide whether to sell the note or publish it.
