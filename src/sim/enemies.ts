@@ -34,7 +34,7 @@ function spawnPoint(run: Run, lane: number, spread: number): void {
   const jx = (rnd(run.rng, Stream.Spawn) - 0.5) * 2 * spread, jy = (rnd(run.rng, Stream.Spawn) - 0.5) * 2 * spread;
   if (d <= LANE_NEAR) { SX = mx + jx; SY = my + jy; }
   else { SX = p.x + (dx / d) * SPAWN_RING + jx; SY = p.y + (dy / d) * SPAWN_RING + jy; }
-  SX = clampX(SX); SY = clampY(SY);
+  SX = clampX(run, SX); SY = clampY(run, SY);
 }
 
 export function spawnPack(run: Run, type: number, n: number): void {
@@ -121,10 +121,10 @@ function startCharge(run: Run, e: Enemy, tell: number): void {
 }
 
 /** Advance a charge. Returns true when it has ended (time up or treeline reached). */
-function charging(e: Enemy, speed: number): boolean {
+function charging(run: Run, e: Enemy, speed: number): boolean {
   e.x += e.dx * speed * DT; e.y += e.dy * speed * DT;
   e.t -= DT;
-  const hitWall = e.x <= ARENA_PAD || e.x >= ARENA_W - ARENA_PAD || e.y <= ARENA_PAD || e.y >= ARENA_H - ARENA_PAD;
+  const hitWall = e.x <= ARENA_PAD || e.x >= run.w - ARENA_PAD || e.y <= ARENA_PAD || e.y >= run.h - ARENA_PAD;
   return e.t <= 0 || hitWall;
 }
 
@@ -134,7 +134,7 @@ function slamRing(run: Run, e: Enemy, idx: number, r0: number, r1: number, t: nu
 
 export function updateEnemies(run: Run): void {
   const es = run.enemies, p = run.player, g = run.grid;
-  const tick = run.tick, wv = run.wave - 1;
+  const tick = run.tick, wv = run.wave - 1, W = run.w, H = run.h;
   for (let i = 0; i < MAX_ENEMIES; i++) {
     const e = es[i];
     if (!e.alive) continue;
@@ -157,6 +157,8 @@ export function updateEnemies(run: Run): void {
     const pdx = p.x - e.x, pdy = p.y - e.y;
     const pd = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
     const ux = pdx / pd, uy = pdy / pd;
+    // A guard stands where it was put until the player comes near or something hits it.
+    if (e.state === ES.Guard) { if (pd < e.t2 || e.hp < e.maxHp) { e.state = ES.Move; e.t2 = 0; } else continue; }
     const sp = (def.speed + def.speedW * wv) * slow * DT;
     let contact = 1;
 
@@ -190,7 +192,7 @@ export function updateEnemies(run: Run): void {
           if (e.t <= 0) { e.state = ES.Charge; e.t = AI.boarChargeTime; }
         } else if (e.state === ES.Charge) {
           contact = AI.boarChargeDmg;
-          if (charging(e, AI.boarChargeSpeed * slow)) { e.state = ES.Recover; e.t = AI.boarRecover; }
+          if (charging(run, e, AI.boarChargeSpeed * slow)) { e.state = ES.Recover; e.t = AI.boarRecover; }
         } else {
           e.t -= DT;
           if (e.t <= 0) { e.state = ES.Move; e.t2 = 1.0; }
@@ -274,7 +276,7 @@ export function updateEnemies(run: Run): void {
             e.t3 = AI.stagShardEvery;
             addHazard(run, HZ_SHARD, e.x, e.y, 0, AI.stagShardR, AI.stagShardLife, e.dmg * AI.stagShardDmg, e.type, -1, 0);
           }
-          if (charging(e, AI.stagChargeSpeed * slow)) {
+          if (charging(run, e, AI.stagChargeSpeed * slow)) {
             e.n--;
             if (e.n > 0) startCharge(run, e, AI.stagTell * 0.85);
             else { e.state = ES.Recover; e.t = AI.stagRecover; }
@@ -333,8 +335,8 @@ export function updateEnemies(run: Run): void {
     }
     // Clamped by hand: a call that returns a float would box it once per enemy per tick.
     if (e.state !== ES.Flee) {
-      if (e.x < ARENA_PAD) e.x = ARENA_PAD; else if (e.x > ARENA_W - ARENA_PAD) e.x = ARENA_W - ARENA_PAD;
-      if (e.y < ARENA_PAD) e.y = ARENA_PAD; else if (e.y > ARENA_H - ARENA_PAD) e.y = ARENA_H - ARENA_PAD;
+      if (e.x < ARENA_PAD) e.x = ARENA_PAD; else if (e.x > W - ARENA_PAD) e.x = W - ARENA_PAD;
+      if (e.y < ARENA_PAD) e.y = ARENA_PAD; else if (e.y > H - ARENA_PAD) e.y = H - ARENA_PAD;
     }
 
     if (contact > 0 && def.dmg > 0 && p.iframes <= 0) {
@@ -360,10 +362,10 @@ function thief(run: Run, e: Enemy, idx: number, sp: number): void {
   e.t += DT;
   if (e.n >= AI.thiefGrab || e.t > AI.thiefPatience) {
     // Run for the nearest stretch of treeline.
-    const l = e.x, r = ARENA_W - e.x, u = e.y, d = ARENA_H - e.y;
+    const l = e.x, r = run.w - e.x, u = e.y, d = run.h - e.y;
     const m = Math.min(l, r, u, d);
-    e.tx = m === l ? -30 : m === r ? ARENA_W + 30 : e.x;
-    e.ty = m === u ? -30 : m === d ? ARENA_H + 30 : e.y;
+    e.tx = m === l ? -30 : m === r ? run.w + 30 : e.x;
+    e.ty = m === u ? -30 : m === d ? run.h + 30 : e.y;
     if (m === l || m === r) e.ty = e.y; else e.tx = e.x;
     e.state = ES.Flee;
     return;
@@ -419,7 +421,7 @@ function tusk(run: Run, e: Enemy, idx: number, pd: number, ux: number, uy: numbe
       if (e.t <= 0) { e.state = ES.Charge; e.t = AI.tuskChargeTime; }
       return 1;
     case ES.Charge:
-      if (charging(e, AI.tuskChargeSpeed * slow)) { e.state = ES.Recover; e.t = AI.tuskRecover; }
+      if (charging(run, e, AI.tuskChargeSpeed * slow)) { e.state = ES.Recover; e.t = AI.tuskRecover; }
       return 1.6;
     case ES.Recover:
       e.t -= DT;
@@ -500,7 +502,7 @@ export function updateEShots(run: Run): void {
     s.px = s.x; s.py = s.y;
     s.x += s.vx * DT; s.y += s.vy * DT;
     s.life -= DT;
-    if (s.life <= 0 || s.x < 0 || s.x > ARENA_W || s.y < 0 || s.y > ARENA_H) { s.alive = false; continue; }
+    if (s.life <= 0 || s.x < 0 || s.x > run.w || s.y < 0 || s.y > run.h) { s.alive = false; continue; }
     const dx = p.x - s.x, dy = p.y - s.y, rr = s.r + PLAYER_R - 2;
     if (dx * dx + dy * dy < rr * rr) {
       s.alive = false;

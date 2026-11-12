@@ -92,7 +92,7 @@ export function queryGrid(run: Run, x: number, y: number, r: number): number {
 }
 
 export function targetable(e: Enemy): boolean {
-  return e.alive && e.state !== ES.Spawn && e.state !== ES.Burrowed && e.state !== ES.Surfacing;
+  return e.alive && e.state !== ES.Spawn && e.state !== ES.Burrowed && e.state !== ES.Surfacing && e.state !== ES.Guard;
 }
 
 // ---- stats ---------------------------------------------------------------
@@ -239,7 +239,7 @@ export function spawnPickup(run: Run, x: number, y: number, kind: number, value:
   const ang = rnd(run.rng, Stream.Drop) * 6.283185307179586;
   const sp = scatter * (0.4 + 0.6 * rnd(run.rng, Stream.Drop));
   slot.alive = true; slot.kind = kind; slot.value = value; slot.pulled = false; slot.claimed = -1;
-  slot.x = slot.px = clampX(x); slot.y = slot.py = clampY(y);
+  slot.x = slot.px = clampX(run, x); slot.y = slot.py = clampY(run, y);
   slot.vx = tcos(ang) * sp; slot.vy = tsin(ang) * sp;
 }
 
@@ -248,13 +248,30 @@ export function spawnNode(run: Run, x: number, y: number, type: number, rich: bo
   let live = 0, slot: ResNode | null = null;
   for (const n of run.nodes) { if (n.alive) live++; else if (!slot) slot = n; }
   if (!slot || live >= MAX_LIVE_NODES) return false;
-  slot.alive = true; slot.x = clampX(x); slot.y = clampY(y); slot.type = type; slot.rich = rich;
+  slot.alive = true; slot.x = clampX(run, x); slot.y = clampY(run, y); slot.type = type; slot.rich = rich; slot.tier = 1;
   slot.work = 0; slot.need = rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0; slot.regrown = false; slot.noise = 0;
   return true;
 }
 
-export function clampX(x: number): number { return x < ARENA_PAD ? ARENA_PAD : x > ARENA_W - ARENA_PAD ? ARENA_W - ARENA_PAD : x; }
-export function clampY(y: number): number { return y < ARENA_PAD ? ARENA_PAD : y > ARENA_H - ARENA_PAD ? ARENA_H - ARENA_PAD : y; }
+/** Carcass tier a beast leaves on an outing. Insects and birds leave nothing worth skinning. */
+export const CARCASS_TIER: Record<string, number> = { boar: 1, burrower: 1, brute: 2, stag: 2 };
+/** Work a node needs on an outing, by tier. */
+export const OUTING_WORK: readonly number[] = [0, 6, 10];
+
+/** Stand an outing node in any free slot. Returns its index or -1. */
+export function standNode(run: Run, x: number, y: number, type: number, tier: number): number {
+  for (let i = 0; i < run.nodes.length; i++) {
+    const n = run.nodes[i];
+    if (n.alive) continue;
+    n.alive = true; n.x = clampX(run, x); n.y = clampY(run, y); n.type = type; n.rich = tier > 1; n.tier = tier;
+    n.work = 0; n.need = OUTING_WORK[tier] ?? OUTING_WORK[1]; n.working = false; n.tickAcc = 0; n.regrown = false; n.noise = 0;
+    return i;
+  }
+  return -1;
+}
+
+export function clampX(run: Run, x: number): number { return x < ARENA_PAD ? ARENA_PAD : x > run.w - ARENA_PAD ? run.w - ARENA_PAD : x; }
+export function clampY(run: Run, y: number): number { return y < ARENA_PAD ? ARENA_PAD : y > run.h - ARENA_PAD ? run.h - ARENA_PAD : y; }
 
 /** Take an enemy slot. Returns its index or -1 at the live cap. */
 export function spawnEnemy(run: Run, type: number, x: number, y: number, tell = SPAWN_TELL): number {
@@ -265,7 +282,7 @@ export function spawnEnemy(run: Run, type: number, x: number, y: number, tell = 
   if (idx < 0) return -1;
   const e = es[idx], def = ENEMIES[type], w = run.wave - 1;
   e.alive = true; e.uid = run.nextUid++; e.type = type;
-  e.x = e.px = clampX(x); e.y = e.py = clampY(y);
+  e.x = e.px = clampX(run, x); e.y = e.py = clampY(run, y);
   e.kx = e.ky = 0;
   e.hp = e.maxHp = (def.hp + def.hpW * w) * HAZARD_HP[run.hazard] * (def.rank === 0 ? WAVE_HP[w] ?? 1 : 1);
   e.dmg = (def.dmg + def.dmgW * w) * (WAVE_DMG[w] ?? 1);
@@ -324,7 +341,11 @@ export function killEnemy(run: Run, idx: number, slain: boolean): void {
   const def = ENEMIES[e.type], p = run.player;
   run.kills++;
   emit(run, 'kill', e.x, e.y, e.type, def.rank);
-  if (def.scrip > 0 && !e.called) {
+  if (run.outing) {
+    // An outing pays in materials: a beast leaves a carcass to skin, and nothing drops scrip.
+    const tier = CARCASS_TIER[def.id] ?? 0;
+    if (tier > 0) standNode(run, e.x, e.y, NODE_CARCASS, tier);
+  } else if (def.scrip > 0 && !e.called) {
     let v = def.scrip;
     // Luck finds a second coin: a third of a percent per point, on top of any bounty.
     const twice = p.sp[SP.killScrip] + Math.max(0, p.stat[ST.luck]) / 3;
@@ -410,7 +431,7 @@ export function hurtPlayer(run: Run, dmg: number, type: number, owner: number, o
   // No rounding: with 16 HP a rounded hit turns a small change in enemy damage into a cliff.
   let d = dmg * p.takenMul;
   // Head down at a node: hits land harder.
-  if (p.workingNode !== -1 && run.wave >= NOISE_FROM_WAVE) d *= WORK_EXPOSED;
+  if (!run.outing && p.workingNode !== -1 && run.wave >= NOISE_FROM_WAVE) d *= WORK_EXPOSED;
   if (d < 0.25) d = 0.25;
   p.iframes = IFRAMES;
   if (p.shield > 0) {

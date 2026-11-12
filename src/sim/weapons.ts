@@ -163,7 +163,7 @@ export function updateShots(run: Run): void {
     s.px = s.x; s.py = s.y;
     s.x += s.vx * DT; s.y += s.vy * DT;
     s.life -= DT;
-    if (s.life <= 0 || s.x < 0 || s.x > ARENA_W || s.y < 0 || s.y > ARENA_H) { s.alive = false; continue; }
+    if (s.life <= 0 || s.x < 0 || s.x > run.w || s.y < 0 || s.y > run.h) { s.alive = false; continue; }
     const n = queryGrid(run, s.x, s.y, s.r + 44);
     for (let k = 0; k < n; k++) {
       const i = Q[k], e = es[i];

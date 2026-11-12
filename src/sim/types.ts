@@ -27,6 +27,8 @@ export const ES = {
   Summon: 8,
   /** Burrower about to surface at `tx, ty`. `t` counts down. */
   Surfacing: 9,
+  /** Standing guard on an outing. Idle until the player comes near or it is hit. */
+  Guard: 10,
 } as const;
 
 export interface Enemy {
@@ -117,13 +119,15 @@ export interface Pickup {
   claimed: number;
 }
 
-export const NODE_TREE = 0, NODE_SEAM = 1, NODE_CARCASS = 2;
+export const NODE_TREE = 0, NODE_SEAM = 1, NODE_CARCASS = 2, NODE_PLANT = 3;
 export interface ResNode {
   alive: boolean;
   x: number; y: number;
   /** NODE_TREE, NODE_SEAM or NODE_CARCASS. */
   type: number;
   rich: boolean;
+  /** Resource tier, 1 or 2. Only outings stand tier 2 nodes. */
+  tier: number;
   work: number; need: number;
   /** True while the player stood in the ring this tick. */
   working: boolean;
@@ -269,7 +273,9 @@ export interface Bench {
 export type EventType =
   | 'attack' | 'hit' | 'crit' | 'kill' | 'hurt' | 'dodge' | 'pickup' | 'work' | 'break' | 'levelup'
   | 'tell' | 'eliteSpawn' | 'eliteDeath' | 'bossSpawn' | 'bossPhase' | 'bossDeath' | 'steal' | 'escape'
-  | 'waveStart' | 'waveEnd' | 'shieldBreak' | 'secondWind' | 'burst' | 'slam' | 'death';
+  | 'waveStart' | 'waveEnd' | 'shieldBreak' | 'secondWind' | 'burst' | 'slam' | 'death'
+  // Outings: a: skill, b: xp, c: new level or 0 | a: threat stage | bag full | a: node type, b: level needed | a: how it ended.
+  | 'skill' | 'stage' | 'full' | 'locked' | 'left';
 
 /** One presentation event. Objects are reused; copy what you need before the next step. */
 export interface SimEvent { type: EventType; x: number; y: number; a: number; b: number; c: number; d: number }
@@ -291,6 +297,35 @@ export interface RunOptions {
   hazard?: number;
 }
 
+/** State of an outing: one visit to a zone to gather, ending at a camp, by recall or by death. */
+export interface Outing {
+  /** Seconds since arrival. */
+  time: number;
+  /** 0..1 fills the meter; past 1 the woods are awake and it keeps climbing. */
+  threat: number;
+  /** 0 calm, 1 stirring, 2 hunting, 3 awake. */
+  stage: number;
+  /** Seconds until the next pack. */
+  nextPack: number;
+  /** Camp positions (x, y pairs) and how many. The player arrives at the first. */
+  camps: Float64Array;
+  campCount: number;
+  /** Index of the camp the player stands in, or -1. */
+  inCamp: number;
+  /** '' while out; then how it ended. */
+  result: '' | 'camp' | 'recall' | 'dead';
+  /** Count carried of each material, indexed like MATERIALS. */
+  bag: Int32Array;
+  bagSlots: number;
+  /** Skill experience at arrival plus what this outing has added, indexed like SKILLS. */
+  xp: Float64Array;
+  gained: Float64Array;
+  /** Nodes broken, by node type. */
+  broken: Int32Array;
+  /** Ticks until 'full' or 'locked' may be said again. */
+  quiet: number;
+}
+
 export interface Grid {
   cols: number; rows: number;
   /** start[c]..start[c+1] indexes `items` for cell c. */
@@ -301,6 +336,10 @@ export interface Grid {
 
 export interface Run {
   seed: number;
+  /** Size of the ground. The clearing for a run, a whole zone for an outing. */
+  w: number; h: number;
+  /** Set for an outing (see outing.ts); null for a run of waves. */
+  outing: Outing | null;
   character: CharacterId;
   /** Hazard level 0-5. */
   hazard: number;

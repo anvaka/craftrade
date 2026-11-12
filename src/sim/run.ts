@@ -1,7 +1,7 @@
 // Run lifecycle: create, step, next wave, summary, state hash.
 import { fnv1a, type ItemSpec } from '../shared/item.ts';
 import { RELIC } from '../shared/content/relics.ts';
-import { DAILY_WAVES, KIT_SLOTS, RUN_WAVES } from '../shared/protocol.ts';
+import { DAILY_WAVES, KIT_SLOTS, RUN_WAVES, type CharacterId } from '../shared/protocol.ts';
 import { emptyRaws, RAWS, STATS, type RawBag } from '../shared/vocab.ts';
 import { CHARACTER } from './data/characters.ts';
 import {
@@ -13,6 +13,7 @@ import { SOURCE_COUNT, SOURCE_IDS, WEAPON_INDEX } from './data/weapons.ts';
 import { BENCH_OFFERS, newOffer } from './bench.ts';
 import { buildGrid, clampX, clampY, rebuild, refresh, runBursts, SP, SPECIAL_COUNT, ST, xpForLevel } from './core.ts';
 import { direct, updateEnemies, updateEShots, updateHazards } from './enemies.ts';
+import { buildZone, newOuting, OUTING, outingDirect, outingNodes, outingOver, outingPickups } from './outing.ts';
 import { seedStreams } from './rng.ts';
 import type { Enemy, EShot, Hazard, Pickup, ResNode, Run, RunOptions, Shot, SimEvent } from './types.ts';
 import { makeWeapon, updateShots, updateWeapons } from './weapons.ts';
@@ -34,16 +35,46 @@ const newShot = (): Shot => ({
 });
 const newEShot = (): EShot => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, dmg: 0, r: 0, life: 0, type: 0, owner: -1, ownerUid: 0 });
 const newPickup = (): Pickup => ({ alive: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, kind: 0, value: 0, pulled: false, claimed: -1 });
-const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, work: 0, need: 1, working: false, tickAcc: 0, regrown: false, noise: 0 });
+const newNode = (): ResNode => ({ alive: false, x: 0, y: 0, type: 0, rich: false, tier: 1, work: 0, need: 1, working: false, tickAcc: 0, regrown: false, noise: 0 });
 const newHazard = (): Hazard => ({ alive: false, kind: 0, x: 0, y: 0, r0: 0, r1: 0, t: 0, dur: 0, dmg: 0, type: 0, owner: -1, ownerUid: 0 });
 const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0, c: 0, d: 0 });
 
 /** Start a run. The first wave is already under way when this returns. */
 export function createRun(opts: RunOptions): Run {
+  const run = newRun(opts, ARENA_W, ARENA_H, MAX_NODES);
+  startWave(run);
+  return run;
+}
+
+export interface OutingOptions {
+  seed: number;
+  character: CharacterId;
+  /** Gathering skill experience at arrival, indexed like SKILLS. */
+  xp?: readonly number[];
+}
+
+/** Start an outing: the zone is laid out and the player stands at its first camp. */
+export function createOuting(opts: OutingOptions): Run {
+  const run = newRun({ seed: opts.seed, character: opts.character }, OUTING.w, OUTING.h, 160);
+  run.outing = newOuting(opts.xp);
+  run.wave = 1; run.waveSeconds = 1e12;
+  const p = run.player;
+  // Everyone goes out with the three tools; a tool the character starts with is not doubled.
+  for (const id of ['hatchet', 'pick', 'knife']) {
+    if (!p.weapons.some((w) => w.id === id)) p.weapons.push(makeWeapon(WEAPON_INDEX[id], 1));
+  }
+  rebuild(run);
+  p.hp = p.maxHp;
+  for (let i = 0; i < p.weapons.length; i++) p.weapons[i].cd = 0.25 + i * 0.07;
+  buildZone(run);
+  return run;
+}
+
+function newRun(opts: RunOptions, W: number, H: number, nodeCount: number): Run {
   const ch = CHARACTER[opts.character];
   if (!ch) throw new Error(`Unknown character ${opts.character}`);
   const totalWaves = opts.waves === DAILY_WAVES ? DAILY_WAVES : RUN_WAVES;
-  const cols = Math.ceil(ARENA_W / GRID_CELL), rows = Math.ceil(ARENA_H / GRID_CELL);
+  const cols = Math.ceil(W / GRID_CELL), rows = Math.ceil(H / GRID_CELL);
   const base = new Float64Array(STATS.length);
   base[ST.maxHp] = PLAYER_BASE_HP;
   for (const s of STATS) base[ST[s]] += ch.stats[s] ?? 0;
@@ -52,11 +83,11 @@ export function createRun(opts: RunOptions): Run {
   let relics = 0;
   const kit = (opts.kit ?? []).slice(0, KIT_SLOTS).filter((k) => k.relic !== true || (Object.hasOwn(RELIC, k.id) && ++relics === 1));
   const run: Run = {
-    seed: opts.seed >>> 0, character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
+    seed: opts.seed >>> 0, w: W, h: H, outing: null, character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
     stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1, ...(opts.stations ?? {}) },
     rng: seedStreams(opts.seed), tick: 0, phase: 'wave', wave: 0, waveTime: 0, waveSeconds: 0, wavesCleared: 0, won: false,
     player: {
-      x: ARENA_W / 2, y: ARENA_H / 2, px: ARENA_W / 2, py: ARENA_H / 2, fx: 0, fy: 1, moving: false,
+      x: W / 2, y: H / 2, px: W / 2, py: H / 2, fx: 0, fy: 1, moving: false,
       hp: PLAYER_BASE_HP, shield: 0, iframes: 0, level: 1, xp: 0, xpNext: xpForLevel(1), scrip: 0, bank: 0,
       raws: emptyRaws(), weapons: [makeWeapon(start, 1)], items: kit.slice(), itemKit: kit.map(() => true),
       base, stat: new Float64Array(STATS.length), sp: new Float64Array(SPECIAL_COUNT), flat: new Float64Array(STATS.length),
@@ -66,7 +97,7 @@ export function createRun(opts: RunOptions): Run {
     },
     enemies: fill(MAX_ENEMIES, newEnemy), enemyCount: 0,
     shots: fill(MAX_SHOTS, newShot), eshots: fill(MAX_ESHOTS, newEShot), pickups: fill(MAX_PICKUPS, newPickup),
-    nodes: fill(MAX_NODES, newNode), hazards: fill(MAX_HAZARDS, newHazard),
+    nodes: fill(nodeCount, newNode), hazards: fill(MAX_HAZARDS, newHazard),
     events: { list: fill(MAX_EVENTS, newEvent), n: 0, dropped: 0 },
     grid: { cols, rows, start: new Int32Array(cols * rows + 1), items: new Int16Array(MAX_ENEMIES), fill: new Int32Array(cols * rows) },
     bench: { index: 0, picks: 0, choices: [], offers: fill(BENCH_OFFERS, newOffer), rerolls: 0, freeReroll: false, mule: false, interestPaid: 0, freeFuses: 0, fuses: 0 },
@@ -79,7 +110,6 @@ export function createRun(opts: RunOptions): Run {
     scripByWave: new Array(totalWaves + 1).fill(0), rawsByWave: new Array(totalWaves + 1).fill(0),
     upgradeLog: [], buyLog: [],
   };
-  startWave(run);
   return run;
 }
 
@@ -99,23 +129,25 @@ export function step(run: Run, input: StepInput): void {
   p.moving = len > 0.05;
   refresh(run);
   if (p.moving) {
-    p.x = clampX(p.x + mx * p.moveSpeed * DT);
-    p.y = clampY(p.y + my * p.moveSpeed * DT);
+    p.x = clampX(run, p.x + mx * p.moveSpeed * DT);
+    p.y = clampY(run, p.y + my * p.moveSpeed * DT);
     const l = len > 1 ? 1 : len;
     p.fx = mx / l; p.fy = my / l;
   }
   if (p.iframes > 0) p.iframes -= DT;
   if (p.mendPerSec > 0 && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.mendPerSec * DT);
 
-  direct(run);
+  const out = run.outing !== null;
+  if (out) outingDirect(run); else direct(run);
   buildGrid(run);
   updateEnemies(run);
   if (run.phase === 'wave') updateHazards(run);
   if (run.phase === 'wave') updateEShots(run);
-  if (run.phase !== 'wave') return;
+  if (run.phase !== 'wave') { if (out) outingOver(run); return; }
   updateWeapons(run);
   updateShots(run);
   runBursts(run);
+  if (out) { outingNodes(run); outingPickups(run); return; }
   updateNodes(run);
   updatePickups(run);
 

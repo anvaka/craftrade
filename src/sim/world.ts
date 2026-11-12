@@ -70,7 +70,7 @@ function placeNodes(run: Run): void {
       }
       if (!ok) continue;
       slot.alive = true; slot.x = x; slot.y = y; slot.type = type;
-      slot.rich = rich; slot.noise = 0;
+      slot.rich = rich; slot.tier = 1; slot.noise = 0;
       slot.work = 0; slot.need = slot.rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0; slot.regrown = false;
       live++;
     }
@@ -175,8 +175,8 @@ export function updatePickups(run: Run): void {
       k.x += k.vx * DT; k.y += k.vy * DT;
       k.vx *= 0.88; k.vy *= 0.88;
       if (k.vx * k.vx + k.vy * k.vy < 9) { k.vx = 0; k.vy = 0; }
-      if (k.x < 30) k.x = 30; else if (k.x > ARENA_W - 30) k.x = ARENA_W - 30;
-      if (k.y < 30) k.y = 30; else if (k.y > ARENA_H - 30) k.y = ARENA_H - 30;
+      if (k.x < 30) k.x = 30; else if (k.x > run.w - 30) k.x = run.w - 30;
+      if (k.y < 30) k.y = 30; else if (k.y > run.h - 30) k.y = run.h - 30;
     }
     const dx = p.x - k.x, dy = p.y - k.y, d2 = dx * dx + dy * dy;
     if (!k.pulled && d2 <= mr2) k.pulled = true;
