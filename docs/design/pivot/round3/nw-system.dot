@@ -1,470 +1,458 @@
 // New World: the whole progression and economy as one flow graph.
-// Companion to nw-system-graph.md (same folder), which names the loops.
+// Companion to nw-system-graph.md (same folder), which names the loops and maps Scrip onto it.
 //
-// Render:  dot -Tsvg nw-system.dot -o nw-system.svg
+// Render:  dot -Tsvg nw-system.dot -o nw-system.svg      (open the SVG and zoom; it is large)
 //
 // Reading it
-//   Node shapes   box (rounded, blue)   activity: something the player does
-//                 ellipse (grey)        resource or material
-//                 ellipse x2 (gold)     currency
-//                 note (lilac)          item kind
-//                 box3d (stone)         station
-//                 octagon (teal)        player state: a level, bar or score
-//                 green fill            FAUCET: value enters from nothing
-//                 red fill              SINK: value is destroyed
-//                 orange hexagon        GATE: a number you must reach
-//   Edge colours  dark grey             materials and items
-//                 amber                 coin and other currencies
-//                 green                 out of a faucet
-//                 red                   into a sink
-//                 orange, dashed        a gate opens (or limits) something
-//                 blue, dotted          a stat or bonus that raises a rate
-//                 teal, dashed          experience into a level or bar
+//   Node shapes   box, rounded, blue      activity: something the player does
+//                 ellipse, grey           resource or material  (yellow = rare / drop-only)
+//                 double ellipse, gold    currency
+//                 note, lilac             item kind
+//                 box3d, stone            station
+//                 octagon, teal           player state: a level, a bar or a score
+//                 box, GREEN              FAUCET: value enters the world from nothing
+//                 box, RED                SINK: value is destroyed
+//                 hexagon, ORANGE         GATE: a number you must reach, or a lockout
+//   Edge colours  dark grey               materials and items
+//                 amber                   coin and other currencies
+//                 green                   out of a faucet
+//                 red                     into a sink
+//                 orange, dashed          a gate opens (or limits) something
+//                 blue, dotted            a stat or bonus that raises a rate or a roll
+//                 teal, dashed            experience into a level or bar
+//   An edge that starts or ends on a cluster's border stands for "everything in that box".
 //   Tags          [S] a source seen in this session confirms it
-//                 [M] memory or approximate; [D] derived from [S] numbers
+//                 [M] memory or approximate      [D] derived from [S] numbers
 // Numbers drift a lot across patches (2021 launch .. 2024 Aeternum). The shape matters, not the patch.
+// Layout: only the material pipeline (and coin into sinks) constrains rank; feedback edges do not.
 
 digraph NewWorld {
-  graph [rankdir=LR, newrank=true, compound=true, splines=spline, nodesep=0.22, ranksep=0.55,
-         fontname="Helvetica", fontsize=12, labelloc=t, labeljust=l, pad=0.3,
-         label="New World: progression and economy as flows (what each activity consumes and produces)\lColour: green = faucet, red = sink, orange = gate. Edge labels give rough rates; [S] sourced, [M] memory, [D] derived.\l"];
-  node  [fontname="Helvetica", fontsize=10, style="filled", fillcolor="#f5f5f4", color="#57534e", margin="0.08,0.04"];
-  edge  [fontname="Helvetica", fontsize=8, color="#475569", arrowsize=0.6];
+  graph [rankdir=LR, compound=true, splines=spline, nodesep=0.18, ranksep=0.5,
+         fontname="Helvetica", fontsize=14, labelloc=t, labeljust=l, pad=0.3,
+         label="New World: progression and economy as flows. What each activity consumes and produces.\lGreen = faucet, red = sink, orange = gate. Edge labels give rough rates: [S] sourced, [M] memory, [D] derived.\l"];
+  node  [fontname="Helvetica", fontsize=10, style="filled", fillcolor="#f5f5f4", color="#57534e", margin="0.07,0.03"];
+  edge  [fontname="Helvetica", fontsize=8, color="#475569", fontcolor="#334155", arrowsize=0.6];
 
-  // ---------------------------------------------------------------- legend
-  subgraph cluster_legend {
-    label="Legend"; style="rounded"; color="#a8a29e"; fontsize=10;
-    L_act  [label="activity", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    L_res  [label="resource", shape=ellipse];
-    L_cur  [label="currency", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
-    L_item [label="item kind", shape=note, fillcolor="#ede9fe"];
-    L_st   [label="station", shape=box3d, fillcolor="#e7e5e4"];
-    L_ps   [label="player state", shape=octagon, fillcolor="#ccfbf1"];
-    L_fau  [label="FAUCET", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-    L_sink [label="SINK", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    L_gate [label="GATE", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    L_act -> L_res [label="material"];
-    L_res -> L_cur [label="coin", color="#b45309", fontcolor="#b45309"];
-    L_cur -> L_item [label="faucet", color="#15803d", fontcolor="#15803d"];
-    L_item -> L_st [label="sink", color="#b91c1c", fontcolor="#b91c1c"];
-    L_st -> L_ps [label="gate", color="#c2410c", fontcolor="#c2410c", style=dashed];
-    L_ps -> L_fau [label="bonus", color="#1d4ed8", fontcolor="#1d4ed8", style=dotted];
-    L_fau -> L_sink [label="XP", color="#0f766e", fontcolor="#0f766e", style=dashed];
-    L_sink -> L_gate [style=invis];
-  }
+  legend [shape=plaintext, fillcolor="white", label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="3">
+      <tr><td colspan="2" bgcolor="#e7e5e4"><b>Legend</b></td></tr>
+      <tr><td bgcolor="#dbeafe">activity</td><td bgcolor="#f5f5f4">resource</td></tr>
+      <tr><td bgcolor="#fef9c3">rare / drop-only resource</td><td bgcolor="#fde68a">currency</td></tr>
+      <tr><td bgcolor="#ede9fe">item kind</td><td bgcolor="#e7e5e4">station</td></tr>
+      <tr><td bgcolor="#ccfbf1">player state (bar, level, score)</td><td bgcolor="#bbf7d0"><b>FAUCET</b></td></tr>
+      <tr><td bgcolor="#fecaca"><b>SINK</b></td><td bgcolor="#fed7aa"><b>GATE</b></td></tr>
+      <tr><td colspan="2" align="left">edges: <font color="#475569">grey material</font> | <font color="#b45309">amber coin</font> | <font color="#15803d">green faucet</font> | <font color="#b91c1c">red sink</font><br/>
+      <font color="#c2410c">orange dashed gate</font> | <font color="#1d4ed8">blue dotted bonus</font> | <font color="#0f766e">teal dashed XP</font></td></tr>
+      <tr><td colspan="2" align="left">[S] sourced  [M] memory  [D] derived</td></tr>
+    </table>>];
 
-  // ---------------------------------------------------------------- world faucets
-  subgraph cluster_world {
-    label="World spawns (faucets)"; style="rounded,filled"; fillcolor="#f0fdf4"; color="#86efac";
-    F_nodes [label="Resource nodes\nore, trees, plants, animals, fish\nsmall/medium/large; respawn ~8-40 min [S]\nshared, first come [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-    F_mobs  [label="Mobs and named bosses\ncoin, hides, mats, gear drops [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-    F_quest [label="Quest, board and mission rewards\ncoin, XP, azoth, standing [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-  }
+  // ================================================================ NODES
 
-  // ---------------------------------------------------------------- gathering
   subgraph cluster_gather {
-    label="Gathering: 5 skills, 0-200 (250 from 2023) [S]"; style="rounded"; color="#60a5fa";
+    label="1  Gathering: 5 skills, 0-200 (250 from 2023) [S]"; style="rounded"; color="#60a5fa"; fontsize=12;
+    F_nodes [label="Resource nodes (FAUCET)\nore, trees, plants, animals, fish\nsmall / medium / large\nrespawn ~8-40 min, shared [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
     A_mine [label="Mining", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_log  [label="Logging", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_harv [label="Harvesting", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_skin [label="Skinning\n(kill first)", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_skin [label="Skinning\n(every kill is a node)", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_fish [label="Fishing\n(hotspots, bait)", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_gskill [label="Gathering skill bars\n(one per verb; ~50+ bars in all) [S]", shape=octagon, fillcolor="#ccfbf1"];
+    P_gskill [label="Gathering skill bars\none per verb [S]", shape=octagon, fillcolor="#ccfbf1"];
     G_gather [label="GATE: gather at X,\ntrack on compass at X+25\niron 0, silver 10, gold 45,\nstarmetal 100, platinum 110,\norichalcum 175 [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    P_luck   [label="Gathering luck (per skill)\nfood, tool perk, trophies,\nPvP flag [S]", shape=octagon, fillcolor="#ccfbf1"];
-
-    subgraph cluster_ore {
-      label="ore (Mining)"; style="dashed"; color="#cbd5e1";
-      R_iron [label="Iron ore\n(Mining 0)"];
-      R_star [label="Starmetal ore\n(Mining 100)"];
-      R_ori  [label="Orichalcum ore\n(Mining 175)"];
-      R_prec [label="Silver / gold / platinum\n(10 / 45 / 110) -> jewellery"];
-      R_stone[label="Stone, lodestone,\nsaltpeter, oil"];
-    }
-    subgraph cluster_wood {
-      label="wood (Logging)"; style="dashed"; color="#cbd5e1";
-      R_green [label="Green wood\n(Logging 0)"];
-      R_aged  [label="Aged wood\n(~50) [M]"];
-      R_wyrd  [label="Wyrdwood\n(100) [S]"];
-      R_ironw [label="Ironwood\n(175) [S]"];
-    }
-    subgraph cluster_fibre {
-      label="fibre (Harvesting)"; style="dashed"; color="#cbd5e1";
-      R_hemp [label="Fibres / hemp\n(0) [S]"];
-      R_silk [label="Silkweed\n(100) [S]"];
-      R_wire [label="Wirefiber\n(175) [S]"];
-      R_herb [label="Herbs, crops,\nmotes (Harv 30+) [S]"];
-    }
-    subgraph cluster_hide {
-      label="hide (Skinning)"; style="dashed"; color="#cbd5e1";
-      R_raw   [label="Rawhide\n(small prey)"];
-      R_thick [label="Thick hide\n(medium / large prey)"];
-      R_ihide [label="Iron hide\n(predators 125-175) [S]"];
-    }
-    R_fish [label="Fish"];
-    R_rare [label="Rare siblings\nfae iron, voidmetal, gems,\npetrified wood, silk threads,\nscarhide ... [S]/[M]", fillcolor="#fef9c3"];
+    P_luck   [label="Gathering luck, per skill\n(food, tool perk, trophies,\nPvP flag) [S]", shape=octagon, fillcolor="#ccfbf1"];
+    R_iron  [label="Iron ore (Mining 0)"];
+    R_star  [label="Starmetal ore (100)"];
+    R_ori   [label="Orichalcum ore (175)"];
+    R_prec  [label="Silver / gold / platinum\n(10 / 45 / 110)"];
+    R_stone [label="Stone, lodestone, oil"];
+    R_green [label="Green wood (0)"];
+    R_aged  [label="Aged wood (~50) [M]"];
+    R_wyrd  [label="Wyrdwood (100)"];
+    R_ironw [label="Ironwood (175)"];
+    R_hemp  [label="Fibres (0)"];
+    R_silk  [label="Silkweed (100)"];
+    R_wire  [label="Wirefiber (175)"];
+    R_herb  [label="Herbs, crops,\nmotes (Harv 30+) [S]"];
+    R_raw   [label="Rawhide (small prey)"];
+    R_thick [label="Thick hide (large prey)"];
+    R_ihide [label="Iron hide\n(predators 125-175) [S]"];
+    R_fish  [label="Fish"];
+    R_rare  [label="Rare siblings\nfae iron, voidmetal, gems,\npetrified wood, silk threads,\nscarhide [S]/[M]", fillcolor="#fef9c3"];
   }
 
-  // ---------------------------------------------------------------- refining
   subgraph cluster_refine {
-    label="Refining: 5 skills; higher tier eats the tier below + new raws + a reagent [S]"; style="rounded"; color="#60a5fa";
-    A_refine [label="Refining\nSmelting, Woodworking,\nLeatherworking, Weaving,\nStonecutting [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_rskill [label="Refining skill bars\n(bonus-output chance\nrises with skill) [S]", shape=octagon, fillcolor="#ccfbf1"];
-    R_reag   [label="Reagents\nflux, sandpaper, tannin,\nweave, solvent (T3-T5)\nnot gatherable [S]", fillcolor="#fef9c3"];
+    label="2  Refining: 5 skills. Tier N = tier N-1 refined + new raws + a reagent [S]"; style="rounded"; color="#60a5fa"; fontsize=12;
+    A_refine [label="Refine\nSmelting, Woodworking, Leatherworking,\nWeaving, Stonecutting [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    P_rskill [label="Refining skill bars\n(bonus-output chance) [S]", shape=octagon, fillcolor="#ccfbf1"];
+    R_reag   [label="Reagents: flux, sandpaper,\ntannin, weave, solvent (T3-T5)\nnot gatherable [S]", fillcolor="#fef9c3"];
     R_char   [label="Charcoal"];
     R_ingot2 [label="Iron ingot (T2)"];
     R_steel  [label="Steel ingot (T3)\nSmelting 50 [S]"];
     R_ingot4 [label="Starmetal ingot (T4)\nSmelting 100 [S]"];
     R_ingot5 [label="Orichalcum ingot (T5)\nSmelting 150 [S]"];
-    R_asmo   [label="Asmodeum / prismatic\n(legendary refined)\ndaily cooldown [M]/[S]", fillcolor="#fef9c3"];
-    R_planks [label="Wood chain\ntimber -> lumber ->\nwyrdwood -> ironwood planks [S]"];
-    R_leath  [label="Leather chain\ncoarse -> rugged ->\nlayered -> infused [M]"];
-    R_cloth  [label="Cloth chain\nlinen -> sateen ->\nsilk -> infused silk [M]"];
-    R_block  [label="Stone blocks,\ngems cut"];
+    R_asmo   [label="Asmodeum, later prismatic\n(legendary refined)\ndaily cooldown [M]/[S]", fillcolor="#fef9c3"];
+    R_planks [label="Wood chain: timber, lumber,\nwyrdwood, ironwood planks [S]"];
+    R_leath  [label="Leather chain: coarse,\nrugged, layered, infused [M]"];
+    R_cloth  [label="Cloth chain: linen,\nsateen, silk, infused silk [M]"];
+    R_block  [label="Stone blocks, cut gems"];
   }
 
-  // ---------------------------------------------------------------- crafting
   subgraph cluster_craft {
-    label="Crafting: 7 skills, 0-200/250 [S]; the screen shows the GS range before you commit [S]"; style="rounded"; color="#60a5fa";
-    A_craft  [label="Craft gear\nWeaponsmithing, Armoring,\nJewelcrafting", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    label="3  Crafting: 7 skills, 0-200/250 [S]. The screen shows the GS range before you commit [S]"; style="rounded"; color="#60a5fa"; fontsize=12;
+    A_craft  [label="Craft gear\nWeaponsmithing, Armoring,\nJewelcrafting", shape=box, style="rounded,filled", fillcolor="#dbeafe", penwidth=2];
     A_eng    [label="Engineering\ntools, ranged, repair kits", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_cook   [label="Cooking / Arcana\nfood, potions, coatings", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_cook   [label="Cooking, Arcana\nfood, potions, coatings", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_furn   [label="Furnishing\nfurniture, trophies, chests", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_salv   [label="Salvage", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_cskill [label="Crafting skill bars\n+ Aptitude loop past cap\n(3 reward crates / loop) [S]", shape=octagon, fillcolor="#ccfbf1"];
-    G_recipe [label="GATE: recipe needs\nskill X + station tier\n(e.g. T5 workshop + Eng 150) [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    I_gear   [label="Weapons, armour, jewellery\nGS range, perks, sockets\nrarity = number of perks [M]", shape=note, fillcolor="#ede9fe"];
-    I_tool   [label="Gathering tools\nflint / iron / steel /\nstarmetal / orichalcum [S]", shape=note, fillcolor="#ede9fe"];
-    I_food   [label="Food and potions\n(combat, gathering-luck,\ncrafting food) [S]", shape=note, fillcolor="#ede9fe"];
-    I_furn   [label="Furniture\n(decor score, tradeable) [M]", shape=note, fillcolor="#ede9fe"];
+    P_cskill [label="Crafting skill bars\nAptitude loop past the cap:\n3 reward crates per loop [S]", shape=octagon, fillcolor="#ccfbf1"];
+    G_recipe [label="GATE: recipe needs skill X\n+ station tier (e.g. orichalcum\ntools: T5 workshop + Eng 150) [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
+    I_gear   [label="Weapons, armour, jewellery\nGS, perks, gem socket\n(rarity = number of perks) [M]", shape=note, fillcolor="#ede9fe", penwidth=2];
+    I_tool   [label="Gathering tools: flint, iron,\nsteel, starmetal, orichalcum [S]", shape=note, fillcolor="#ede9fe"];
+    I_food   [label="Food, potions\n(combat, gathering luck,\ncrafting food) [S]", shape=note, fillcolor="#ede9fe"];
+    I_furn   [label="Furniture\n(decor, tradeable) [M]", shape=note, fillcolor="#ede9fe"];
     I_trophy [label="Trophies\nminor / basic / major [S]", shape=note, fillcolor="#ede9fe"];
     I_chest  [label="Storage chests\n+200..600 weight [S]", shape=note, fillcolor="#ede9fe"];
-    I_mod    [label="Craft mods\n(guarantee a perk) [S]", shape=note, fillcolor="#ede9fe"];
-    I_schem  [label="Schematics / patterns\nlearned on salvage,\ntradeable [S]", shape=note, fillcolor="#ede9fe"];
+    I_set    [label="Crafter and gatherer\narmour sets, earring [S]", shape=note, fillcolor="#ede9fe"];
+    R_parts  [label="Repair parts (cap 2,000) [S]"];
+    R_dark   [label="Dark matter (salvage) [M]"];
+  }
+
+  subgraph cluster_drops {
+    label="Drop-only inputs (crafting cannot make these)"; style="rounded,filled"; fillcolor="#fefce8"; color="#facc15"; fontsize=12;
+    I_mod    [label="Craft mods\nguarantee one perk [S]", shape=note, fillcolor="#ede9fe"];
+    I_schem  [label="Schematics, patterns\nlearned on salvage, tradeable;\nOrichalcum-braced chest is famous [S]", shape=note, fillcolor="#ede9fe"];
     I_choose [label="Chosen-outcome items\ntimeless shards, scarabs,\nchromatic seals [S]", shape=note, fillcolor="#ede9fe"];
-    R_parts  [label="Repair parts\n(cap 2,000) [S]"];
-    R_dark   [label="Dark matter"];
-    I_set    [label="Crafter / gatherer\narmour sets, earring [S]", shape=note, fillcolor="#ede9fe"];
-  }
-
-  // ---------------------------------------------------------------- character
-  subgraph cluster_char {
-    label="Character"; style="rounded"; color="#14b8a6";
-    A_quest  [label="Main and side quests", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_level  [label="Character level\n1-60, 65 from 2023 [S]", shape=octagon, fillcolor="#ccfbf1"];
-    P_attr   [label="Attributes (~190 pts at 60)\n50-pt thresholds give combat\nAND gathering bonuses [S]", shape=octagon, fillcolor="#ccfbf1"];
-    P_mast   [label="Weapon mastery\n1-20 per weapon [S]", shape=octagon, fillcolor="#ccfbf1"];
-    P_gs     [label="Equipped gear score\nT5 500 -> 600 (2021) -> 625 ->\n700 (2023) -> 725 (2024) [S]/[M]", shape=octagon, fillcolor="#ccfbf1", penwidth=2];
-    P_exp    [label="Expertise per slot\n(2021-23 watermark) [S]", shape=octagon, fillcolor="#ccfbf1"];
-    G_band   [label="GATE: zone level bands\n1-25 / 25-40 / 40-50 /\n50-60 / 60+ [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    G_gs     [label="GATE: GS for content\n~600 elite zones,\n630 Glacial Tarn [S],\nmutation floors rise [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-  }
-
-  // ---------------------------------------------------------------- PvE content
-  subgraph cluster_pve {
-    label="PvE content"; style="rounded"; color="#f59e0b";
-    A_open   [label="Open-world combat\nmobs, named, bosses", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_portal [label="Corruption portals\nand breaches", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_elite  [label="Elite zones\n(Myrkgard, Imperial Palace ...)\nchest runs, 20-50 players [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_exped  [label="Expeditions (5 players)\nrec. levels 25/35/45/55/60/65 [S]\n~30-60 min [M]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_mut    [label="Mutated expeditions\n10 levels, weekly rotation [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_raid   [label="Raid: Hive of Gorgons\n10 players, 3 chapters [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    G_lock   [label="GATE: daily / weekly limits\nelite chests 1/day [S],\nexpedition rewards/day [S],\nraid weekly [S guide]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    I_named  [label="Named and expedition gear\n(fixed perks), artifacts [S]/[M]", shape=note, fillcolor="#ede9fe"];
-    R_gyps   [label="Gypsum\n(one kind per activity) [S]", fillcolor="#fef9c3"];
+    R_trophym[label="Trophy materials\n(ancient femur, mandible) [S]", fillcolor="#fef9c3"];
+    R_gyps   [label="Gypsum, one kind\nper activity [S]", fillcolor="#fef9c3"];
     R_umbral [label="Umbral shards\n(600 -> 625, 2022) [S]", fillcolor="#fef9c3"];
     R_raidm  [label="Raid material\n(crafts 725 GS) [S]", fillcolor="#fef9c3"];
-    R_trophym[label="Trophy materials\n(ancient femur, mandible ...) [S]", fillcolor="#fef9c3"];
-
-    subgraph cluster_chests {
-      label="Chests"; style="dashed"; color="#fbbf24";
-      C_prov   [label="Provisions crates\nfood mats; ~60 min respawn [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-      C_supply [label="Supply chests / caches\nreagents, consumables,\ntools, schematics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-      C_anc    [label="Ancient chests / coffers\nmotes, gems, trophy mats,\nschematics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-      C_elite  [label="Elite chests\ngear, mods, trophy mats,\nschematics; 1/day each [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-    }
+    I_named  [label="Named and expedition gear\nfixed perks; artifacts [S]/[M]", shape=note, fillcolor="#ede9fe"];
   }
 
-  // ---------------------------------------------------------------- PvP and faction
+  subgraph cluster_char {
+    label="4  Character"; style="rounded"; color="#14b8a6"; fontsize=12;
+    A_quest  [label="Main and side quests", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    F_quest  [label="Quest, board and mission\nrewards (FAUCET): coin, XP,\nazoth, standing [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    P_level  [label="Character level\n1-60; 65 from 2023 [S]", shape=octagon, fillcolor="#ccfbf1", penwidth=2];
+    P_attr   [label="Attributes (~190 pts at 60)\n50-pt thresholds: combat AND\ngathering bonuses [S]", shape=octagon, fillcolor="#ccfbf1"];
+    P_mast   [label="Weapon mastery\n1-20 per weapon [S]", shape=octagon, fillcolor="#ccfbf1"];
+    P_gs     [label="Equipped gear score\nT5 base 500; cap 600 (2021),\n625, 700 (2023), 725 (2024) [S]/[M]", shape=octagon, fillcolor="#ccfbf1", penwidth=2];
+    P_exp    [label="Expertise per slot\n(2021-23 watermark) [S]", shape=octagon, fillcolor="#ccfbf1"];
+    G_band   [label="GATE: zone level bands\n1-25 / 25-40 / 40-50 /\n50-60 / 60+ [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
+    G_gs     [label="GATE: GS for content\n~600 elite zones, 630 Glacial\nTarn [S]; mutation floors [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
+  }
+
+  subgraph cluster_pve {
+    label="5  PvE content"; style="rounded"; color="#f59e0b"; fontsize=12;
+    A_open   [label="Open-world combat\nmobs, named, world bosses", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    F_mobs   [label="Mob drops (FAUCET)\ncoin, hides, mats, gear [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    A_portal [label="Corruption portals,\nbreaches", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_elite  [label="Elite zones (Myrkgard ...)\nchest runs of 20-50 players [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_exped  [label="Expeditions, 5 players\nrec. level 25/35/45/55/60/65 [S]\n~30-60 min a run [M]", shape=box, style="rounded,filled", fillcolor="#dbeafe", penwidth=2];
+    A_mut    [label="Mutated expeditions\n10 levels, weekly rotation [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_raid   [label="Raid: Hive of Gorgons\n10 players, 3 chapters [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    G_lock   [label="GATE: lockouts\nelite chest 1/day each [S]\nexpedition rewards per day [S]\nraid weekly [S, guide]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
+    C_prov   [label="Provisions crates (FAUCET)\nfood mats; ~60 min [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    C_supply [label="Supply chests (FAUCET)\nreagents, consumables,\ntools, schematics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    C_anc    [label="Ancient chests (FAUCET)\nmotes, gems, trophy mats,\nschematics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    C_elite  [label="Elite chests (FAUCET)\ngear, mods, trophy mats,\nschematics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+  }
+
   subgraph cluster_pvp {
-    label="PvP and faction"; style="rounded"; color="#ef4444";
-    A_fmiss  [label="Faction missions\nPvE and PvP; 5-min cooldown [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_flag   [label="Open-world PvP flag\n+10% XP, small luck bonus\n(30% gather luck at 1.1) [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_opr    [label="Outpost Rush 20v20 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_war    [label="Wars 50v50 [M]\n(territory control)", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_arena  [label="Arenas 3v3 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_frank  [label="Faction rank 1-5\n0 / 3k / 11k / 26k / 49k rep [S]", shape=octagon, fillcolor="#ccfbf1"];
-    P_pvpt   [label="PvP reward track\ncheckpoints 2k / 5k / 10k PvP XP;\nlevel 60 to enter [S]", shape=octagon, fillcolor="#ccfbf1"];
-    A_fshop  [label="Faction shop\ngear, potions, seals,\nmaterial converters [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    G_frank  [label="GATE: shop items\nby rank (top at rank 4-5) [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    I_conv   [label="Material converters\n(T3 reagents -> higher) [S]", shape=note, fillcolor="#ede9fe"];
-    P_terr   [label="Territory owner\n(company + faction) [S]", shape=octagon, fillcolor="#ccfbf1"];
+    label="6  PvP and faction"; style="rounded"; color="#ef4444"; fontsize=12;
+    A_fmiss [label="Faction missions\nPvE and PvP; 5-min cooldown [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_flag  [label="Open-world PvP flag\n+10% XP; luck bonus (30%\ngathering luck in 1.1) [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_opr   [label="Outpost Rush 20v20 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_war   [label="Wars 50v50 [M]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_arena [label="Arenas 3v3 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    P_frank [label="Faction rank 1-5\n0 / 3k / 11k / 26k / 49k rep [S]", shape=octagon, fillcolor="#ccfbf1"];
+    P_pvpt  [label="PvP reward track\ncheckpoints at 2k / 5k / 10k\nPvP XP; level 60 [S]", shape=octagon, fillcolor="#ccfbf1"];
+    G_frank [label="GATE: shop stock\nby rank [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
+    A_fshop [label="Faction shop\ngear, potions, seals,\nmaterial converters [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    I_conv  [label="Material converters\nT3 reagent -> higher [S]", shape=note, fillcolor="#ede9fe"];
+    P_terr  [label="Territory owner\ncompany + faction [S]", shape=octagon, fillcolor="#ccfbf1"];
   }
 
-  // ---------------------------------------------------------------- town
   subgraph cluster_town {
-    label="Town and territory"; style="rounded"; color="#a16207";
-    A_board  [label="Town board missions\n3-5 offers, refresh 30 min [S]\n'bring 20 ingots / kill 8 wolves'", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_proj   [label="Town projects\n(company picks, everyone fills) [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    ST_ref   [label="Refining stations\nsmelter, woodshop, tannery,\nloom, stonecutter; T1-T5 [S]", shape=box3d, fillcolor="#e7e5e4"];
-    ST_craft [label="Crafting stations\nforge, outfitting, workshop,\narcane, kitchen; T1-T5 [S]", shape=box3d, fillcolor="#e7e5e4"];
+    label="7  Town and territory"; style="rounded"; color="#a16207"; fontsize=12;
+    A_board  [label="Town board missions\n3-5 offers, refresh 30 min [S]\n'bring 20 ingots, kill 8 wolves'", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    A_proj   [label="Town projects\ncompany picks, all fill [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    ST_ref   [label="Refining stations T1-T5\nsmelter, woodshop, tannery,\nloom, stonecutter [S]", shape=box3d, fillcolor="#e7e5e4"];
+    ST_craft [label="Crafting stations T1-T5\nforge, outfitting, workshop,\narcane, kitchen [S]", shape=box3d, fillcolor="#e7e5e4"];
     ST_kiln  [label="Gypsum kiln", shape=box3d, fillcolor="#e7e5e4"];
-    P_town   [label="Settlement tier and buffs\nvillage -> capitol; town buff\n+5 min GS on crafts [S]", shape=octagon, fillcolor="#ccfbf1"];
+    P_town   [label="Settlement tier and town buffs\nvillage .. capitol;\n+5 min GS on crafts [S]", shape=octagon, fillcolor="#ccfbf1"];
     P_stand  [label="Territory standing\nper territory, cap 300 [S]", shape=octagon, fillcolor="#ccfbf1"];
     I_perk   [label="Standing perks: 1 of 3 per level\n+storage, +gather speed, +XP,\n-trading tax, -property tax 5%,\n-crafting fee [S]", shape=note, fillcolor="#ede9fe"];
-    A_tp     [label="Trading post\nsell and buy orders,\nlinked across towns from 1.1 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe", penwidth=2];
+    A_tp     [label="TRADING POST\nsell and buy orders;\nlinked across towns from 1.1 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe", penwidth=2.5];
     R_shed   [label="Storage shed\n1,000 weight per town [S]"];
   }
 
-  // ---------------------------------------------------------------- housing
   subgraph cluster_house {
-    label="Housing"; style="rounded"; color="#a855f7";
+    label="8  Housing"; style="rounded"; color="#a855f7"; fontsize=12;
+    G_house  [label="GATE: houses at char level\n15 / 35 / 55 [S]/[M];\nstanding 10 [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
     A_house  [label="House T1-T4\n5k / 10k / 15k / 20k coin\nstanding 10 / 15 / 20 / 30 [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    G_house  [label="GATE: 3 houses at\nlevel 15 / 35 / 55 [S]/[M];\nstanding 10 [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    P_troph  [label="Trophy rack\n5 per house, stack over 3 [S]", shape=octagon, fillcolor="#ccfbf1"];
+    P_troph  [label="Trophy rack: 5 per house,\nstacks over 3 houses [S]", shape=octagon, fillcolor="#ccfbf1"];
     A_recall [label="House recall\nfree, 4 h -> 2 h cooldown [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_decor  [label="Decoration score\n(visitors' ranking) [M]", shape=octagon, fillcolor="#ccfbf1"];
+    P_decor  [label="Decoration score [M]", shape=octagon, fillcolor="#ccfbf1"];
   }
 
-  // ---------------------------------------------------------------- currencies, travel, season
   subgraph cluster_money {
-    label="Currencies, travel and the season pass"; style="rounded"; color="#b45309";
-    CUR_coin  [label="COIN", shape=ellipse, peripheries=2, fillcolor="#fde68a", fontsize=12, penwidth=2];
-    CUR_azoth [label="Azoth\n(capped, ~1,000) [M]", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
-    CUR_tok   [label="Faction tokens\n(capped per rank) [M]", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
-    CUR_salt  [label="Azoth salt", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
-    CUR_mof   [label="Marks of Fortune\n(cash shop)", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
+    label="9  Currencies, travel, season pass"; style="rounded"; color="#b45309"; fontsize=12;
+    CUR_coin  [label="COIN", shape=ellipse, peripheries=2, fillcolor="#fde68a", fontsize=14, penwidth=2];
+    CUR_azoth [label="Azoth\ncapped (~1,000) [M]", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
+    CUR_tok   [label="Faction tokens\ncapped per rank [M]", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
+    CUR_salt  [label="Azoth salt (PvP)", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
     CUR_sxp   [label="Season XP", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
-    F_cash    [label="Real money", shape=box, fillcolor="#bbf7d0", color="#15803d"];
-    A_travel  [label="Fast travel\n(shrines, settlements)", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
+    CUR_mof   [label="Marks of Fortune\n(cash shop)", shape=ellipse, peripheries=2, fillcolor="#fde68a"];
+    F_cash    [label="Real money (FAUCET)", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    A_travel  [label="Fast travel\nshrines, settlements", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_inn     [label="Inn recall\nfree, ~1 h cooldown [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     A_card    [label="Activity card\n250 / activity, 400 / line,\n300 full = 8,300 XP [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    A_journey [label="Season journey\n(chapters of one-time goals) [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
-    P_pass    [label="Season pass level 1-100\nfree + premium track [S]", shape=octagon, fillcolor="#ccfbf1"];
+    A_journey [label="Season journey\nchapters of one-time goals [S]", shape=box, style="rounded,filled", fillcolor="#dbeafe"];
     G_prem    [label="GATE: premium track\n20,000 Marks of Fortune [S]", shape=hexagon, fillcolor="#fed7aa", color="#c2410c"];
-    F_pass    [label="Pass rewards\ncoin (500-3,000 a step), umbral\nshards, XP boosts, artifacts,\ncosmetics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
+    P_pass    [label="Season pass level 1-100\nfree + premium track [S]", shape=octagon, fillcolor="#ccfbf1"];
+    F_pass    [label="Pass rewards (FAUCET)\ncoin 500-3,000 a step, umbral\nshards, XP boosts, artifacts,\ncosmetics [S]", shape=box, fillcolor="#bbf7d0", color="#15803d"];
   }
 
-  // ---------------------------------------------------------------- sinks
   subgraph cluster_sinks {
-    label="Sinks (destroyed)"; style="rounded,filled"; fillcolor="#fef2f2"; color="#fca5a5";
-    S_repair  [label="Repair\ncoin + repair parts;\ndeath and use cost durability [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_tptax   [label="Trading tax\n2.5% -> 5% of sale [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_list    [label="Listing fee\nupfront, by duration;\nkept if unsold [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_fee     [label="Crafting / refining fee\n(set by owner; free at camp) [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_htax    [label="House tax\n~5% of price / week\n(125-2,000 coin) [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_upkeep  [label="Town upkeep\nevery 7 days; unpaid = downgrade [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_travel  [label="Travel cost\n50 base + 5 / 100 m past 2 km\n+ 4 / 10 weight [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_vendor  [label="Faction vendor price\n(e.g. 7,000 tokens + 1,500 coin) [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_move    [label="Shed transfer fee\n(by weight) [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_respec  [label="Respec and perk\nre-rolls [M]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
-    S_burn    [label="Inputs consumed\n(every craft, refine,\nhand-in, salvage)", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    label="10  Sinks (destroyed)"; style="rounded,filled"; fillcolor="#fef2f2"; color="#fca5a5"; fontsize=12;
+    S_repair [label="Repair: coin + parts;\ndeath and use wear gear [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_tptax  [label="Trading tax\n2.5% -> 5% of each sale [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_list   [label="Listing fee: upfront,\nby duration; kept if unsold [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_fee    [label="Crafting and refining fee\nset by owner; none at camp [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_htax   [label="House tax ~5% of price a week\n125-2,000 coin [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_upkeep [label="Town upkeep every 7 days;\nunpaid = downgrade [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_travel [label="Travel: 50 azoth base\n+5 per 100 m past 2 km\n+4 per 10 weight [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_vendor [label="Faction vendor price\ntop: 7,000 tokens + 1,500 coin [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_move   [label="Shed transfer fee\nby weight [S]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_respec [label="Respec, re-rolls [M]", shape=box, fillcolor="#fecaca", color="#b91c1c"];
+    S_burn   [label="Inputs consumed by every\ncraft, refine, hand-in, salvage", shape=box, fillcolor="#fecaca", color="#b91c1c"];
   }
 
-  // ================================================================= EDGES
+  // ================================================================ EDGES
 
-  // --- world spawns into gathering
+  // ---------------------------------------------------------------- 1. material pipeline (sets the layout)
   F_nodes -> {A_mine A_log A_harv A_fish} [color="#15803d"];
-  F_mobs  -> A_skin [color="#15803d", label="every animal is a node"];
-  A_open  -> F_mobs [style=invis];
-
-  // --- gathering produces
-  A_mine -> R_iron  [label="~2-8 / node by size [M]"];
-  A_mine -> R_star; A_mine -> R_ori; A_mine -> R_prec; A_mine -> R_stone;
-  A_log  -> R_green; A_log -> R_aged; A_log -> R_wyrd; A_log -> R_ironw;
-  A_harv -> R_hemp;  A_harv -> R_silk; A_harv -> R_wire; A_harv -> R_herb;
-  A_skin -> R_raw;   A_skin -> R_thick; A_skin -> R_ihide;
+  A_mine -> R_iron [label="~2-8 a node by size [M]"];
+  A_mine -> {R_star R_ori R_prec R_stone};
+  A_log  -> {R_green R_aged R_wyrd R_ironw};
+  A_harv -> {R_hemp R_silk R_wire R_herb};
+  A_skin -> {R_raw R_thick R_ihide};
   A_fish -> R_fish;
-  {A_mine A_log A_harv A_skin} -> R_rare [label="luck roll: 0-100,000 + luck;\n1% luck = 1,000 pts [S]\nvoid ore 0.0045% -> 0.105% at +5k [S]", color="#a16207", fontcolor="#a16207"];
-  {A_mine A_log A_harv A_skin A_fish} -> P_gskill [color="#0f766e", style=dashed, label="XP every node [S]"];
-  P_gskill -> G_gather [color="#0f766e", style=dashed];
-  G_gather -> {R_star R_ori R_wyrd R_ironw R_silk R_wire R_ihide} [color="#c2410c", style=dashed, label="unlocks tier"];
-  P_luck -> R_rare [color="#1d4ed8", style=dotted, label="+5..+15% per trophy,\n+20% T5 food [S]"];
-  I_tool -> {A_mine A_log A_harv A_skin} [color="#1d4ed8", style=dotted, label="speed x1 / 1.25 / 2.5 / 4 / 6.25;\nyield +10-19%, luck +2-9% perks [S]"];
-  P_attr -> {A_mine A_log A_harv A_skin} [color="#1d4ed8", style=dotted, label="50 STR mine speed ...\n300 STR 25% one-swing [S]"];
+  {A_mine A_log A_harv A_skin} -> R_rare [color="#a16207", fontcolor="#a16207", label="every node rolls 0-100,000 + luck;\n1% luck = 1,000 pts [S]; void ore\n0.0045% -> 0.105% at +5k luck [S]"];
 
-  // --- refining chain (metal shown in full)
-  R_iron   -> R_ingot2 [label="4 iron ore -> 1 iron ingot\n(Smelting 0) [S]"];
+  R_iron   -> R_ingot2 [label="4 iron ore -> 1 iron ingot [S]"];
   R_ingot2 -> R_steel  [label="3 iron ingot + 2 charcoal\n+ 1 flux -> 1 steel [S]"];
   R_steel  -> R_ingot4 [label="6 starmetal ore + 2 steel\n+ 2 charcoal + 1 flux [S]"];
   R_star   -> R_ingot4;
   R_ingot4 -> R_ingot5 [label="8 orichalcum ore + 2 starmetal\n+ 2 charcoal + 1 flux [S]"];
   R_ori    -> R_ingot5;
-  R_ingot5 -> R_asmo   [label="5 ori ingot + rares + reagents;\n~10/day cooldown [M]"];
+  R_ingot5 -> R_asmo   [label="5 ori ingots + rares + reagents;\n~10 a day [M]"];
   R_rare   -> R_asmo;
   R_green  -> R_char   [label="2 wood -> 1 charcoal [M]"];
-  R_char   -> {R_steel R_ingot4 R_ingot5} [label="2 each [S]"];
-  R_reag   -> {R_steel R_ingot4 R_ingot5 R_planks R_leath R_cloth} [label="1 per refine [S]"];
-  {R_green R_aged R_wyrd R_ironw} -> R_planks [label="4 raw -> 1; then 2 prev + new raw\n+ 1 sandpaper [S]/[M]"];
-  {R_raw R_thick R_ihide} -> R_leath [label="4 rawhide -> 1 coarse;\nsame 2+N+1 shape [M]"];
+  R_char   -> {R_steel R_ingot4 R_ingot5} [label="2 each"];
+  R_reag   -> {R_steel R_ingot4 R_ingot5 R_planks R_leath R_cloth} [label="1 per refine"];
+  {R_green R_aged R_wyrd R_ironw} -> R_planks [label="4 raw -> 1; then 2 prev + raws\n+ 1 sandpaper [S]/[M]"];
+  {R_raw R_thick R_ihide} -> R_leath [label="4 rawhide -> 1 coarse;\nsame shape [M]"];
   {R_hemp R_silk R_wire} -> R_cloth [label="4 fibre -> 1 linen;\nsame shape [M]"];
-  R_stone -> R_block; R_prec -> R_block;
-  A_refine -> {R_ingot2 R_steel R_ingot4 R_ingot5 R_planks R_leath R_cloth R_block} [style=dotted, arrowhead=none, color="#94a3b8"];
-  A_refine -> P_rskill [color="#0f766e", style=dashed, label="XP by tier"];
-  ST_ref   -> A_refine [color="#c2410c", style=dashed, label="station tier caps\nrefined tier [S]"];
-  P_rskill -> A_refine [color="#1d4ed8", style=dotted, label="bonus output chance [S]"];
+  {R_stone R_prec} -> R_block;
+  R_ingot4 -> A_refine [style=invis];
 
-  // --- crafting
-  {R_ingot4 R_ingot5 R_asmo R_planks R_leath R_cloth R_block} -> A_craft [label="T5 piece ~ 10-15 refined\n+ a rare + mod [M]"];
-  R_rare -> A_craft [label="rare raw +5, rare refined +15\nto GS min (up to ~+45) [S]"];
-  I_mod  -> A_craft [label="1 mod = chosen perk [S]"];
-  I_schem -> {A_craft A_furn} [label="recipe learned for good [S]"];
-  I_choose -> A_craft [label="598-600 / 700 / 725 with chosen\nperks; weekly or daily cooldown [S]"];
-  R_raidm -> A_craft [label="725 GS crafts [S]"];
-  CUR_azoth -> A_craft [color="#b45309", label="more azoth = better odds\nof extra perks [S]"];
-  I_food -> A_craft [color="#1d4ed8", style=dotted, label="crafting food +15 min/max [S]"];
-  I_set  -> A_craft [color="#1d4ed8", style=dotted, label="crafter set + earring +15 [S]"];
-  P_troph -> A_craft [color="#1d4ed8", style=dotted, label="+5 min per crafting trophy,\n+15 over 3 houses [S]"];
-  P_town -> A_craft [color="#1d4ed8", style=dotted, label="+5 min [S]"];
-  A_craft -> I_gear [label="all stacked: 590-600 at the\n600 cap [S]"];
-  A_craft -> P_cskill [color="#0f766e", style=dashed, label="XP by tier; low-tier XP cut\nin 1.1.1 [S]"];
-  P_cskill -> A_craft [color="#1d4ed8", style=dotted, label="up to +25 GS max [S]"];
-  P_cskill -> G_recipe [color="#0f766e", style=dashed];
-  ST_craft -> G_recipe [color="#c2410c", style=dashed];
-  G_recipe -> {A_craft A_eng A_cook A_furn} [color="#c2410c", style=dashed, label="unlocks recipes"];
+  {R_ingot4 R_ingot5 R_asmo R_planks R_leath R_cloth R_block} -> A_craft [label="T5 piece ~ 10-15 refined\n+ a rare + a mod [M]"];
+  R_rare -> A_craft [label="rare raw +5, rare refined +15\nto GS min, up to ~+45 [S]"];
+  A_craft -> I_gear [label="everything stacked: 590-600\nat the 600 cap [S]"];
   {R_ingot2 R_steel R_ingot4 R_ingot5 R_planks R_leath} -> A_eng;
-  A_eng -> I_tool [label="Eng 0/0/50/100/150;\nchar lvl ~17/37/60 [S]"];
-  {R_fish R_herb} -> A_cook; C_prov -> A_cook [label="crops, meat"];
+  A_eng -> I_tool [label="Engineering 0/0/50/100/150;\nchar level ~17/37/60 [S]"];
+  {R_fish R_herb} -> A_cook;
   A_cook -> I_food;
   {R_planks R_ingot4 R_ingot5 R_cloth} -> A_furn;
-  R_trophym -> A_furn [label="minor: 25 wyrdwood planks +\n20 starmetal + stain + 1 mat\n(T5 station) [S]"];
   A_furn -> {I_furn I_trophy I_chest};
-  A_furn -> P_cskill [color="#0f766e", style=dashed];
-  {I_gear I_named I_tool} -> A_salv;
-  A_salv -> R_parts [color="#15803d", label="faucet: parts"];
-  A_salv -> R_dark;
-  A_salv -> I_schem [label="salvaging a schematic\nteaches it [S]"];
-  A_salv -> S_burn [color="#b91c1c"];
-  {A_craft A_refine A_eng A_cook A_furn} -> S_burn [color="#b91c1c", label="inputs gone"];
+  A_craft -> I_set [style=dashed];
 
-  // --- character
-  A_quest -> P_level [color="#0f766e", style=dashed, label="main XP source;\n1-65 in ~20-30 h (2024) [S],\n60-200 h at launch [S]"];
-  {A_open A_exped A_board A_fmiss} -> P_level [color="#0f766e", style=dashed];
-  {P_gskill P_cskill} -> P_level [color="#0f766e", style=dashed, label="minor char XP [S]"];
-  F_quest -> A_quest [color="#15803d"];
-  P_level -> P_attr [color="#0f766e", style=dashed];
-  P_level -> G_band [color="#0f766e", style=dashed];
-  G_band -> {A_open A_exped A_quest} [color="#c2410c", style=dashed, label="next zone, next tier\nof nodes and drops"];
-  A_open -> P_mast [color="#0f766e", style=dashed];
-  I_gear -> P_gs [label="equip; 5 armour + 2 weapons\n+ 3 jewels [M]"];
+  I_gear  -> P_gs [label="equip: armour 5, weapons 2,\njewellery 3 [M]"];
   I_named -> P_gs;
-  P_exp -> P_gs [color="#1d4ed8", style=dotted, label="drops roll near expertise;\nitems above it scaled down [S]"];
-  P_gs -> G_gs [color="#0f766e", style=dashed];
-  G_gs -> {A_elite A_mut A_raid} [color="#c2410c", style=dashed];
-  P_gs -> {A_open A_exped A_mut A_raid A_opr A_war} [color="#1d4ed8", style=dotted, label="survive harder, clear faster"];
+  P_gs    -> G_gs;
+  A_quest -> P_level [color="#0f766e", style=dashed, label="main XP source;\n1-65 in ~20-30 h (2024) [S];\n60-200 h at launch [S]"];
+  F_quest -> A_quest [color="#15803d", dir=back];
+  P_level -> G_band [color="#0f766e", style=dashed];
+  G_band  -> {A_open A_exped} [color="#c2410c", style=dashed, label="next zone: next tier\nof nodes and drops"];
+  G_gs    -> {A_elite A_mut A_raid} [color="#c2410c", style=dashed];
+  A_exped -> A_mut [color="#c2410c", style=dashed, label="clear the normal one first [S]"];
 
-  // --- PvE content outputs
-  A_open -> {CUR_coin} [color="#15803d", label="coin drops [S]"];
-  A_open -> {C_supply C_anc C_prov} [label="chests on the way"];
-  A_open -> R_gyps [label="e.g. 3/day obsidian from\nlvl 60 named [S, old]"];
+  // ---------------------------------------------------------------- 2. content produces
+  A_open  -> F_mobs [color="#15803d"];
+  F_mobs  -> A_skin [color="#15803d", constraint=false, label="carcasses"];
+  A_open  -> {C_supply C_anc C_prov} [label="chests along the way"];
+  A_elite -> C_elite [label="a route of ~10-30 chests [M]"];
+  C_supply -> {R_reag I_schem} [color="#15803d", constraint=false];
+  C_supply -> {I_tool I_food} [color="#15803d", constraint=false];
+  C_anc    -> {R_trophym I_schem R_rare} [color="#15803d", constraint=false];
+  C_elite  -> {I_mod R_trophym I_schem R_umbral} [color="#15803d", label="best open-world source [S]"];
+  C_elite  -> I_gear [color="#15803d", constraint=false];
+  C_prov   -> A_cook [constraint=false, label="crops, meat"];
+  A_exped  -> {I_named I_schem R_gyps} [color="#15803d", label="boss rolls; coin = 50% of\nthe old orb cost [S]"];
+  A_mut    -> {I_named R_umbral R_gyps} [color="#15803d", label="4 boss rolls a cache;\nup to 700 GS [S]"];
+  A_raid   -> {I_named R_raidm} [color="#15803d", label="725 GS items,\nraid-only perks [S]"];
+  A_open   -> R_gyps [label="e.g. 3/day obsidian from\nlevel 60 named [S, old]"];
   A_portal -> {CUR_azoth CUR_tok} [color="#15803d", label="azoth, tokens [S]"];
-  A_portal -> P_stand [color="#0f766e", style=dashed];
-  A_elite -> C_elite [label="route of ~10-30 chests [M]"];
-  G_lock -> {C_elite A_exped A_mut A_raid} [color="#c2410c", style=dashed, label="limits rewards"];
-  C_supply -> {R_reag I_schem I_tool I_food} [color="#15803d"];
-  C_anc -> {R_herb R_rare R_trophym I_schem} [color="#15803d"];
-  C_elite -> {I_gear I_mod R_trophym I_schem R_umbral} [color="#15803d", label="best open-world gear [S]"];
-  A_exped -> {I_named I_schem R_gyps CUR_coin} [color="#15803d", label="boss rolls; coin = 50% of old\norb cost [S]"];
-  A_mut -> {I_named R_umbral R_gyps} [color="#15803d", label="4 boss rolls / cache;\nup to 700 GS [S]"];
-  A_raid -> {I_named R_raidm} [color="#15803d", label="725 GS items +\nraid-only perks [S]"];
-  A_exped -> A_mut [color="#c2410c", style=dashed, label="clear normal first [S]"];
-  R_gyps -> ST_kiln; R_dark -> ST_kiln;
+  {R_gyps R_dark} -> ST_kiln;
   ST_kiln -> P_exp [label="1 gypsum orb -> 1 cast\n-> expertise bump [S]"];
-  ST_kiln -> R_umbral [label="casts give shards\nonce at 600 [S]"];
-  ST_kiln -> I_named [label="upgrade to 700: 250 dark matter\n+ 1 orb + 3 chromatic seals + mod [S]"];
-  R_umbral -> P_gs [color="#1d4ed8", style=dotted, label="raise an item 600 -> 625 [M]"];
+  ST_kiln -> R_umbral [constraint=false, label="casts give shards\nonce at 600 [S]"];
+  ST_kiln -> I_named [constraint=false, label="to 700: 250 dark matter + 1 orb\n+ 3 chromatic seals + a mod [S]"];
 
-  // --- PvP and faction
+  // ---------------------------------------------------------------- 3. drop-only inputs back into crafting (feedback)
+  {
+    edge [constraint=false, color="#a16207", fontcolor="#a16207"];
+    I_mod    -> A_craft [label="1 mod = a chosen perk [S]"];
+    I_schem  -> {A_craft A_furn} [label="recipe learned for good [S]"];
+    I_choose -> A_craft [label="598-600 / 700 / 725 with chosen\nperks; daily or weekly cooldown [S]"];
+    R_raidm  -> A_craft [label="725 GS crafts [S]"];
+    R_trophym -> A_furn [label="minor trophy: 25 wyrdwood planks\n+ 20 starmetal + stain + 1 mat;\nT5 station [S]"];
+    R_reag   -> A_refine [style=invis];
+  }
+  A_salv -> I_schem [label="salvaging a schematic\nteaches it [S]"];
+  {I_gear I_named I_tool} -> A_salv [constraint=false];
+  A_salv -> R_parts [color="#15803d"];
+  A_salv -> R_dark;
+
+  // ---------------------------------------------------------------- 4. XP into bars (teal, no layout weight)
+  {
+    edge [constraint=false, color="#0f766e", fontcolor="#0f766e", style=dashed];
+    {A_mine A_log A_harv A_skin A_fish} -> P_gskill [label="XP every node [S]"];
+    P_gskill -> G_gather;
+    A_refine -> P_rskill [label="XP by tier"];
+    A_craft  -> P_cskill [label="XP by tier; low-tier XP\ncut in 1.1.1 [S]"];
+    {A_eng A_cook A_furn} -> P_cskill;
+    P_cskill -> G_recipe;
+    {A_open A_exped A_board A_fmiss} -> P_level;
+    {P_gskill P_cskill} -> P_level [label="some char XP [S]"];
+    P_level -> P_attr;
+    A_open -> P_mast;
+    A_mine -> P_stand [ltail=cluster_gather, label="anything done in the territory [S]"];
+    A_craft -> P_stand [ltail=cluster_craft];
+    {A_board A_proj A_portal A_fmiss} -> P_stand;
+    A_fmiss -> P_frank [label="~300-450 rep a PvP mission [S]"];
+    P_frank -> G_frank;
+    {A_opr A_war A_arena} -> P_pvpt;
+    P_stand -> I_perk [label="1 of 3 per level [S]"];
+    P_stand -> G_house;
+    P_level -> G_house;
+    {A_quest A_fmiss A_proj A_exped A_opr A_arena} -> CUR_sxp [label="season XP [S]"];
+    A_card -> CUR_sxp [label="8,300 a card = ~3 early\nlevels at 2,500 [S]"];
+    A_journey -> CUR_sxp [label="large chapter bonus [S]"];
+    CUR_sxp -> P_pass;
+  }
+
+  // ---------------------------------------------------------------- 5. gates (orange)
+  {
+    edge [constraint=false, color="#c2410c", fontcolor="#c2410c", style=dashed];
+    G_gather -> {R_star R_ori R_wyrd R_ironw R_silk R_wire R_ihide} [label="opens the tier"];
+    ST_ref   -> A_refine [label="station tier caps\nrefined tier [S]"];
+    {ST_craft} -> G_recipe;
+    G_recipe -> {A_craft A_eng A_cook A_furn} [label="opens recipes"];
+    G_lock   -> {C_elite A_exped A_mut A_raid} [label="caps rewards"];
+    G_frank  -> A_fshop;
+    G_house  -> A_house;
+    A_house  -> P_troph [label="5 slots a house"];
+    A_house  -> A_recall;
+    G_prem   -> P_pass [label="retroactive premium [S]"];
+    P_terr   -> {S_fee S_tptax S_htax} [label="owner sets rates\nwithin bands [S]"];
+  }
+
+  // ---------------------------------------------------------------- 6. bonuses (blue, no layout weight)
+  {
+    edge [constraint=false, color="#1d4ed8", fontcolor="#1d4ed8", style=dotted];
+    I_tool  -> {A_mine A_log A_harv A_skin} [label="speed x1 / 1.25 / 2.5 / 4 / 6.25;\nperks: yield +10-19%, luck +2-9% [S]"];
+    P_attr  -> {A_mine A_log A_harv A_skin} [label="50 STR mining speed ...\n300 STR: 25% one swing [S]"];
+    P_luck  -> R_rare [label="+5..15% a trophy, +20% T5 food [S]"];
+    P_rskill -> A_refine [label="bonus output [S]"];
+    P_cskill -> A_craft [label="up to +25 GS max [S]"];
+    I_food  -> A_craft [label="crafting food +15 min/max [S]"];
+    I_set   -> A_craft [label="crafter set + earring +15 [S]"];
+    P_troph -> A_craft [label="+5 min a crafting trophy,\n+15 over 3 houses [S]"];
+    P_town  -> A_craft [label="+5 min [S]"];
+    P_troph -> P_luck  [label="+500 / 1,000 / 1,500 luck\nfor one skill [S]"];
+    P_troph -> A_open  [label="+damage vs a family [S]"];
+    I_food  -> {A_open A_exped} [label="combat buffs"];
+    A_flag  -> P_luck  [label="flag luck [S]"];
+    A_flag  -> P_level [label="+10% XP [S]"];
+    P_exp   -> P_gs    [label="drops roll near expertise;\nhigher items scaled down [S]"];
+    R_umbral -> P_gs   [label="600 -> 625 an item [M]"];
+    P_gs    -> {A_exped A_mut A_raid A_opr A_war} [label="survive harder, clear faster"];
+    I_perk  -> {A_mine A_log A_harv} [label="+gather speed"];
+    I_perk  -> {S_tptax S_htax S_fee} [label="-5% a pick [S]"];
+    I_perk  -> R_shed [label="+storage"];
+    I_chest -> R_shed [label="adds weight to that town's shed [S]"];
+    {A_travel A_inn A_recall} -> {A_elite A_exped A_board A_tp} [label="less walking: more loops\nan hour (mounts, 2023) [S]"];
+    F_pass  -> P_level [label="XP boosts [S]"];
+  }
+
+  // ---------------------------------------------------------------- 7. PvP and faction flows
   A_fmiss -> CUR_tok [color="#15803d", label="tokens + rep [S]"];
-  A_fmiss -> P_frank [color="#0f766e", style=dashed, label="PvP missions ~300-450 rep [S]"];
-  A_fmiss -> P_stand [color="#0f766e", style=dashed];
-  P_frank -> G_frank [color="#0f766e", style=dashed];
-  G_frank -> A_fshop [color="#c2410c", style=dashed];
-  CUR_tok -> A_fshop [color="#b45309"];
-  A_fshop -> S_vendor [color="#b91c1c"];
-  CUR_coin -> S_vendor [color="#b91c1c"];
-  A_fshop -> {I_gear I_food I_conv} [label="rank-gated gear [S]"];
-  I_conv -> R_reag [label="T3 -> T4/T5 [S]"];
-  A_flag -> {P_luck} [color="#1d4ed8", style=dotted, label="flag luck bonus [S]"];
-  A_flag -> P_level [color="#0f766e", style=dashed, label="+10% XP [S]"];
-  A_opr -> {CUR_salt R_gyps} [color="#15803d", label="cache + salt + PvP XP;\n1 ruby gypsum first 2 / day [S]"];
-  A_war -> CUR_salt [color="#15803d", label="500-2,500 salt and\n1,000-2,500 PvP XP by score [S]"];
-  A_arena -> {CUR_salt R_gyps} [color="#15803d", label="garnet gypsum; rewards\ncut later [S]"];
-  {A_opr A_war A_arena} -> P_pvpt [color="#0f766e", style=dashed];
+  CUR_tok -> A_fshop [color="#b45309", constraint=false];
+  A_fshop -> {I_gear I_food I_conv} [constraint=false, label="rank-gated stock [S]"];
+  I_conv  -> R_reag [constraint=false, label="T3 -> T4 / T5 [S]"];
+  A_opr   -> {CUR_salt R_gyps} [color="#15803d", label="cache, salt, PvP XP; 1 ruby\ngypsum for the first 2 a day [S]"];
+  A_war   -> CUR_salt [color="#15803d", label="500-2,500 salt and 1,000-2,500\nPvP XP by score [S]"];
+  A_arena -> {CUR_salt R_gyps} [color="#15803d", label="rewards cut later [S]"];
   CUR_salt -> P_pvpt [color="#b45309", label="buy checkpoint rewards [S]"];
-  P_pvpt -> I_named [label="690 GS named every\n10 track levels [S]"];
-  A_war -> P_terr [label="wins the territory"];
-  P_terr -> {S_fee S_tptax S_htax} [color="#c2410c", style=dashed, label="sets tax rates\nwithin bands [S]"];
+  P_pvpt  -> I_named [constraint=false, label="690 GS named every\n10 track levels [S]"];
+  A_war   -> P_terr [label="wins the territory"];
 
-  // --- town
-  A_board -> CUR_coin [color="#15803d", label="e.g. 43.75 coin + 180 XP\n+ 1,000 standing [S]"];
-  A_board -> P_stand [color="#0f766e", style=dashed, label="large standing XP [S]"];
+  // ---------------------------------------------------------------- 8. town flows
   {R_ingot2 R_planks I_food} -> A_board [label="bring X (or buy it) [S]"];
+  A_board -> CUR_coin [color="#15803d", label="e.g. 43.75 coin + 180 XP\n+ 1,000 standing [S]"];
   {R_ingot2 R_steel R_planks R_leath R_cloth I_food} -> A_proj [label="hand-ins [S]"];
-  A_proj -> {ST_ref ST_craft} [label="+1 tier per finished\nstation project [S]"];
-  A_proj -> P_town;
-  A_proj -> P_stand [color="#0f766e", style=dashed];
-  A_proj -> S_burn [color="#b91c1c"];
-  P_town -> S_upkeep [color="#b91c1c", label="weekly; lost invasion or\nunpaid = downgrade [S]"];
-  S_upkeep -> {ST_ref ST_craft} [color="#b91c1c", style=dashed, label="tier loss"];
-  {A_mine A_log A_harv A_skin A_craft A_refine} -> P_stand [color="#0f766e", style=dashed, label="anything done there [S]"];
-  P_stand -> I_perk [color="#0f766e", style=dashed, label="1 of 3 per level [S]"];
-  I_perk -> {A_mine A_log A_harv} [color="#1d4ed8", style=dotted, label="+gather speed"];
-  I_perk -> {S_tptax S_htax S_fee} [color="#1d4ed8", style=dotted, label="-5% per pick [S]"];
-  I_perk -> R_shed [color="#1d4ed8", style=dotted, label="+storage"];
-  P_stand -> G_house [color="#0f766e", style=dashed];
-  R_shed -> S_move [color="#b91c1c", label="moving goods between towns"];
+  A_proj  -> {ST_ref ST_craft} [constraint=false, label="+1 tier per finished\nstation project [S]"];
+  A_proj  -> P_town;
+  P_town  -> S_upkeep [color="#b91c1c", label="weekly; a lost invasion\nor no pay = downgrade [S]"];
+  S_upkeep -> {ST_ref ST_craft} [color="#b91c1c", style=dashed, constraint=false, label="tier lost"];
+  S_tptax -> P_terr [color="#b45309", style=dashed, constraint=false, label="part funds owner and upkeep [S]"];
+  P_terr  -> S_upkeep [color="#b45309", label="treasury pays"];
+  R_shed  -> S_move [color="#b91c1c"];
 
-  // --- trading post: where everything meets
-  {R_iron R_star R_ori R_green R_wyrd R_hemp R_raw R_rare R_reag R_ingot5 R_planks I_gear I_food I_furn I_trophy I_mod I_schem I_named} -> A_tp [color="#64748b", arrowsize=0.5];
-  A_tp -> CUR_coin [color="#b45309", label="sale (minus tax)"];
-  CUR_coin -> A_tp [color="#b45309", label="buy what you lack"];
-  A_tp -> S_tptax [color="#b91c1c"];
-  A_tp -> S_list [color="#b91c1c"];
+  // ---------------------------------------------------------------- 9. trading post: where everything meets
+  R_iron   -> A_tp [ltail=cluster_gather, color="#64748b", penwidth=1.5, label="raws, rares (raws slid toward\n0.01 at launch: everyone gathers) [S]"];
+  R_ingot5 -> A_tp [ltail=cluster_refine, color="#64748b", penwidth=1.5, label="refined goods; reagents held value [M]"];
+  I_gear   -> A_tp [ltail=cluster_craft, color="#64748b", penwidth=1.5, label="gear, food, furniture, trophies"];
+  I_schem  -> A_tp [ltail=cluster_drops, color="#64748b", penwidth=1.5, label="mods, schematics, drop gear\n(many named items bind) [M]"];
+  A_tp     -> CUR_coin [color="#b45309", penwidth=1.5, label="sale, less tax"];
+  CUR_coin -> A_tp [color="#b45309", penwidth=1.5, constraint=false, label="buy what you lack"];
+  A_tp     -> {S_tptax S_list} [color="#b91c1c"];
 
-  // --- housing
-  CUR_coin -> A_house [color="#b45309", label="5k-20k; first house -50% [S]/[M]"];
-  P_level -> G_house [color="#0f766e", style=dashed];
-  G_house -> A_house [color="#c2410c", style=dashed];
-  A_house -> S_htax [color="#b91c1c", label="unpaid = trophies, decor\nand recall switch off [S]"];
-  {I_trophy} -> P_troph [label="place"];
-  A_house -> P_troph [color="#c2410c", style=dashed, label="5 slots per house"];
-  I_chest -> R_shed [label="adds weight to that\ntown's shed [S]"];
-  I_furn -> P_decor;
-  A_house -> A_recall [color="#c2410c", style=dashed];
-  P_troph -> P_luck [color="#1d4ed8", style=dotted, label="+500 / +1,000 / +1,500\nluck per skill [S]"];
-  P_troph -> {A_open A_exped} [color="#1d4ed8", style=dotted, label="+dmg vs a family [S]"];
+  // ---------------------------------------------------------------- 10. housing
+  CUR_coin -> A_house [color="#b45309", label="5k-20k; first house half price [S]/[M]"];
+  A_house  -> S_htax [color="#b91c1c", label="unpaid: trophies, decor and\nrecall switch off [S]"];
+  I_trophy -> P_troph [constraint=false, label="place"];
+  I_furn   -> P_decor [constraint=false];
 
-  // --- travel and azoth
-  F_quest -> CUR_azoth [color="#15803d", label="quests, portals, some mobs [S]"];
-  I_tool -> CUR_azoth [color="#15803d", style=dotted, label="azoth extraction perk [S]"];
+  // ---------------------------------------------------------------- 11. coin, azoth, season: faucets and sinks
+  F_quest  -> CUR_coin [color="#15803d", label="quests, missions, board [S]"];
+  F_quest  -> CUR_azoth [color="#15803d", label="quests, portals, some mobs [S]"];
+  F_mobs   -> CUR_coin [color="#15803d", label="coin drops; PvP ~1/5 of\nall coin made (2023) [S]"];
+  A_exped  -> CUR_coin [color="#15803d", constraint=false];
+  A_salv   -> CUR_coin [color="#15803d", style=dashed, constraint=false, label="a little [S]"];
+  I_tool   -> CUR_azoth [color="#15803d", style=dotted, constraint=false, label="azoth extraction perk [S]"];
   CUR_azoth -> A_travel [color="#b45309"];
+  CUR_azoth -> A_craft [color="#b45309", constraint=false, label="spend azoth for better\nodds of extra perks [S]"];
   A_travel -> S_travel [color="#b91c1c"];
-  CUR_azoth -> S_respec [color="#b91c1c"];
-  CUR_coin -> S_respec [color="#b91c1c"];
-  {A_travel A_inn A_recall} -> {A_elite A_exped A_board A_tp} [color="#1d4ed8", style=dotted, label="less walking, more loops\nper hour (mounts 2023 [S])"];
+  {CUR_azoth CUR_coin} -> S_respec [color="#b91c1c"];
+  CUR_coin -> {S_repair S_fee S_htax S_vendor} [color="#b91c1c"];
+  R_parts  -> S_repair [color="#b91c1c", constraint=false];
+  A_open   -> S_repair [ltail=cluster_pve, color="#b91c1c", constraint=false, label="durability lost on death [S]"];
+  A_opr    -> S_repair [ltail=cluster_pvp, color="#b91c1c", constraint=false];
+  A_fshop  -> S_vendor [color="#b91c1c", constraint=false];
+  A_craft  -> S_fee [ltail=cluster_craft, color="#b91c1c", constraint=false, label="per craft"];
+  A_refine -> S_fee [ltail=cluster_refine, color="#b91c1c", constraint=false];
+  A_craft  -> S_burn [ltail=cluster_craft, color="#b91c1c", constraint=false, label="inputs gone"];
+  A_refine -> S_burn [ltail=cluster_refine, color="#b91c1c", constraint=false];
+  A_proj   -> S_burn [color="#b91c1c", constraint=false];
+  F_cash   -> CUR_mof [color="#15803d"];
+  CUR_mof  -> G_prem [color="#b45309"];
+  P_pass   -> F_pass [color="#15803d"];
+  F_pass   -> {CUR_coin R_umbral I_named} [color="#15803d", constraint=false];
 
-  // --- coin faucets and sinks
-  F_quest -> CUR_coin [color="#15803d", label="quests, missions, board [S]"];
-  A_salv -> CUR_coin [color="#15803d", style=dashed, label="small [S]"];
-  CUR_coin -> S_repair [color="#b91c1c"];
-  R_parts -> S_repair [color="#b91c1c"];
-  {A_open A_exped A_mut A_raid A_opr A_war} -> S_repair [color="#b91c1c", label="durability on death [S]"];
-  CUR_coin -> S_fee [color="#b91c1c", label="per craft / refine"];
-  {A_craft A_refine} -> S_fee [color="#b91c1c", style=dashed];
-  CUR_coin -> S_htax [color="#b91c1c"];
-  S_tptax -> P_terr [color="#b45309", style=dashed, label="part funds owner\nand upkeep [S]"];
-  P_terr -> S_upkeep [color="#b45309", label="treasury pays"];
-
-  // --- season pass
-  {A_quest A_fmiss A_proj A_exped A_opr A_arena} -> CUR_sxp [color="#0f766e", style=dashed, label="season XP [S]"];
-  A_card -> CUR_sxp [color="#0f766e", style=dashed, label="8,300 / card (~3 early\nlevels at 2,500) [S]"];
-  A_journey -> CUR_sxp [color="#0f766e", style=dashed, label="big chapter bonuses [S]"];
-  CUR_sxp -> P_pass [color="#0f766e", style=dashed];
-  F_cash -> CUR_mof [color="#15803d"];
-  CUR_mof -> G_prem [color="#b45309"];
-  G_prem -> P_pass [color="#c2410c", style=dashed, label="retroactive premium [S]"];
-  P_pass -> F_pass [color="#15803d"];
-  F_pass -> {CUR_coin R_umbral I_named} [color="#15803d"];
-  F_pass -> P_level [color="#1d4ed8", style=dotted, label="XP boosts [S]"];
+  // ---------------------------------------------------------------- placement hints (invisible)
+  legend -> F_nodes [style=invis];
+  CUR_coin -> S_tptax [style=invis];
+  I_gear -> A_tp [style=invis, weight=2];
 }

@@ -40,3 +40,18 @@ What follows from them:
 - **Build:** about 2 hours. One link, `?proto=loot`.
 - **Stop if:** after three runs you cannot name a drop you were glad of, or you
   do not care about the next craft.
+
+## 2026-11-12: test card 1 played
+
+Verdict: still boring. Critique: a bespoke answer to one slice ("kills drop
+materials for one recipe") instead of the whole picture. Round 3 researches
+New World's loot model and its whole system graph before anything is built.
+
+The owner's further diagnosis: "weapons/tools are given to you by default and
+not crafted". In Scrip the starting weapon is free and every other weapon and
+tool is bought for run scrip at the bench; town fusion only makes items. So
+nothing the player fights or gathers with comes out of the crafting chain, and
+the loop gather, refine, craft gear, use it to reach rarer materials is open.
+Open question for round 3: how the loadout taken into a run can be the output
+of the chain while the run itself still gets wilder (the owner's own split:
+the town grows stronger over years, each run can become wilder).
