@@ -522,8 +522,8 @@ digraph NewWorld {
   { rank=same; k7;  R_ingot5; A_tp; }
   { rank=same; k8;  R_asmo; R_mythi; R_prism; ST_kiln; }
   { rank=same; k9;  A_craft; A_eng; A_cook; A_furn; G_recipe; P_cskill; G_house; A_house; }
-  { rank=same; k10; I_gear; I_tool; I_food; I_furn; I_trophy; I_chest; I_set; P_troph; A_recall; P_decor; }
-  { rank=same; k11; EQ_weap; EQ_arm; EQ_jewel; EQ_tool; A_salv; R_parts; R_dark; CUR_coin; CUR_azoth; }
+  { rank=same; k10; I_gear; I_tool; I_food; I_furn; I_trophy; I_chest; I_set; }
+  { rank=same; k11; P_troph; A_recall; P_decor; EQ_weap; EQ_arm; EQ_jewel; EQ_tool; A_salv; R_parts; R_dark; CUR_coin; CUR_azoth; }
   { rank=same; k12; T_share; P_gs; P_exp; G_gs; A_travel; A_inn; CUR_tok; CUR_salt; }
   { rank=same; k13; A_open; F_mobs; A_portal; A_elite; A_exped; A_fmiss; A_flag; }
   { rank=same; k14; A_mut; A_raid; G_lock; C_prov; C_supply; C_anc; C_elite; A_opr; A_war; A_arena; }
