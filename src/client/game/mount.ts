@@ -367,7 +367,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
           break;
         }
         case 'lull':
-          hud.card('Cleared', `${Math.round(ev.a)} seconds to gather`, ev.c ? 'A chest stands somewhere out there. You will not reach everything.' : 'Nothing will come. You will not reach everything.', 'paid', 4);
+          hud.card('Cleared', `${Math.round(ev.a)} seconds to gather`, ev.c ? 'Plain nodes are free. Rich ones and the chest are guarded.' : 'Plain nodes are free. Rich ones are guarded.', 'paid', 4);
           break;
         case 'chest':
           audio.play('paid');

@@ -15,7 +15,7 @@ import { damageEnemy, emit, gainScrip, killEnemy, RAW_OF_KIND, rebuild, SP, spaw
 import { LANE_MOUTHS } from './enemies.ts';
 import { rnd, Stream } from './rng.ts';
 import { skillLevel } from './outing.ts';
-import { NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
+import { ES, NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
 import { fireShot } from './weapons.ts';
 
 export const NODE_IDS = ['tree', 'seam', 'carcass'] as const;
@@ -187,7 +187,23 @@ export const LULL = {
   chestScrip: [8, 5] as readonly [number, number],
   chestRaws: 2,
   xp: 10, xpRich: 28,
+  /** How near the player may come before a guard turns on them. */
+  aggro: 230,
 } as const;
+
+const T_BOAR = ENEMY_INDEX.boar, T_SPITTER = ENEMY_INDEX.spitter, T_BEAR = ENEMY_INDEX.brute;
+
+/** Stand guards round a node. They wait there until the player comes near, and they are as strong as the wave just fought. */
+function postGuards(run: Run, x: number, y: number, n: number, bear: boolean): void {
+  for (let k = 0; k < n + (bear ? 1 : 0); k++) {
+    const a = rnd(run.rng, Stream.Spawn) * 6.2832, d = 70 + rnd(run.rng, Stream.Spawn) * 60;
+    const type = k >= n ? T_BEAR : rnd(run.rng, Stream.Spawn) < 0.3 && run.wave >= 4 ? T_SPITTER : T_BOAR;
+    const i = spawnEnemy(run, type, x + tcos(a) * d, y + tsin(a) * d, 0);
+    if (i < 0) return;
+    const e = run.enemies[i];
+    e.state = ES.Guard; e.t = 0; e.t2 = LULL.aggro;
+  }
+}
 
 /** A chest pays scrip, a few raws of each kind, and one upgrade pick at the bench. */
 function openChest(run: Run, x: number, y: number): void {
@@ -220,7 +236,7 @@ export function startLull(run: Run): void {
   const r = (): number => rnd(run.rng, Stream.Spawn);
   let live = 0;
   for (const n of run.nodes) if (n.alive) live++;
-  const place = (type: number, rich: boolean, far: boolean): boolean => {
+  const place = (type: number, rich: boolean, far: boolean): ResNode | null => {
     for (let tries = 0; tries < 30; tries++) {
       const x = 90 + r() * (run.w - 180), y = 90 + r() * (run.h - 180);
       const dx = x - p.x, dy = y - p.y, d2 = dx * dx + dy * dy;
@@ -237,19 +253,27 @@ export function startLull(run: Run): void {
         n.alive = true; n.x = x; n.y = y; n.type = type; n.rich = rich; n.tier = 1;
         n.work = 0; n.need = type === NODE_CHEST ? LULL.chestWork : rich ? NODE_WORK_RICH : NODE_WORK;
         n.working = false; n.tickAcc = 0; n.regrown = false; n.noise = 0;
-        return true;
+        return n;
       }
-      return false;
+      return null;
     }
-    return false;
+    return null;
   };
   let chest = 0;
   // An elite's wave always leaves a chest; other waves, a coin toss.
   const def = WAVES[run.plan[run.wave - 1] - 1];
-  if (run.wave >= LULL.chestFromWave && (def.elite || r() < LULL.chestChance) && place(NODE_CHEST, false, true)) chest = 1;
+  if (run.wave >= LULL.chestFromWave && (def.elite || r() < LULL.chestChance)) {
+    const c = place(NODE_CHEST, false, true);
+    // The chest is the best thing out there and the best guarded.
+    if (c) { chest = 1; postGuards(run, c.x, c.y, 3, run.wave >= 6); }
+  }
   for (let k = 0; live < LULL.nodes && k < LULL.nodes; k++) {
     const rich = r() < LULL.richChance;
-    if (place(k % 3, rich, rich)) live++;
+    const n = place(k % 3, rich, rich);
+    if (!n) continue;
+    live++;
+    // Plain nodes are free for the taking. Rich ones are guarded.
+    if (rich) postGuards(run, n.x, n.y, 2, run.wave >= 9);
   }
   emit(run, 'lull', p.x, p.y, run.lull, live, chest);
 }

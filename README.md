@@ -62,9 +62,11 @@ has been learned are in `docs/design/pivot/`.
 
 **Gather between waves** (the current test): **Try it** on the stash page
 starts a normal run with a 30 second lull after every wave but the last.
-Nothing comes during a lull, more nodes stand than can be reached, marks at
-the screen edge point to them (Ochre for rich ones, the largest for a chest),
-and a chest pays scrip, raws and an upgrade pick. Logging, Mining and Skinning
+Nothing comes for the player during a lull and more nodes stand than can be
+reached. Plain nodes are free; rich ones and the chest are guarded by beasts
+that wait until the player comes near. Marks at the screen edge point to every
+node (Ochre for rich ones, the largest for a chest), and a chest pays scrip,
+raws and an upgrade pick. Logging, Mining and Skinning
 gain experience from every node and each level works its node 6% faster. The
 run stays on the device and brings nothing home. Sim: `startLull` in
 `src/sim/world.ts`; test: `tests/lull.test.ts`.

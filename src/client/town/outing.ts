@@ -31,7 +31,7 @@ export function outingSection(): HTMLElement {
   return el('section', 'section outing',
     el('h2', '', 'Try: gather between waves'),
     el('div', 'bar',
-      el('div', 'bar-text', el('strong', '', `${LULL_SECONDS} quiet seconds after every wave. `), `More nodes than you can reach, sometimes a chest, and ${levels}. `,
+      el('div', 'bar-text', el('strong', '', `${LULL_SECONDS} quiet seconds after every wave. `), `Plain nodes are free; rich ones and chests are guarded. ${levels}. `,
         el('span', 'note', 'A test: this run stays on this device and brings nothing home.')),
       stamp('Try it', { cls: 'stamp--plain', key: 'scout', sound: 'waveStart', onClick: () => void headOutLull() })));
 }

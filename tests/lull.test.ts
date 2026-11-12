@@ -1,6 +1,6 @@
 // The lull: with it on, every wave but the last is followed by a stretch with no enemies and a clearing full of nodes.
 import { describe, expect, it } from 'vitest';
-import { NODE_CHEST, clearEvents, createRun, stateHash, step, type Run } from '../src/sim/index.ts';
+import { ES, NODE_CHEST, clearEvents, createRun, stateHash, step, type Run } from '../src/sim/index.ts';
 
 /** Walk to the nearest node (the chest first) and stand in it. */
 function gather(run: Run, inp: { mx: number; my: number }): void {
@@ -23,7 +23,25 @@ describe('lull', () => {
     expect(stateHash(a)).toBe(stateHash(b));
   });
 
-  it('follows the wave: no enemies, more nodes than before, then the bench', () => {
+  it('is safe for a player who keeps away: the only enemies are guards, and they stay where they stand', () => {
+    const run = createRun({ seed: 3, character: 'greenhorn', lull: 30 });
+    run.player.base[0] += 200;
+    let guards = 0, moved = 0;
+    for (let t = 0; t < 60 * 80 && run.phase === 'wave'; t++) {
+      run.player.hp = run.player.maxHp;
+      // Stand in a corner, far from everything.
+      const p = run.player, inp = run.lullT > 0 ? { mx: p.x > 40 ? -1 : 0, my: p.y > 40 ? -1 : 0 } : { mx: 0, my: 0 };
+      step(run, inp);
+      if (run.lullT > 0 && run.lullT < 20) for (const e of run.enemies) if (e.alive) { guards++; if (e.state !== ES.Guard && Math.hypot(e.x - p.x, e.y - p.y) > 400) moved++; }
+      clearEvents(run);
+    }
+    expect(run.phase).toBe('bench');
+    expect(moved).toBe(0);
+    expect(run.enemyCount).toBe(0);
+    console.log(`guard-ticks seen: ${guards}`);
+  });
+
+  it('follows the wave: more nodes than before, guards on the rich ones, then the bench', () => {
     const run = createRun({ seed: 3, character: 'greenhorn', lull: 30 });
     const inp = { mx: 0, my: 0 };
     run.player.base[0] += 200; // stay alive without playing
@@ -32,7 +50,7 @@ describe('lull', () => {
       run.player.hp = run.player.maxHp;
       if (run.lullT > 0) {
         if (!sawLull) { sawLull = true; nodesAtStart = run.nodes.filter((n) => n.alive).length; }
-        enemiesInLull = Math.max(enemiesInLull, run.enemyCount);
+        enemiesInLull = Math.max(enemiesInLull, run.enemies.filter((e) => e.alive && e.state !== ES.Guard && e.called).length);
         gather(run, inp);
         ticks++;
       } else { inp.mx = 0; inp.my = 0; }
