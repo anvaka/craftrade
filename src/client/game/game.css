@@ -552,7 +552,7 @@
 .g-end .section.g-first {
   margin-top: 6px;
 }
-@media (max-width: 899px) {
+@media (max-width: 899px), (max-height: 560px) {
   .g-side .section.g-first {
     margin-top: 22px;
   }
@@ -980,7 +980,7 @@
 }
 
 /* ---- the bench on a phone ------------------------------------------------------
-   bench.ts sets .is-compact below 900px wide. One screen holds the decision:
+   bench.ts sets .is-compact below 900px wide or 560px tall (COMPACT_Q). One screen holds the decision:
    a thin top bar, the stats as a ribbon, the picks or offers as cards, the
    rest of the bench behind tabs, and a foot with holdings and the two ways out.
    The page itself does not scroll; the middle does. Desk layout is untouched. */
@@ -1410,7 +1410,7 @@
 }
 
 /* Items and the run-end list on a phone: two lines of effects, small tags. */
-@media (max-width: 899px) {
+@media (max-width: 899px), (max-height: 560px) {
   .g-items .g-sub {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1893,7 +1893,7 @@
 }
 
 /* ---- run end on a phone: the carry list in two-line rows, the foot in one row ---- */
-@media (max-width: 899px) {
+@media (max-width: 899px), (max-height: 560px) {
   .g-end .page-head .meta .note {
     font-size: 13px;
   }
@@ -1946,4 +1946,98 @@
 .g-bench.is-compact .g-reveal > canvas.icon {
   width: 48px !important;
   height: 48px !important;
+}
+
+/* ---- the bench on a phone on its side ------------------------------------------
+   A short screen cannot spare a band at the top and another at the foot. The
+   cards take the full height on the left; the title, Sound, Pause, the reason
+   line, what you hold and the two ways out stand in a narrow rail on the right. */
+@media (max-height: 520px) {
+  .g-bench.is-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 176px;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: 'main top' 'main foot';
+  }
+  .g-bench.is-compact > .g-scroll {
+    grid-area: main;
+  }
+  .g-bench.is-compact > .g-top {
+    grid-area: top;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 0;
+    border-left: var(--rule) solid var(--ink);
+    padding: max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 4px 10px;
+  }
+  .g-bench.is-compact > .g-top h1 {
+    font-size: 18px;
+    flex: 1 0 100%;
+  }
+  .g-bench.is-compact > .g-top .g-top-acts {
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+  .g-bench.is-compact > .g-top .g-top-acts .stamp {
+    flex: 1 1 0;
+    min-height: 40px;
+  }
+  .g-bench.is-compact > .g-foot {
+    grid-area: foot;
+    position: static;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    gap: 6px;
+    border-top: 0;
+    border-left: var(--rule) solid var(--ink);
+    padding: 4px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) 10px;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .g-bench.is-compact .g-reason {
+    flex: 0 1 auto;
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    display: block;
+  }
+  .g-bench.is-compact .g-reason .tag {
+    display: none;
+  }
+  .g-bench.is-compact .g-reason .text {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.25;
+    padding: 0;
+  }
+  .g-bench.is-compact .g-foot-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin: 0;
+    padding-top: 0;
+  }
+  .g-bench.is-compact .g-held .price {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0 10px;
+    font-size: 14px;
+  }
+  .g-bench.is-compact .g-foot-acts {
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+  }
+  .g-bench.is-compact .g-foot-acts .stamp,
+  .g-bench.is-compact .g-foot-acts [data-fk='next'] {
+    max-width: none;
+    width: 100%;
+    min-height: 44px;
+  }
 }

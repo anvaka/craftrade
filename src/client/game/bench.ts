@@ -84,6 +84,9 @@ export const CONFIRM_GAP = 450;
 /** An armed confirm lapses after this long. */
 export const DISARM_MS = 4000;
 
+/** Screens that get the one-screen bench: narrow ones, and short ones (a phone on its side). */
+export const COMPACT_Q = '(max-width: 899px), (max-height: 560px)';
+
 export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   const { run } = deps;
   const p = run.player, b = run.bench;
@@ -127,8 +130,9 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   /** Phone layout: which tab of the dock is open, and which weapon slot is picked. */
   let openTab: 'weapons' | 'items' | 'stats' | 'anvil' | 'mule' = 'weapons';
   let wSel = 0;
-  // The phone layout is chosen by width and chosen again when the width changes (a phone turned on its side).
-  const compactQ = typeof matchMedia === 'function' ? matchMedia('(max-width: 899px)') : null;
+  // The phone layout is chosen by size and chosen again when it changes (a phone turned on its side).
+  // A phone on its side can be wider than a small desk window (900+ CSS px) but is never tall: short screens get it too.
+  const compactQ = typeof matchMedia === 'function' ? matchMedia(COMPACT_Q) : null;
   const onCompact = (): void => { if (!root.hidden && alive) render(); };
   compactQ?.addEventListener('change', onCompact);
   /** Keyboard hints only where there is a keyboard to press. */

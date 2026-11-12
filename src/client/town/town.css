@@ -2011,3 +2011,66 @@ p.num,
     font-size: 15px;
   }
 }
+
+/* ==== a phone on its side: the tabs as a rail on the left ===================
+   At 320-500px tall a band of tabs across the top costs a third of the screen.
+   Standing down the left edge they cost width, which a phone on its side has
+   to spare; the page keeps its full height for the tab itself. */
+@media (max-height: 500px) and (min-width: 700px) {
+  #town {
+    padding-left: calc(118px + env(safe-area-inset-left, 0px) + var(--gutter));
+  }
+  #town > .tabs {
+    position: fixed;
+    z-index: 30;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: calc(118px + env(safe-area-inset-left, 0px));
+    margin: 0;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 0;
+    border-right: var(--rule) solid var(--ink);
+    background: var(--ink);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  #town > .tabs .tab {
+    flex: 1 1 0;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 10px 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    clip-path: none;
+    font-size: 15px;
+    border-bottom: var(--hair) solid var(--spruce);
+  }
+  #town > .tabs .tab[aria-selected='true'] {
+    padding: 0 10px 0 12px;
+    background: var(--bone);
+    color: var(--ink);
+    box-shadow: inset 6px 0 0 var(--ochre);
+  }
+  #town > .tabs .tab[aria-selected='true']::before {
+    display: none;
+  }
+  #town > .tabs .tab .count {
+    margin-left: 0;
+  }
+  /* The dock: one tight line at the foot of the tab. */
+  .dock {
+    margin-top: 12px;
+    padding-top: 4px;
+    padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+  .dock .stamp {
+    min-height: 40px;
+  }
+}
