@@ -901,7 +901,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
 
   function pickCards(): HTMLElement {
     const s = el('section', 'g-deck');
-    s.append(el('h2', '', term(`Level ${p.level - b.picks + 1}`, 'level'), ': pick one', b.picks > 1 ? el('span', 'g-owe', `${b.picks} owed`) : null));
+    s.append(el('h2', '', el('span', '', term(`Level ${p.level - b.picks + 1}`, 'level'), ': pick one'), b.picks > 1 ? el('span', 'g-owe', `${b.picks} owed`) : null));
     const list = el('ul', 'g-cards g-picks');
     b.choices.forEach((c, i) => {
       const cur = p.stat[ST[c.stat]];
@@ -938,13 +938,13 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
         name = weaponName(def, o.tier, now(def, o.tier));
         kind = def.classes.map((c) => low(CLASS_LABEL[c])).join(', ');
         effects = el('ul', 'effects',
-          el('li', '', `${Math.round(weaponDamage(p, def, o.tier))} damage every ${weaponCooldown(p, def, o.tier).toFixed(2)} s, reach ${Math.round(weaponRange(p, def))}`),
-          el('li', '', def.note));
+          el('li', '', `${Math.round(weaponDamage(p, def, o.tier))} damage every ${weaponCooldown(p, def, o.tier).toFixed(2)} s, reach ${Math.round(weaponRange(p, def))}`));
         const copies = p.copies[WEAPON_INDEX[o.id]];
         const twin = o.tier < 4 && p.weapons.some((w) => w.id === o.id && w.tier === o.tier);
-        if (copies > 0 && !o.sold) effects.prepend(el('li', 'g-twin', p.weapons.length >= weaponSlots(run) && twin
+        if (copies > 0 && !o.sold) effects.append(el('li', 'g-twin', p.weapons.length >= weaponSlots(run) && twin
           ? `Combines with your twin into a tier ${o.tier + 1}.`
-          : `You hold ${copies}: +${Math.round(STACK_BONUS * 100)}% damage each.`));
+          : `You hold ${copies}: +${Math.round(STACK_BONUS * 100)}% each.`));
+        effects.append(el('li', '', def.note));
       } else {
         const it = o.item!;
         icon = icSized(S.icon.glyph[it.glyph], 32);

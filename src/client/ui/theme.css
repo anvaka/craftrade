@@ -636,7 +636,7 @@ canvas.icon {
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
 }
-@media (min-width: 420px) and (max-width: 899px) {
+@media (min-width: 340px) and (max-width: 899px) {
   .stats {
     column-count: 2;
     column-gap: 24px;
@@ -880,7 +880,7 @@ canvas.icon {
   border-left: var(--hair) solid var(--ink);
 }
 .counter.is-scrip {
-  border-right: 2px solid var(--ink);
+  border-right: var(--hair) solid var(--ink);
 }
 
 /* .stick: touch stick. An eight-sided dashed ring and a solid Ink knob.

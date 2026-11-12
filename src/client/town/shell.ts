@@ -105,7 +105,9 @@ export function pageHead(label: string, title: Kid, ...meta: Kid[]): HTMLElement
 
 function townHead(): HTMLElement {
   const named = app.met && app.profile.name;
-  return pageHead(named ? (isSolo() ? 'Scrip. Solo account of' : 'Scrip. Account of') : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls({ compact: isDocked() }));
+  const head = pageHead(named ? (isSolo() ? 'Scrip. Solo account of' : 'Scrip. Account of') : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls({ compact: isDocked() }));
+  head.classList.add('page-head--town');
+  return head;
 }
 
 // ---- tabs ------------------------------------------------------------------
@@ -149,7 +151,7 @@ function tabs(): HTMLElement | null {
   for (const t of list) {
     const on = t === app.tab;
     const due = t === 'daily' && dailyDue();
-    const b = el('button', `tab${due ? ' is-due' : ''}`, el('span', 'tab-name', tabName(t)), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null);
+    const b = el('button', 'tab', el('span', 'tab-name', tabName(t)), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null, due ? el('span', 'tab-due') : null);
     if (due) b.setAttribute('aria-description', 'not yet run today');
     b.type = 'button';
     b.dataset.fk = `tab:${t}`;

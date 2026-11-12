@@ -237,10 +237,18 @@ body.in-run {
   outline-offset: -3px;
 }
 
-/* A row that is chosen carries a heavy side rule, as a locked offer does. */
+/* A row that is chosen carries a heavy side rule in the gutter, as a packed
+   item does. The rule sits outside the column, so the name does not move. */
 .ledger tr.is-on td:first-child > .thing {
-  border-left: 6px solid var(--ink);
-  padding-left: 8px;
+  position: relative;
+}
+.ledger tr.is-on td:first-child > .thing::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: -6px;
+  bottom: -6px;
+  border-left: var(--rule) solid var(--ink);
 }
 .ledger .rank {
   width: 72px;
@@ -361,9 +369,16 @@ h3.sub .count {
 .char.is-shut {
   cursor: default;
 }
-.char.is-on {
-  border-left: 6px solid var(--ink);
-  padding-left: 8px;
+.char {
+  position: relative;
+}
+.char.is-on::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: -1px;
+  bottom: -1px;
+  border-left: var(--rule) solid var(--ink);
 }
 button.char:active {
   transform: translate(var(--press), var(--press));
@@ -391,6 +406,20 @@ button.char:active {
   padding: 2px 7px;
   margin-left: 10px;
   vertical-align: 2px;
+}
+
+/* A packed item: the kit's heavy side rule, set in the gutter so the row keeps its edge. */
+.items .offer.is-locked {
+  border-left: 0;
+  padding-left: 0;
+}
+.items .offer.is-locked::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: -1px;
+  bottom: -1px;
+  border-left: var(--rule) solid var(--ink);
 }
 
 /* Stash rows use the kit's .offer. Under a note the list opens on a hair rule. */
@@ -510,12 +539,28 @@ button.char:active {
 .chooser {
   margin-top: 14px;
 }
-@media (max-width: 760px) {
+/* Two filled slots and the outcome do not fit one line below a wide desk:
+   the slots share a line and the outcome takes the next. */
+@media (max-width: 960px) {
   .anvil {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
+  .anvil > .anvil-op:nth-child(4) {
+    display: none;
+  }
+  .anvil > .outcome {
+    grid-column: 1 / -1;
+    border-left: 0;
+    padding-left: 0;
+    border-top: var(--hair) solid var(--ink);
+    min-height: 0;
+  }
+  .slot {
+    min-height: 0;
+  }
+}
+@media (max-width: 760px) {
   .anvil-op {
-    align-self: start;
     font-size: 22px;
   }
   .slot,
@@ -727,7 +772,7 @@ button.char:active {
   align-items: center;
   gap: 8px 18px;
   padding: 10px 0 12px 10px;
-  border-left: 6px solid var(--ink);
+  border-left: var(--rule) solid var(--ink);
 }
 .post-terms {
   flex: 1 1 320px;
@@ -1115,4 +1160,773 @@ p.num,
   justify-content: flex-end;
   gap: 6px;
   min-width: 0;
+}
+
+/* ==== folds ================================================================
+   A section whose body folds away (dom.ts fold()). Shut, it is one heading
+   line with a summary and a +; from 900px it is never drawn as a fold. */
+
+.fold-head {
+  padding-bottom: 0;
+}
+.section > h2.fold-head {
+  padding-bottom: 2px;
+}
+.fold-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fold-btn:focus-visible {
+  outline-offset: -3px;
+}
+.fold-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fold-sum {
+  flex: none;
+  font-size: 14px;
+  font-weight: 400;
+  font-style: italic;
+}
+.fold-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: var(--hair) solid var(--ink);
+  font-size: 19px;
+  line-height: 1;
+}
+.fold.is-shut > .fold-body {
+  display: none;
+}
+/* A fold inside a section is a sub-heading: hair rule, body size. */
+.fold--sub {
+  margin-top: 10px;
+}
+.section > h2.fold-head:is(.fold--sub > h2) {
+  font-size: 15px;
+  border-bottom-width: var(--hair);
+}
+@media (pointer: coarse) {
+  .fold-btn {
+    min-height: 44px;
+  }
+}
+
+/* ==== the sound stamp as a speaker ======================================== */
+
+.sound--compact {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.mute--icon {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.spk {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 18px;
+}
+.spk::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 18px;
+  background: currentColor;
+  clip-path: polygon(0 32%, 40% 32%, 100% 0, 100% 100%, 40% 68%, 0 68%);
+}
+/* On: one sound line beside the cone. Off: the cone struck through. */
+.spk::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 4px;
+  height: 10px;
+  border-left: var(--rule) solid currentColor;
+}
+.mute--icon[aria-pressed='true'] .spk::after {
+  left: 11px;
+  top: -3px;
+  height: 24px;
+  transform: rotate(-40deg);
+}
+
+/* ==== phones: under 700px ==================================================
+   One sheet held in one hand: a one-line head that keeps the holdings in view,
+   the tabs as a bar at the foot, and each tab's main stamp in a dock just
+   above it (docs/critique/mobile-ui/town-ia.md). Desks keep the top tabs. */
+
+@media (max-width: 699px) {
+  /* Head: the name and the speaker on one line, the holdings strip under
+     them. It is sticky with its first line above the screen, so the
+     holdings stay in view while they are spent. */
+  .page-head--town {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 44px auto;
+    gap: 6px 10px;
+    align-items: center;
+    padding: 6px 0 6px;
+    margin-bottom: 14px;
+    position: sticky;
+    top: -56px;
+    z-index: 20;
+    background: var(--bone);
+  }
+  .page-head--town::after {
+    bottom: -7px;
+    height: 4px;
+    background: var(--bone);
+  }
+  .page-head--town .head-name {
+    min-width: 0;
+  }
+  .page-head--town .label {
+    display: none;
+  }
+  .page-head--town h1 {
+    font-size: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .page-head--town .meta {
+    display: contents;
+  }
+  .page-head--town .counters {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    width: 100%;
+    border-width: var(--hair);
+  }
+  .page-head--town .counter {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    gap: 2px;
+    padding: 1px 2px;
+    font-size: 15px;
+  }
+  .page-head--town .counters canvas.icon {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .page-head--town .sound {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* Tabs: a bar at the foot of the screen, six equal slots hanging from a
+     heavy rule. The open tab is cut from the sheet, as on a desk, upside down. */
+  #town.has-nav {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    --nav-h: calc(55px + env(safe-area-inset-bottom, 0px));
+  }
+  #town > .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr));
+    gap: 3px;
+    align-items: start;
+    margin: 0;
+    padding: 0 max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px));
+    background: var(--bone);
+    border-top: var(--rule) solid var(--ink);
+    border-bottom: 0;
+    overflow: visible;
+  }
+  #town > .tabs .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-height: 44px;
+    margin: 0 0 8px;
+    padding: 3px 2px 5px;
+    font-size: 13px;
+    line-height: 1.1;
+    overflow: hidden;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%);
+  }
+  #town > .tabs .tab[aria-selected='true'] {
+    min-height: 52px;
+    margin: 0;
+    padding: 3px 2px 9px;
+  }
+  #town > .tabs .tab[aria-selected='true']::before {
+    inset: 0 var(--rule) var(--rule) var(--rule);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7.5px), calc(100% - 7.5px) 100%, 0 100%);
+  }
+  #town > .tabs .tab-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+  #town > .tabs .tab .count {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .tab-due {
+    display: block;
+    width: 7px;
+    height: 7px;
+    margin-top: 2px;
+    background: var(--ochre);
+    outline: var(--hair) solid var(--ink);
+  }
+  #town > .tabs .tab:focus-visible::after {
+    bottom: 10px;
+  }
+  .notices {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+
+  /* ---- stash ---- */
+  .home > .next {
+    margin-top: 4px;
+  }
+  .next .bar {
+    padding: 7px 0;
+  }
+  .next .bar-text {
+    font-size: 16px;
+  }
+  .bar--hazard {
+    gap: 6px;
+  }
+  .bar--hazard .bar-text {
+    flex: 1 1 100%;
+    font-size: 15px;
+  }
+  .hazards {
+    gap: 6px;
+  }
+  .bar--link {
+    appearance: none;
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 0;
+    border: 0;
+    border-bottom: var(--hair) solid var(--ink);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bar--link .bar-text {
+    flex: 1 1 auto;
+    font-size: 15px;
+  }
+  .bar-go {
+    flex: none;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .bar--link:active .bar-go {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+
+  /* Who heads out: six portraits in a strip; the one going is named under it. */
+  .chars--strip {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    padding-top: 8px;
+  }
+  .chars--strip .char {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    min-height: 58px;
+    padding: 4px 0;
+    border: var(--hair) solid var(--ink);
+    overflow: hidden;
+  }
+  .chars--strip .char canvas {
+    width: 44px !important;
+    height: auto !important;
+    max-width: 100%;
+  }
+  .chars--strip .char-text {
+    display: none;
+  }
+  .chars--strip .char.is-on {
+    border: var(--rule) solid var(--ink);
+    padding: 2px 0;
+  }
+  .chars--strip .char.is-on::before {
+    display: none;
+  }
+  .char-left {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 16px;
+    padding: 1px 3px;
+    background: var(--ink);
+    color: var(--bone);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+  }
+  .char-caption {
+    padding: 6px 0 7px;
+    border-bottom: var(--hair) solid var(--ink);
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  /* Stash rows: the maker's line is in the name's tip; the pips sit by the tier. */
+  .items .made:not(.packs) {
+    display: none;
+  }
+  .items .offer .name .charges {
+    gap: 0;
+  }
+  .items .offer .name .made.packs {
+    flex: 1 1 100%;
+    font-size: 13px;
+  }
+  .items .offer .buy .stamp {
+    min-width: 76px;
+  }
+  .items .offer .buy .note {
+    font-size: 12px;
+  }
+  .bar--shelf {
+    flex-wrap: nowrap;
+    padding: 6px 0;
+  }
+  .bar--shelf .bar-text {
+    flex: 1 1 auto;
+    font-size: 15px;
+  }
+
+  /* Account rows that carry a stamp get the stamp's height plus air. */
+  .account .stats > div {
+    min-height: 52px;
+    padding: 4px 0;
+  }
+  .account .sound {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  /* ---- market ---- */
+  .seg {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .seg .stamp {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 4px;
+  }
+  .seg .stamp canvas.icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .factor-row.is-off {
+    display: none;
+  }
+  .factor--one {
+    margin-top: 6px;
+  }
+  .factor--one .factor-row {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px 8px;
+    padding: 6px 0 8px;
+  }
+  .factor--one .f-raw {
+    grid-column: 1 / 4;
+    grid-row: 1;
+  }
+  .factor--one .f-act {
+    display: contents;
+  }
+  .factor--one .f-act .step {
+    grid-column: 4 / 7;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .factor--one .f-fig {
+    grid-column: span 2;
+    grid-row: 2;
+    font-size: 16px;
+  }
+  .factor--one .f-left {
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .factor--one .f-sell {
+    grid-column: 1 / 4;
+    grid-row: 3;
+  }
+  .factor--one .f-buy {
+    grid-column: 4 / 7;
+    grid-row: 3;
+  }
+  .factor--one .f-sell,
+  .factor--one .f-buy {
+    min-width: 0;
+    padding-inline: 6px;
+  }
+
+  /* ---- town ---- */
+  .project-head {
+    padding: 6px 0;
+  }
+  .project-head > canvas.icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .project-name {
+    font-size: 17px;
+  }
+  .project-row {
+    padding: 6px 0;
+  }
+  .p-fig {
+    font-size: 15px;
+  }
+  .bar--give .bar-text {
+    font-size: 13px;
+  }
+
+  /* ---- almanac ---- */
+  .almanac {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 16px;
+  }
+  .almanac-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 3px 8px;
+    align-items: center;
+    min-height: 0;
+    padding: 6px 0 7px;
+  }
+  .almanac-row .a-name {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  .almanac-row .meter,
+  .almanac-row .a-open {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .almanac-row .meter {
+    height: 10px;
+    border-width: var(--hair);
+  }
+  .almanac-row .a-fig {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 14px;
+  }
+  .almanac-row .a-open {
+    font-size: 12px;
+  }
+  .bar--find {
+    padding: 6px 0;
+  }
+
+  /* ---- homecoming ---- */
+  .page-head--sheet {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .page-head--sheet .head-name {
+    min-width: 0;
+  }
+  .page-head--sheet .meta {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .page-head--sheet .meta .note {
+    white-space: nowrap;
+  }
+}
+
+/* Under 560px the ledgers with stamps keep one line a row: name, figures,
+   and the stamps on the right, as in every other list. */
+@media (max-width: 560px) {
+  .listings tr,
+  .selling tr {
+    grid-template-columns: minmax(0, 1fr) auto 30px auto;
+    column-gap: 8px;
+    align-items: center;
+  }
+  .listings.lots tr {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .listings th:last-child,
+  .selling th:last-child {
+    display: block;
+  }
+  .listings td.act,
+  .selling td.act {
+    grid-column: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .selling td.act:empty {
+    display: block;
+  }
+  .listings td.act .stamp,
+  .selling td.act .stamp {
+    margin: 0;
+  }
+  .listings .fx,
+  .selling .fx {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .selling td.num,
+  .listings td.num {
+    text-align: right;
+  }
+  .selling .stamp.is-armed {
+    max-width: 120px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* The anvil: each slot one line (icon, name, Take off), the outcome under them. */
+  .anvil {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .anvil > .anvil-op {
+    display: none;
+  }
+  .slot {
+    align-items: center;
+    padding: 6px 0;
+    gap: 10px;
+  }
+  .slot + .anvil-op + .slot {
+    border-top: var(--hair) solid var(--ink);
+  }
+  .slot > canvas.icon,
+  .outcome > canvas.icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .slot-blank {
+    width: 40px;
+    height: 40px;
+  }
+  .slot .slot-text {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+  }
+  .slot .slot-text .name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+  }
+  .slot .slot-text .effects {
+    display: none;
+  }
+  .slot .slot-text .stamp {
+    margin-left: auto;
+  }
+  .slot.is-empty .slot-text {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .outcome {
+    padding: 8px 0;
+  }
+  .outcome .slot-text {
+    font-size: 14px;
+    gap: 3px;
+  }
+  .outcome .slot-text .name,
+  .budget {
+    font-size: 16px;
+  }
+
+  /* A pair nobody has tried is one line: A + B, and its stamp. */
+  .recipe.is-untried {
+    grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr) auto;
+  }
+  .recipe.is-untried > :nth-child(1) {
+    grid-area: 1 / 1;
+  }
+  .recipe.is-untried > :nth-child(2) {
+    grid-area: 1 / 2;
+  }
+  .recipe.is-untried > :nth-child(3) {
+    grid-area: 1 / 3;
+  }
+  .recipe.is-untried > :nth-child(4),
+  .recipe.is-untried > :nth-child(5) {
+    display: none;
+  }
+  .recipe.is-untried > :nth-child(6) {
+    grid-area: 1 / 4;
+  }
+  .recipe .thing {
+    gap: 4px;
+  }
+  .recipe .thing canvas.icon {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  /* A sum's rule spans the whole result line, not part of it. */
+  .recipe > :nth-child(5) {
+    margin-left: -26px;
+    padding-left: 26px;
+  }
+
+  /* The word list stacks: the word, then its meaning at full width. */
+  .words-list tr {
+    display: block;
+    padding: 6px 0;
+    border-bottom: var(--hair) solid var(--ink);
+  }
+  .words-list th,
+  .words-list td {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+  .words-list .w-word {
+    padding: 0;
+  }
+  .words-list td.fx {
+    font-size: 13px;
+  }
+  .words-list tr:has(th) {
+    border-bottom: var(--rule) solid var(--ink);
+  }
+  .words-list tr:has(th) th:last-child {
+    display: none;
+  }
+}
+
+/* ==== the dock: a tab's main stamp at the foot of the screen ==============
+   Phones, and short landscape screens where the stamp would scroll off. */
+@media (max-width: 699px), (max-height: 500px) {
+  .dock {
+    position: sticky;
+    bottom: var(--nav-h, 0px);
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 7px 0;
+    background: var(--bone);
+    border-top: var(--rule) solid var(--ink);
+  }
+  #town:not(.has-nav) .dock {
+    padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px));
+  }
+  .dock-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .dock-acts {
+    flex: none;
+    display: flex;
+    gap: 8px;
+  }
+  .dock .stamp {
+    min-height: 44px;
+    min-width: 116px;
+    font-size: 16px;
+  }
+  .dock .stamp--town {
+    min-width: 0;
+    max-width: 210px;
+    white-space: normal;
+  }
+}
+
+/* ==== short landscape: the head on one line, the tabs straight under it ==== */
+@media (max-height: 500px) and (min-width: 700px) {
+  .page-head--town,
+  .page-head--sheet {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 4px 0 6px;
+    margin-bottom: 12px;
+  }
+  .page-head--town .label {
+    display: none;
+  }
+  .page-head--town h1,
+  .page-head--sheet h1 {
+    font-size: 20px;
+  }
+  .page-head--town .counter {
+    font-size: 15px;
+  }
+  .page-head--town .counters canvas.icon {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .tabs {
+    margin-top: 8px;
+  }
+  .section--first,
+  .home > .next {
+    margin-top: 12px;
+  }
 }

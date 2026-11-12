@@ -945,3 +945,613 @@
   border-top: var(--hair) solid var(--ink);
   padding-top: 10px;
 }
+
+/* ---- the bench's weapon rows -------------------------------------------------
+   Up to three stamps (Tier up, Combine, Scrap) share the action cell. They
+   wrap inside it, right-aligned, and never push the table past its column:
+   at 340px (the desk side column) and on a phone they would otherwise be cut off. */
+.g-weapons td.act {
+  white-space: normal;
+  width: auto;
+}
+.g-weapons td.act .stamp {
+  margin: 2px 0 2px 6px;
+}
+.g-weapons td:first-child {
+  width: 99%;
+}
+
+/* ---- the bench on a phone ------------------------------------------------------
+   bench.ts sets .is-compact below 900px wide. One screen holds the decision:
+   a thin top bar, the stats as a ribbon, the picks or offers as cards, the
+   rest of the bench behind tabs, and a foot with holdings and the two ways out.
+   The page itself does not scroll; the middle does. Desk layout is untouched. */
+.g-bench.is-compact {
+  overflow: hidden;
+}
+.g-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bone);
+  border-bottom: var(--rule) solid var(--ink);
+  padding: max(6px, env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right)) 6px max(var(--gutter), env(safe-area-inset-left));
+}
+.g-top h1 {
+  font-size: 21px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.g-top-of {
+  font-weight: 400;
+  margin-left: 2px;
+}
+.g-top-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.g-top-acts .stamp {
+  min-height: 40px;
+}
+.g-pausebtn {
+  min-width: 44px;
+  width: 44px;
+  padding: 0;
+}
+/* Pause, drawn: two inked bars. */
+.g-pz {
+  display: inline-flex;
+  gap: 4px;
+}
+.g-pz i {
+  display: block;
+  width: 5px;
+  height: 16px;
+  background: currentColor;
+}
+.g-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.g-cpage {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 8px max(var(--gutter), env(safe-area-inset-right)) 14px max(var(--gutter), env(safe-area-inset-left));
+}
+.g-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding-bottom: 6px;
+  border-bottom: var(--hair) solid var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.3;
+}
+.g-rstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.g-rstat .g-delta,
+.g-bench.is-compact .stats dd .g-delta {
+  display: inline-block;
+  background: var(--ink);
+  color: var(--bone);
+  font-size: 13px;
+  line-height: 1.3;
+  padding: 0 4px;
+  margin-left: 2px;
+}
+.g-rstat .g-delta[hidden] {
+  display: none;
+}
+.g-interest {
+  margin-top: 4px;
+}
+.g-deck {
+  margin-top: 10px;
+}
+.g-deck > h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  font-size: 17px;
+  padding-bottom: 4px;
+  border-bottom: var(--rule) solid var(--ink);
+}
+.g-deck > .note {
+  margin-top: 4px;
+}
+.g-owe {
+  align-self: center;
+  background: var(--ochre);
+  outline: var(--hair) solid var(--ink);
+  padding: 1px 5px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* The cards: two across on a phone held upright, a row of four on its side. */
+.g-cards {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (min-width: 600px) {
+  .g-cards {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+.g-cardo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 8px 8px;
+  background: var(--bone);
+  border: var(--hair) solid var(--ink);
+  font-size: 14px;
+  line-height: 1.3;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.g-cardo.is-selected {
+  outline: var(--rule) solid var(--ink);
+  outline-offset: -1px;
+}
+.g-cardo.is-locked {
+  border-top: var(--rule) solid var(--ink);
+  padding-top: 5px;
+}
+.g-c-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.g-c-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.g-c-title .price {
+  font-size: 15px;
+  gap: 0 7px;
+}
+/* Prices, holdings and the reroll cost on a phone: figures at 15px, icons to match. */
+.g-bench.is-compact .cost canvas.icon {
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 1px 0 0;
+}
+.g-c-kind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+}
+.g-c-kind .tier {
+  padding-left: 0;
+}
+.g-c-kind .tier i,
+.g-wslot .tier i {
+  width: 5px;
+  height: 11px;
+}
+.g-c-kind .kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.g-cardo .name {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.15;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.g-pick .g-c-title .name {
+  font-size: 16px;
+}
+.g-cardo .effects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  /* Two lines until the card is selected; selecting it is how a phone reads the rest. */
+  max-height: calc(2 * 1.3em);
+  overflow: hidden;
+}
+.g-cardo.is-selected .effects {
+  max-height: none;
+}
+.g-cardo .effects li {
+  position: relative;
+  padding-left: 10px;
+}
+.g-cardo .effects li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 6px;
+  border-top: var(--rule) solid var(--ink);
+}
+.g-cardo .effects li.cost {
+  font-style: italic;
+}
+.g-cardo .effects li.cost::before {
+  width: 5px;
+  height: 5px;
+  top: 0.4em;
+  border: var(--hair) solid var(--ink);
+}
+.g-cardo .effects li.g-twin {
+  font-weight: 700;
+}
+.g-cardo .effects li.g-twin::before {
+  width: 6px;
+  height: 6px;
+  top: 0.4em;
+  border: 0;
+  background: var(--ochre);
+  outline: var(--hair) solid var(--ink);
+}
+.g-pick .effects li.g-c-now {
+  font-weight: 700;
+}
+.g-c-short {
+  display: none;
+  font-size: 13px;
+  font-style: italic;
+}
+.g-cardo.is-selected .g-c-short {
+  display: block;
+}
+.g-cardo .buy {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.g-cardo .buy .stamp {
+  flex: 1 1 auto;
+}
+.g-cardo .buy .g-lock {
+  flex: none;
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.g-cardo .g-lock canvas.icon {
+  margin: 0;
+}
+.g-cardo.is-sold {
+  cursor: default;
+}
+.g-cardo.is-sold .name {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+/* The dock: weapons, items, stats, anvil and mule, one tab at a time. */
+.g-dock {
+  margin-top: 14px;
+}
+.g-dock-tabs {
+  gap: 3px;
+}
+.g-dock-tabs .tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 6px 5px;
+  font-size: 15px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.g-dock-tabs .tab[aria-selected='true'] {
+  padding-top: 9px;
+  padding-bottom: 7px;
+}
+.g-dock-tabs .tab .count {
+  margin-left: 4px;
+  font-size: 13px;
+}
+.g-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  vertical-align: 2px;
+  background: var(--ochre);
+  outline: var(--hair) solid currentColor;
+}
+.g-dock-panel > .section,
+.g-dock-panel > .g-weapons-grid {
+  margin-top: 0;
+  padding-top: 8px;
+}
+.g-dock-panel > .section > h2 {
+  display: none;
+}
+.g-dock-panel > .section > h2 + .note,
+.g-dock-panel > .section > .note:first-child {
+  margin-top: 0;
+}
+.g-dock-panel .ledger tr:first-child td {
+  padding-top: 2px;
+}
+.g-bench.is-compact .stats {
+  column-count: 2;
+  column-gap: 14px;
+  column-rule: var(--hair) solid var(--ink);
+  margin-top: 6px;
+}
+.g-bench.is-compact .stats > div {
+  break-inside: avoid;
+  min-height: 28px;
+  font-size: 14px;
+  gap: 4px;
+}
+.g-bench.is-compact .stats dt {
+  gap: 4px;
+}
+.g-bench.is-compact .stats dt canvas.icon {
+  width: 20px !important;
+  height: 20px !important;
+}
+.g-bench.is-compact .stats dd {
+  font-size: 15px;
+  min-width: 0;
+}
+.g-bench.is-compact .stats dt::after {
+  margin-bottom: 6px;
+}
+.g-bench.is-compact .g-sets {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* Weapons: the slots as a grid; the one picked shows its stamps under it. */
+.g-wgrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.g-wslot {
+  appearance: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 3px 0 4px;
+  background: var(--bone);
+  color: var(--ink);
+  border: var(--hair) solid var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.g-wslot.is-on {
+  outline: var(--rule) solid var(--ink);
+  outline-offset: -1px;
+}
+.g-wslot.is-combined {
+  background: var(--ochre);
+}
+.g-wslot.is-empty {
+  border-style: dashed;
+  cursor: default;
+}
+.g-wslot.is-empty .label {
+  font-size: 11px;
+}
+.g-wslot .tier {
+  padding: 0;
+  gap: 2px;
+}
+.g-wrow {
+  padding: 8px 0;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.g-wname .g-item-name {
+  font-size: 16px;
+}
+.g-wname .g-sub {
+  margin-top: 2px;
+}
+.g-wacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Items and the run-end list on a phone: two lines of effects, small tags. */
+@media (max-width: 899px) {
+  .g-items .g-sub {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .g-items .g-item-name {
+    gap: 2px 4px;
+  }
+  .g-bench .g-tag,
+  .g-end .g-tag {
+    font-size: 11px;
+    padding: 0 3px;
+  }
+}
+.g-bench.is-compact .g-items canvas.icon,
+.g-bench.is-compact .g-anvil-slot canvas.icon {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+/* Anvil and mule inside the dock. */
+.g-bench.is-compact .g-anvil-picks {
+  padding: 8px 0;
+}
+.g-bench.is-compact .g-anvil-slot {
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-height: 40px;
+}
+.g-bench.is-compact .g-reveal {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+.g-bench.is-compact .g-reveal .name {
+  font-size: 19px;
+}
+.g-bench.is-compact .g-reveal-side {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 8px;
+}
+.g-bench.is-compact .g-mule .ledger td.act {
+  white-space: nowrap;
+}
+.g-bench.is-compact .g-steps {
+  gap: 4px;
+}
+
+/* The foot: a line only when there is something to say, then holdings and the two ways out. */
+.g-bench.is-compact .g-foot {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.g-bench.is-compact .g-reason.is-empty {
+  display: none;
+}
+.g-bench.is-compact .g-reason {
+  min-height: 28px;
+}
+.g-bench.is-compact .g-reason .text {
+  padding: 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 15px;
+}
+.g-bench.is-compact .g-foot-row {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.g-bench.is-compact .g-held .price {
+  font-size: 15px;
+  gap: 0 10px;
+}
+.g-bench.is-compact .g-foot-acts {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.g-bench.is-compact .g-foot-acts .stamp {
+  min-height: 48px;
+  padding-left: 10px;
+  padding-right: 12px;
+  gap: 4px;
+  white-space: nowrap;
+}
+.g-bench.is-compact .g-foot-acts [data-fk='reroll'] {
+  flex: none;
+}
+.g-bench.is-compact .g-foot-acts [data-fk='next'] {
+  flex: 1 1 auto;
+  max-width: 220px;
+}
+/* Upright and narrow: the four holdings stack two by two beside the buttons. */
+@media (max-width: 560px) {
+  .g-bench.is-compact .g-held .price {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0 10px;
+  }
+}
+.g-bench.is-compact.is-waiting .g-deck,
+.g-bench.is-compact.is-waiting .g-dock-tabs,
+.g-bench.is-compact.is-waiting .g-dock-panel:not([data-panel='anvil']) {
+  pointer-events: none;
+}
+
+/* A phone on its side: one row at the foot, the reason beside the buttons. */
+@media (max-height: 520px) {
+  .g-top {
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-bottom: 4px;
+  }
+  .g-bench.is-compact .g-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 6px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
+  .g-bench.is-compact .g-reason {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+  }
+  .g-bench.is-compact .g-foot-row {
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+    padding-top: 0;
+  }
+  .g-bench.is-compact .g-foot-acts .stamp {
+    min-height: 44px;
+  }
+  .g-ribbon {
+    padding-bottom: 4px;
+  }
+  .g-deck {
+    margin-top: 6px;
+  }
+  .g-dock {
+    margin-top: 10px;
+  }
+}
+/* Upright, a fifth card (the commission) takes the whole row and puts its Buy on the right. */
+@media (max-width: 599px) {
+  .g-cardo.is-commission {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 34%);
+    column-gap: 10px;
+    align-content: start;
+  }
+  .g-cardo.is-commission > :not(.buy) {
+    grid-column: 1;
+  }
+  .g-cardo.is-commission > .buy {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: end;
+    padding-top: 0;
+  }
+}

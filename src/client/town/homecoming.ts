@@ -19,7 +19,7 @@ import { DEATH_RAW_KEEP, KIT_CHARGES, type RunStartRes } from '../../shared/prot
 import { RAWS } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import type { RunRecap } from '../seam.ts';
-import { charges, copyText, el, fmt, icon, itemRow, ordinal, pips, sprite, sprites, stamp, thing, type Kid } from './dom.ts';
+import { charges, copyText, el, fmt, icon, isDocked, itemRow, ordinal, pips, sprite, sprites, stamp, thing, type Kid } from './dom.ts';
 import { headOut, type Launch, type Report } from './run.ts';
 import { pageHead, showSheet, showTown, soundControls } from './shell.ts';
 import { app } from './state.ts';
@@ -133,7 +133,9 @@ function sheet(h: Homecoming, report: Report | null, copied: boolean, relicShown
   const what = launch.mode === 'run' ? 'Homecoming' : launch.mode === 'daily' ? 'Daily clearing' : 'Daily clearing, practice';
   const by = !r.won && recap.killedBy ? `${gotYou(recap.killedBy)} ${clock(recap.seconds)} in the clearing.` : `${clock(recap.seconds)} in the clearing.`;
 
-  const out: Kid[] = [pageHead(`${what}. ${characterName(ticket.character)}`, title, el('span', 'note', by), soundControls())];
+  const head = pageHead(`${what}. ${characterName(ticket.character)}`, title, el('span', 'note', by), soundControls({ compact: isDocked() }));
+  head.classList.add('page-head--sheet');
+  const out: Kid[] = [head];
 
   // ---- how close, and the best so far ---------------------------------------
   const marks = el('ul', 'recap-marks');
