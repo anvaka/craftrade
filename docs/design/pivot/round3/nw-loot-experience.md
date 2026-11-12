@@ -8,31 +8,46 @@ furniture and equipment, sell on the trade post, run dungeons". In Brotato the
 best moment is "when you finally meet the curve with perks and upgrades and
 can roll from there". In Scrip, "glimpses of discovery were fun". Three
 one-slice prototypes were boring: calm gathering, a gather lull between waves,
-and kills dropping raws toward one tracked recipe (`?proto=loot`). This file
-asks what the loot part of New World actually feels like from level 1 to the
-last season, which loot designs make players excited in other games, and what
-that means for a small 2D phone game.
+and kills dropping raws toward one tracked recipe (`?proto=loot`). The owner
+adds: "my other problem is that weapons/tools are given to you by default and
+not crafted". In Scrip the starting weapon is free and every other weapon or
+tool is bought with run currency at the shop between waves; nothing you fight
+with comes from your own crafting.
+
+This file asks what the loot part of New World feels like from level 1 to
+the last season, how fighting with gear you made yourself feels there and in
+comparable games, which loot designs make players excited elsewhere, and
+what that means for a small 2D phone game.
 
 ## How to read this file
 
-- **[S]**: a web search result seen in this session says so. Sources are at
-  the end, grouped by section.
+- **[S]**: a source seen in this session says so. Sources are at the end,
+  grouped by section, and those read first-hand are marked there.
 - **[M]**: from memory or approximate. Treat the number as a rough shape.
-- **Proposal** (section 5 and 6 only): our design suggestion, not a claim
-  about any game.
-- **Limits.** Only search-result summaries were reachable. Every page fetch
-  (thegamer, studioloot, pcgamer, massivelyop, icy-veins, steamcommunity and
-  the rest) was refused by the session's network policy, and the hosts listed
-  as blocked were not tried. So no table or forum thread was read first-hand,
-  and several "player moments" below are assembled from summaries rather than
-  quoted. Where summaries disagreed, I say so.
+- **Proposal** (5.7, 6 and 7): our design suggestion, not a claim about any
+  game.
+- **Limits.**
+  - For most of the session only search-result summaries were reachable.
+    Late on, newworld.com, nwdb.info, the fextralife New World wiki and the
+    New World fandom API opened up, and I read the key official patch notes
+    and dev blogs first-hand. That corrected three claims from the summaries:
+    the "luck sweet spot" bug on rare gathering drops was fixed in Nov 2021
+    (update 1.1), not Feb 2022; loot biasing shipped with Rise of the Angry
+    Earth in Oct 2023 and was only *explained* in Jan 2024; and the same
+    expansion removed the gear-score roll range from crafting.
+  - Reddit, the other games' wikis and most press sites stayed blocked. The
+    session's web-search budget then ran out, so the Monster Hunter,
+    Valheim, Albion and RuneScape parts of section 5 are from memory and
+    tagged [M].
+  - Player moments are assembled from summaries, not read in the original
+    threads.
 - **Patch eras.** New World's loot was rebuilt five times: launch (Sep 2021),
   Mutations (Jan 2022), Rise of the Angry Earth (Oct 2023), Aeternum (Oct
   2024) and Nighthaven / Season 10 (Oct 2025). The game was delisted in
   January 2026 and servers close on 31 Jan 2027 [S]. When a sentence is only
   true for one era, it names the era.
-- `research-new-world.md` (one folder up) already covers the gather, refine
-  and town loop. This file is only about loot and its feeling.
+- `research-new-world.md` (one folder up) covers the gather, refine and town
+  loop. This file is about loot, crafted gear and their feeling.
 
 ---
 
@@ -40,69 +55,89 @@ that means for a small 2D phone game.
 
 1. **New World's loot is three different games stacked on top of each
    other.** While levelling, gear is a disposable trickle and the excitement
-   comes from trade-skill dings and rare gathering procs, not drops. At 60
-   (2021-2023) it became a per-slot number grind where every drop could nudge
-   a hidden ceiling a few points. In the endgame it became a hunt for named
-   items and perfect perks, decided by long odds and daily locks.
+   comes from trade-skill dings, your own crafts and rare gathering procs. At
+   60 (2021-2023) it became a per-slot number grind where every drop could
+   nudge a hidden ceiling a few points. In the endgame it became a hunt for
+   named items and perfect perks, decided by long odds and daily locks.
 2. **What players remember is rarely a random drop.** It is the first craft
    that came out right after long preparation, a rare schematic or trophy that
    sold for a fortune, a named item after a drought, a rare material after
    thousands of nodes. The common thread: they knew the thing existed before
    they got it, it took effort, and it could be used, shown or sold.
 3. **Amazon spent four years removing randomness and adding control:** perk
-   locks, then a perk of your choice, then perk charms that swap for free;
-   expertise (a per-slot cap) scrapped for "harder content drops better
-   gear"; loot biased toward what you wear. Each fix cut a pain point. Taken
-   together they also cut the jackpot: by Nighthaven one long-time player's
-   blog described endgame gearing as mostly AFK farming [S], while a
-   columnist said the same revamp "saved" the endgame, too late [S].
-4. **Across genres the excitement has the same parts:** a signal before the
+   locks, then a perk of your choice, then a craft with every perk chosen
+   (Oct 2023), then perk charms that swap for free (Oct 2025); expertise
+   scrapped for "harder content drops better gear"; loot biased toward what
+   you wear. Each fix cut a pain point. Together they also cut the jackpot:
+   by Nighthaven one long-time player's blog described endgame gearing as
+   mostly AFK farming [S], while a columnist said the same revamp "saved" the
+   endgame, too late [S].
+4. **Fighting with what you made is New World's strongest hook, and it
+   works through a chain.** The beach tutorial has you craft your first
+   weapon [S]. The pickaxe you craft carries a luck perk that finds the rare
+   ore [S]; the rare ore adds a perk to the sword [S]; the trophy you crafted
+   for your house raises the sword's gear score [S]. Monster Hunter and
+   Valheim go further: almost nothing you fight with drops ready-made [M].
+   Crafted and dropped gear coexist when they have *different jobs*: drops
+   supply rare parts and unique effects, crafting supplies control,
+   reliability and your name on the item.
+5. **Across genres the excitement has the same parts:** a signal before the
    reveal (glow, colour, sound), a few clearly ranked tiers where the top one
    is truly rare, top-tier loot that changes *how you play* rather than adding
    a number, a known chase list with an unknown timing, bad-luck protection,
    and no junk to clean up.
-5. **The third prototype failed on most of these at once.** Its drops were
+6. **The third prototype failed on most of these at once.** Its drops were
    raws already assigned to a recipe shown on screen, so each one was a +1 on
-   a shopping list. There was no tier jump, no signal, no surprise, and the
-   payoff (a tier-3 hatchet) was a stat bump delivered after the run.
-6. Section 5 turns this into ten rules with numbers: what drops, how often,
-   what each drop changes in the next ten seconds, and how to stage the
-   reveal on a phone.
+   a shopping list. There was no tier jump, no signal, no surprise, the
+   payoff (a tier-3 hatchet) was a stat bump delivered after the run, and the
+   crafted item expired after three runs, so it was never really yours.
+7. Section 6 turns this into ten rules with numbers: what drops, how often,
+   what each drop changes in the next ten seconds, how the weapon you fight
+   with comes from your bench, and how to stage the reveal on a phone.
 
 ---
 
 ## 1. The loot journey, stage by stage
 
-The rarity ladder is the genre standard: common (grey), uncommon (green),
-rare (blue), epic (purple), legendary (orange) [M]. "Named" items are fixed,
-hand-made items with set perks that drop from particular bosses or areas
-[S]; "artifacts" (from Oct 2023) are named items with a unique rule-changing
-perk and a quest line [S].
+Amazon's own pre-launch definition: an item's rarity is the number of perks
+it rolled, "No Perks: Common, 1 Perk: Uncommon, 2 Perks: Rare, 3 Perks:
+Epic"; named and legendary items "have curated Perks and fixed Gear Scores",
+and "there are Legendary-level items to be found for players of any level"
+[S]. Colours follow the genre (grey, green, blue, purple, orange) [M]. From
+Oct 2023 **artifacts** are a separate, higher rarity: each "always drop[s] at
+GS 700", has "a perk that is unique to that item", has its own objectives to
+unlock more perks, cannot be salvaged, and you may equip at most three [S].
 
 ### Stage A: levelling 1-25, the starter zones
 
-**What you get.** Quest rewards (coin, XP, a piece of gear, often off-build)
-[S]; green and some blue drops from mobs; supply chests in villages and camps
-with consumables, tools, low gear and the odd schematic [S]; your first
-named items from named mobs and points-of-interest bosses [S]; and at about
-level 25 the first expedition, Amrine Excavation. Its named drops (Simon
-Grey's Toothpick, Simon's Hacksilver Ring, Darkness Defined and others) are
-the first loot most players can *target*, and the quest line hands you one
-free tuning orb to enter it [S].
+**What you get.** On the starting beach, a quest has you craft a weapon; a
+later patch let that step accept "a named weapon ... if the player happens to
+be lucky enough to craft one" [S]. Then quest rewards (coin, XP, a piece of
+gear, often off-build) [S]; green and some blue drops from mobs; supply
+chests in villages and camps with consumables, tools, low gear and the odd
+schematic [S]; first named items from named mobs and points-of-interest
+bosses [S]; and at about level 25 the first expedition, Amrine Excavation.
+Its named drops (Simon Grey's Toothpick, Simon's Hacksilver Ring, Darkness
+Defined and others) are the first loot most players can *target*, and the
+quest line hands you one free tuning orb to enter it [S].
 
 **What is exciting.**
 - Not the gear. Gear in this stage is replaced every few levels and most of
   it goes to salvage [M]. The excitement is in the many parallel bars: a
-  trade skill dings, a new tier of node lights up, a crafted tool is better
-  than what dropped (see `research-new-world.md`, section 9) [S].
-- The first named item. It is the first time a drop has a *name* and a fixed
-  identity you can look up and want.
-- The first schematic. Most of them are furniture or special items rather
-  than gear [M]. Some uncommon furniture schematics, such as the
-  Starmetal-Braced Storage Chest (the "Hope" chest), drop at random from
-  supply chests even in low zones like Monarch's Bluffs, and sell "for
-  lucrative amounts" on the trading post [S]. A low-level player can find
-  something a level-60 player wants to buy.
+  trade skill dings, a new tier of node opens, a crafted tool or weapon beats
+  what dropped (`research-new-world.md`, section 9) [S].
+- The first named item: the first drop with a *name* and a fixed identity you
+  can look up and want.
+- The first schematic. Most are furniture or special items rather than gear
+  [M]. A developer explained that luck raises your chance of the rarer rows
+  of a container's table, and "in the case of furniture schematics and found
+  furniture items, the higher-end storage items are among the most rare" [S].
+  The uncommon Starmetal-Braced Storage Chest schematic (the "Hope" chest)
+  drops at random from supply chests even in starter zones like Monarch's
+  Bluffs and sells "for lucrative amounts" [S]; the Golden Steel storage
+  chest schematic, "one of the rarest items in the game", dropped from elite
+  chests in level-50+ zones at about 0.00023% per chest without luck [S]. A
+  low-level player can find something a level-60 player wants to buy.
 
 **What is a chore.** Encumbrance and bag clean-up; salvaging piles of greens
 for a few coins and repair parts [S]; quest gear that does not fit your
@@ -128,20 +163,32 @@ from trees, and so on); trading-post income from materials and trophies.
   "hypnotic crafting loop kept me logging back in, at least for a couple of
   hundred hours" [S]. The craft, not the drop, is the loot moment here.
 - **The rare proc.** A rare material from the 500th node is the purest
-  surprise in the game, because it comes from an ordinary act.
+  surprise in the game, because it comes from an ordinary act. The design is
+  explicit: for gathering, luck "gradually enables new items to drop from the
+  tables", so a player with no bonus simply cannot get some items, and the
+  developers use this "to plant little surprises and new things to find as
+  you level your gathering skills!" [S]
+- **Luck is a build.** Void ore at Mining 200 dropped at about 0.0045% per
+  node with no extra luck and about 0.225% with 11,000 extra luck (50 times
+  more). That luck came from a luck perk on a 600 orichalcum pickaxe, an
+  amulet, five pieces of mining armour, mining food, a gathering trophy in
+  each of three houses and a town buff [S]. Every piece was crafted or
+  earned, and you could see the odds move.
 - **The first big sale.** A rare drop that you cannot use becomes money.
 
-**What is a chore.** Rare-proc rates are well under 1% without luck gear
-[S]. In 2021 players reported "3-5k iron veins gathered" with luck food and
-perks and no fae iron at all [S]. Part of that was a real bug: patch 1.3.2
-(8 Feb 2022) fixed an issue that "could make it next to impossible for an
-item to drop if your luck values were too high", naming fae iron, voidmetal,
-phasefiber and petrified wood [S]. The players who invested most in luck
-were the ones locked out.
+**What is a chore.** In autumn 2021 players reported "3-5k iron veins
+gathered" with luck food and perks and no fae iron at all [S]. That was a
+real bug. Update 1.1 (Nov 2021) explained that "a couple of probabilities
+... multiplying each other" gave a near-zero chance, combined with "an issue
+that could make it next to impossible for an item to drop if your luck
+values were too high", which made a "luck sweet spot" you had to be inside
+to have any chance; the fix named fae iron, voidmetal, phasefiber and
+petrified wood [S]. The players who invested most in luck were the ones
+locked out.
 
 **How often [M].** A named item from an expedition run every run or two
-(but rarely the one you wanted). A rare proc every few hours of gathering
-when it works, never when it does not. A good craft every session.
+(rarely the one you wanted). A rare proc every few hours of gathering. A good
+craft every session.
 
 ### Stage C: reaching 60, the gear-score grind (2021 to Oct 2023)
 
@@ -150,9 +197,10 @@ design each of your slots had a hidden ceiling ("high watermark", renamed
 **expertise** in Dec 2021). Drops rolled at or a little above that slot's
 ceiling, and each better drop raised it a few points [S]. Gypsum, gathered
 in daily-capped types and turned into orbs and casts, gave a guaranteed bump
-for one slot type [S]. Elite chests in elite zones reset once a day and were
-the best open-world source [S]. From Jan 2022 the cap moved from 600 to 625
-with umbral shards earned in mutated expeditions [S].
+for one slot type [S]. Elite chests reset once a day and were the best
+open-world source [S]. From 25 Jan 2022 umbral shards from mutated
+expeditions could take an item "with a Gear Score of 600 all the way up to a
+Gear Score of 625", and the expertise cap rose to 625 [S].
 
 **What is exciting.**
 - **Every drop is a tiny ding.** A chest or boss can nudge a slot by a few
@@ -161,15 +209,16 @@ with umbral shards earned in mutated expeditions [S].
 - **The elite chest run.** At reset, groups of 20-50 swept a zone along a
   fixed route [S]. Myrkgard was "arguably the most famous, or perhaps
   infamous" run, with a chance at 580 GS items, legendary weapons and top-tier
-  materials, and Amazon even disabled some chest spawns there "due to higher
-  than intended drops" [S]. The excitement was social and dense: many chests,
+  materials, and Amazon disabled some chest spawns there "due to higher than
+  intended drops" [S]. The excitement was social and dense: many chests,
   many rolls, in ten minutes.
 - **The first 600 craft.** It needed skill 200 in the trade, three crafting
   trophies in your house, crafting food, a crafting outfit and a town buff
   [S]. With all of that the screen showed a range of 595-600, and some
   patterns guaranteed 600 [S]. A 600 tier-5 item was the only kind that could
   open the last perk slot and become legendary [S]. The preparation made the
-  roll matter.
+  roll matter. (Rise of the Angry Earth later removed the range: "when
+  crafting you will now get an item at the Gear Score the game states" [S].)
 
 **What is a chore.**
 - **Thirteen-odd slots climbed one at a time** [M], gated by dailies.
@@ -195,53 +244,64 @@ a legendary craft with the perks you wanted, every few weeks if ever.
 difficulty levels to the endgame expeditions and paid umbral shards [S]. Their
 own gear had "decent stats, but static perks that ultimately make them less
 than desirable" [S]. In a mutation with 35% luck, one player counted about
-one named item per 30 gear drops, from a pool of five [S]. A 2025 guide sums
-mutation rewards up as "hit or miss, with most not so great", though they
-were the main source of dark matter and many artifacts [S].
+one named item per 30 gear drops, from a pool of five [S]. In Oct 2023
+mutations were cut to three difficulties with "a mix of loot biased gear at
+high Gear Score ranges", dark matter in the caches and a weekly limit of 35
+runs, and artifacts from expeditions could "only drop from mutated
+expeditions" [S]. A 2025 guide sums mutation rewards up as "hit or miss, with
+most not so great" [S].
 
 **Named and best-in-slot hunting.** Named items are tied to specific bosses
 or areas, so "unless you farm a specific named enemy or boss, you will never
 see a legendary drop" [S]. One player quit after two days on one boss without
-the drop [S]. Players planned on the database: find the named item whose two
-fixed perks you want, then fill the rest [S].
+the drop [S]. From Oct 2023 each higher zone had two named sets, one dropped
+by ordinary enemies and one by named enemies and elite chests [S]. Players
+planned on the database: find the named item whose fixed perks you want,
+then fill the rest [S].
 
-**Perk-rerolling.** Pre-2024 tools: craft mods guaranteed one perk; timeless
-shards locked one [S]. From Oct 2023, a gypsum kiln could upgrade a named
-item to 700 and let you **choose** its third perk [S]. Chromatic seals
-(one per day; sources quote about 20,000 faction tokens plus 2,000-5,000
-gold) let players craft the named piece they wanted [S]; one player called that "a great
-change", and another complained about "waiting three days and paying 15k"
-for one item [S]. Nighthaven (Oct 2025) replaced most of this with **perk
-charms**: gear drops with typed perk slots (mutations up to four, open world
-three), and charms can be swapped "for free, at anytime", the old one being
-destroyed [S]. Attributes were removed from gear at the same time [S].
+**Perk-rerolling and chosen perks.** Pre-2023 tools: craft mods guaranteed
+one perk; timeless shards locked one [S]. Rise of the Angry Earth (Oct 2023)
+added crafted **matrices** that unlock an artifact's final perk and
+"re-roll the final perk in some of the new Named Items", each needing a
+chromatic seal (bind-on-pickup, about one a day) [S]; and the **Prismatic
+Scarab**, which with an Azoth Inductor let you "craft a GS 700 item with all
+of the perks that you would like. This item is BoE" [S]. One player called
+crafting the named piece you wanted "a great change"; another complained
+about "waiting three days and paying 15k" for one item [S]. Nighthaven (Oct
+2025) replaced most of this with **perk charms**: "gear can now have up to
+four empty sockets" of three types (defensive, offensive, skill); charms
+"can be picked up fully refined, but more commonly will need to be crafted
+with rare materials which drop from endgame content" [S], and can be swapped
+"for free, at anytime", the old one being destroyed [S]. Attribute perks
+were removed because they "didn't really result in a meaningful choice
+between two good alternatives" [S], and "ultra rare" set bonuses were added
+to the raid, the Catacombs and the PvP track [S].
 
-**Crafting legendary items.** Still the premium route for some slots, and
-still prepared for (trophies, food, outfit). From Aeternum the only 725 gear
-with chosen perks you could craft was one raid set, according to one player
-[S].
+**Trading.** For many players the trading post is the endgame's real loot
+table: a 2,000-hour reviewer says a competitive item "often requires well
+over 100,000 gold" [S]. But from Aeternum, gear at 695+ was "about 90%"
+bind-on-pickup by that reviewer's count [S], so the best drops could not be
+sold, while the chosen-perk Prismatic craft was bind-on-equip and could [S].
 
-**Trading.** The trading post is the endgame's real loot table for many
-players: a 2,000-hour reviewer says a competitive endgame item "often
-requires well over 100,000 gold" [S]. But from Aeternum, gear at 695+ was
-"about 90%" bind-on-pickup by that reviewer's count [S], so the best drops
-could not be sold.
-
-**Artifacts.** From Oct 2023, each artifact has a unique perk that changes
-how a weapon or armour piece plays (Amazon's example: a light helm that adds
-damage once your mana runs low), plus a quest line to unlock its other perks
-[S]. Eight more came with Aeternum's first season [S]. Players liked what they
-did and disliked the gating: quests in a fixed order, "you always have to
-waste 500 dark matter" to upgrade [S].
+**Artifacts.** Rise of the Angry Earth introduced them with "one unique
+playstyle-defining perk to change your game" [S]. Eight more came with the
+first Aeternum season (Oct 2024), each with a quest line [S]. The official
+examples show what "playstyle-defining" meant in practice: Cowl of Power,
+"If you hit an enemy while your mana is below 50%, gain 25% increased damage
+for 4s (10s cooldown)"; Trsna, "25% Lifesteal versus knocked down enemies";
+Grace, "+20% movement speed for 6s" on entering offensive stance [S]. They
+came from a season-pass level, the Well of Fortune (bought with a seasonal
+currency), raid bosses or daily trials [S]. Players liked what they did and
+disliked the gating: quests in a fixed order, "you always have to waste 500
+dark matter" to upgrade [S].
 
 **Aeternum's chase (Oct 2024 on).** The cap rose to 725 [S]. The best gear
 sat behind a 10-player raid (Hive of Gorgons, with three raid-only perks) or
 a free-for-all PvP zone, and mmorpg.com called the endgame "at odds with
-itself, especially if you're a solo player" [S]. Other routes were the "Well
-of Fortune", random chests bought with a seasonal currency (one player
-counted 2,500 doubloons for a 725 jewel, whose perks were random) [S], and
-crafted caches with random rolls [S]. Players called it "same crap loot on
-gs 700 and 725" [S].
+itself, especially if you're a solo player" [S]. Other routes were the Well
+of Fortune's random chests (one player counted 2,500 doubloons for a 725
+jewel, whose perks were random) [S] and crafted caches with random rolls [S].
+Players called it "same crap loot on gs 700 and 725" [S].
 
 **How often [M].** A drop that matters to *you* (the right named item with
 the right perks, or a raid perk) took days to weeks. Mutations and chests
@@ -251,14 +311,14 @@ gave a roll every few minutes, but almost all of it was salvage.
 
 | Stage | What carries the excitement | Main chore | Exciting moments, roughly [M] |
 |---|---|---|---|
-| 1-25 | Trade dings, first named item (Amrine), first schematic | Bag weight, salvaging greens, off-build quest gear | Dings every few minutes; a "named" a few times |
-| 25-60 | Your own crafts, rare procs, first big sale | Sub-1% procs, 2021 luck bug | A good craft per session; a proc every few hours |
+| 1-25 | Trade dings, your first crafts, first named item (Amrine), first schematic | Bag weight, salvaging greens, off-build quest gear | Dings every few minutes; a named item a few times |
+| 25-60 | Your own crafts, rare procs, luck as a build, first big sale | Sub-1% procs, the 2021 luck bug | A good craft per session; a proc every few hours |
 | 60, 2021-23 | Each drop a small expertise tick; chest runs; the prepared 600 roll | 13 slots one at a time, dailies, perk lottery (1 in 2,280) | Ticks many times a night; a real upgrade weekly |
-| Endgame | Named/BiS hunt, artifacts, perk choice, big trades | Long odds, daily locks, BoP, raid-or-die | A personally meaningful drop every few days to weeks |
+| Endgame | Named/BiS hunt, artifacts, chosen perks, big trades | Long odds, daily locks, BoP, raid-or-die | A personally meaningful drop every few days to weeks |
 
 The curve of *felt* excitement is not the curve of *loot quality*. It peaks
-twice: in the mid levels, when crafting and the trading post open up, and at
-60 when chests and ticks are dense. It then falls off as the odds lengthen
+twice: in the mid levels, when crafting, luck and the trading post open up,
+and at 60 when chests and ticks are dense. It falls off as the odds lengthen
 and the rewards move behind group content.
 
 ---
@@ -273,16 +333,14 @@ moment types that recur in the summaries, with the evidence for each.
    trophies and food [S]. Remembered because the player prepared and the
    screen showed what was at stake.
 2. **The schematic that someone else wanted.** The Hope storage chest
-   schematic: a random supply-chest drop, found even in a starter zone,
-   sold for "lucrative amounts" [S]. A low player holding a high player's
-   wish.
+   schematic: a random supply-chest drop, found even in a starter zone, sold
+   for "lucrative amounts" [S]. A low player holding a high player's wish.
 3. **The trophy or rare that paid for a week.** A chest-farm video promised
    "trophies that sell for thousands", and commenters reported 2-3k a piece
    depending on the server [S].
 4. **The rare gather proc, and its absence.** Fae iron and petrified wood are
    famous more for the droughts (thousands of veins, nothing) than for the
-   drops [S]. The relief after the Feb 2022 fix is the moment people talk
-   about [S].
+   drops [S]. The fix in Nov 2021 is part of the story [S].
 5. **The chest run at reset.** Twenty to fifty players on a route, Myrkgard
    chests too generous for Amazon's taste [S]. Remembered as an event, not as
    a particular item.
@@ -314,14 +372,14 @@ them.
 
 | Pain | What players hit | Amazon's response | What it did to the feeling |
 |---|---|---|---|
-| **Perk RNG on long grinds** | Days of gathering for one craft that rolls the wrong perks; 1 in 2,280 for a set of three [S]; "lottery", "scam" [S] | Craft mods (one perk), timeless shards (lock a perk) [S] → kiln upgrade lets you choose the third perk of a named item (Oct 2023) [S] → chromatic seals to craft named gear (time-gated) [S] → perk charms, swappable for free (Oct 2025) [S] | Each step turned a lottery into a plan, which players asked for. But a jackpot needs a lottery: once any perk can be slotted at will, a drop's perks stop mattering, and the drop becomes mostly a GS and slot-count number. One player's blog described Nighthaven gearing as mostly AFK farming [S]; a columnist said the revamp "saved" the endgame [S]. |
-| **Bind-on-pickup** | Named and high-GS gear could not be traded; one reviewer counts ~90% of 695+ gear as BoP [S]; requests for a 30-60 minute window to give a drop to a group member [S] | Mostly kept. Chromatic seals and kiln upgrades made BoP named gear *craftable* rather than tradable [S] | Protects "I earned this", kills "I can sell my luck". In a game sold on its trading post, the best drops sat outside the economy. |
-| **Expertise / watermark** | A per-slot ceiling that rose a few points per drop; the Dec 2021 plan scaled bought and crafted gear down to it; "crafting worthless" [S] | Walked back within days: crafted, quest and faction-shop gear exempted, others scaled to a midpoint instead [S]; named items at 590+ later exempted [S]; removed in Rise of the Angry Earth (Oct 2023), replaced by "gear score drops based on creature level" and a GS floor on elite chests [S] | The backlash was about *ownership*: something you had bought or made was quietly reduced. Removal made the rule simple ("harder content, better gear") and let new players catch up, but it took away the constant small tick that made every drop worth checking. |
-| **Gear-score inflation** | Cap 600 (2021) → 625 (Jan 2022) → 700 (Oct 2023) → 725 (Oct 2024) → 800 (Oct 2025) [S]. In the last step, gear under 700 could not be upgraded [S]. "The 710 gear score items from The Well are pretty much just useless" [S] | Upgrade paths each time: umbral shards (removed 2023) [S], kiln and dark matter [S], Goldcursed Coconuts for artifacts in Season 7 [S], an umbral currency for any gear of 700+ in Season 10 [S] | Each raise reset the chase and wiped the value of last year's best-in-slot and its trading-post price. Good for returning players, bad for the people who kept the market going. |
-| **Dead loot** | Weapons dropped with attribute perks that did not suit their scaling, armour with perks for weapons you do not use; "basically garbage that you will just salvage" [S] | **Loot biasing** (explained Jan 2024): drops weighted toward your equipped armour weight, attributes and weapon types; non-relevant attribute perks "drastically reduced" [S]. Named items and artifacts excluded so they stay farmable [S] | Fewer feel-bad drops. A German outlet's headline put it as New World "cheats on loot, so you feel better" [S]; a commenter there said buying gear from players already made loot feel worthless [S]. Biasing fixed the *fit*; it could not fix the *surprise*. |
-| **Salvage spam** | Most drops are salvaged for coin and repair parts; mass salvage by rarity [S]; Nighthaven guide: salvage "anything that doesn't have a gem slot" [S] | Faster salvage tools [S]; loot biasing to reduce junk [S] | Every drop costs a second of attention and gives nothing. Shamus Young on Borderlands: a dud is better than having to pick up and sell garbage [S]. |
-| **2022 loot and luck fixes** | High luck made rare procs nearly impossible (2021) [S]; expedition loot thin [S] | 1.3 (Jan 2022): mutations, umbral shards, "higher rarity loot more frequently with improved perk spread" from expeditions [S]. 1.3.2 (Feb 2022): the high-luck bug fixed, plus a PvP-flag bonus of +10% luck and +30% gathering luck (figures vary by source) [S]. A 2022 Luck FAQ: luck raises the chance of a better *bucket*, not of a better item inside it; global loot is "luck safe" so luck cannot scale wildly; gathering is not [S] | Restored the rare-proc jackpot and made luck a visible knob you can turn with food, gear and risk. It also taught players that the system had been broken while they ground it, which hurt trust. |
-| **Aeternum's changes (Oct 2024 to Oct 2025)** | 725 behind a raid or PvP zone [S]; "raid or die" [S]; Season 7 "doubles down on punishing solo and casual players" [S]; random chests and caches [S] | Season 10 Nighthaven: level 70, GS 800, perk charms, attributes removed, more slots on mutation gear [S]; named-set drop chance from named mobs cut from 50% to 25% while raising other sources [S] | Build freedom went up a lot. But the endgame loot remained "a confusing, random-reward endgame" for returning players, in one blogger's words [S], and content ended with this season [S]. |
+| **Perk RNG on long grinds** | Days of gathering for one craft that rolls the wrong perks; 1 in 2,280 for a set of three [S]; "lottery", "scam" [S] | Craft mods (one perk), timeless shards (lock a perk) [S] → Oct 2023: perk pools reworked so "dropped gear should have a much higher chance of yielding 3 usable Perks" and "players shouldn't need to collect large numbers of required gear sets" [S]; matrices to re-roll a named item's final perk; the Prismatic Scarab, a 700 craft "with all of the perks that you would like" [S] → Oct 2025: perk charms, swappable for free [S] | Each step turned a lottery into a plan, which players asked for. But a jackpot needs a lottery: once any perk can be slotted at will, a drop's perks stop mattering, and the drop becomes mostly a GS and socket-count number. One player's blog described Nighthaven gearing as mostly AFK farming [S]; a columnist said the revamp "saved" the endgame [S]. |
+| **Bind-on-pickup** | Named and high-GS gear could not be traded; one reviewer counts ~90% of 695+ gear as BoP [S]; requests for a 30-60 minute window to give a drop to a group member [S] | Mostly kept, and extended: chromatic seals became BoP in Oct 2023 [S]. Crafted chosen-perk gear was BoE [S] | Protects "I earned this", kills "I can sell my luck". In a game sold on its trading post, the best drops sat outside the economy, and crafters kept the market alive. |
+| **Expertise / watermark** | A per-slot ceiling that rose a few points per drop; the Dec 2021 plan scaled bought and crafted gear down to it; "crafting worthless" [S] | Walked back within days: crafted, quest and faction-shop gear exempted, others scaled to a midpoint instead [S]; named items at 590+ later exempted [S]; removed in Oct 2023 ("Ward, Bane, Resilience and Expertise Removal"), replaced by "adjustments to the Gear Score drops from all creatures based on their level", a GS range per expedition and mutation, and a floor on elite chests based on the area's level [S] | The backlash was about *ownership*: something you had bought or made was quietly reduced. Removal made the rule simple ("harder content, better gear") and let new players catch up, but took away the constant small tick that made every drop worth checking. |
+| **Gear-score inflation** | Cap 600 (2021) → 625 (Jan 2022) → 700 (Oct 2023) → 725 (Oct 2024) → 800 (Oct 2025) [S]. "The 710 gear score items from The Well are pretty much just useless" [S] | A new upgrade path each time: umbral shards (removed in 2023, salvaged "for coin at a rate of 0.1 coin per Umbral Shard") [S], the gypsum kiln and dark matter [S], Goldcursed Coconuts for artifacts in Season 7 [S]. Season 10 brought umbrals back as a wallet-capped currency (1,000, with a weekly earn limit) to upgrade any gear of 700+, so "all gear in the new paradigm stays viable", replacing "the clunky system at the gypsum kiln", and capped "to keep Umbral's value from deteriorating over time" [S] | Each raise reset the chase and wiped the value of last year's best-in-slot and its trading-post price. The Season 10 design finally treated old gear as something to keep, which is the lesson. |
+| **Dead loot** | Weapons with attribute perks that did not suit their scaling, armour with perks for weapons you do not use; "basically garbage that you will just salvage" [S] | **Loot biasing**, shipped Oct 2023 and explained in Jan 2024: drops skewed "towards a player's equip weight, primary and secondary attributes, and equipped weapon types", with a chance that "increases ... based on player level"; non-relevant attribute perks on weapons "drastically reduced" [S]. The designers: "our loot system was great at giving lots of stuff, just not always the items you specifically wanted", so they focused on "removing less desirable options"; they kept a broad pool for new players because "running around the world and finding a new type of weapon is pretty fun"; and they excluded named items and artifacts, because a biased roll could cost you the named drop you were farming [S] | Fewer feel-bad drops. A German outlet's headline put it as New World "cheats on loot, so you feel better" [S]; a commenter said buying gear from players already made loot feel worthless [S]. Biasing fixed the *fit*; it could not create *surprise*. |
+| **Salvage spam** | Most drops are salvaged for coin and repair parts; mass salvage by rarity [S]; Nighthaven guide: salvage "anything that doesn't have a gem slot" [S] | Faster salvage tools and item locks [S]; loot biasing to reduce junk [S] | Every drop costs a second of attention and gives nothing. Shamus Young on Borderlands: a dud is better than having to pick up and sell garbage [S]. |
+| **2021-22 loot and luck fixes** | High luck made rare procs nearly impossible [S]; thin expedition loot [S] | Update 1.1 (Nov 2021): the "luck sweet spot" bug fixed, trade-skill food can enable rare drops early "albeit at a very rare rate", and a +10% luck / +30% gathering-luck bonus for PvP-flagged players [S]. A dev blog (Nov 2021): luck raises the odds of the rarer sets (common, family, elite, expedition, named), not the gear score or perk count [S]. 1.3 (Jan 2022): mutations and umbral shards [S]. A 2022 fix for Tempest's Heart loot rolling "on the wrong perk buckets", so "higher rarity loot more frequently with improved perk spread" [S]. A 2022 Luck FAQ: global loot is "luck safe", gathering is not [S] | Restored the rare-proc jackpot and made luck a visible knob you can turn with food, gear, trophies and risk. It also taught players the system had been broken while they ground it, which hurt trust. |
+| **Aeternum's changes (Oct 2024 to Oct 2025)** | 725 behind a raid or PvP zone [S]; "raid or die" [S]; Season 7 "doubles down on punishing solo and casual players" [S]; random chests and caches [S] | Season 10 Nighthaven: level 70, GS 800, perk charms, attribute perks removed, set bonuses, more sockets on mutation gear [S]; named-set drop chance from named mobs cut from 50% to 25% while other sources were added (community guide) [S] | Build freedom went up a lot. But returning players still met a confusing, random-reward endgame, in one blogger's view [S], and content ended with this season [S]. |
 
 **The arc in one sentence.** New World started with too much random and too
 little control, fixed it by adding control step by step, and ended with lots
@@ -349,10 +407,10 @@ real chance of failure, and preparation that tilts the odds.
   over-the-top treasure chest animation that matches a catchy little sound"
   [S]. He also says his gambling-industry job was engineering, not game
   design [S].
-- **Signals can be tiered and interactive.** Destiny's engrams drop
-  coloured by rarity and are decoded later [M], and Clash Royale's newer
-  "lucky chests" bump their rarity on each tap before the last tap reveals
-  the prize [S]. Both stretch the anticipation over a short ritual.
+- **Signals can be tiered and interactive.** Destiny's engrams drop coloured
+  by rarity and are decoded later [M], and Clash Royale's newer "lucky
+  chests" bump their rarity on each tap before the last tap reveals the prize
+  [S]. Both stretch the anticipation over a short ritual.
 - **A broken signal hurts more than none.** At Destiny's launch a purple
   engram was "much more likely" to turn into a worthless green or blue [S].
   The signal promised a tier and the reveal took it back.
@@ -363,8 +421,8 @@ real chance of failure, and preparation that tilts the odds.
   tool and an ethically loaded one: John Hopson, who brought reward schedules
   to game design in 2001, argues designers are responsible for the
   contingencies they build [S]. For us: a near miss is fair when it tells the
-  truth ("one more silver for the sling", "the vein glinted: Mining 3 opens
-  it") and manipulative when it is faked.
+  truth ("one more silver for the sling", "the vein glinted: a steel pick
+  opens it") and manipulative when it is faked.
 
 ### 4.2 Rarity tiers and colours
 
@@ -372,7 +430,8 @@ real chance of failure, and preparation that tilts the odds.
   [S]. Players read it before they read text.
 - **The top tier must be truly rare.** In Borderlands "you might play for a
   few game sessions without ever seeing a single orange" [S]. Gearbox's
-  example table for one enemy: 10% for a purple, 1% for a legendary [S]. Gearbox later tested and then tripled legendary rates in Borderlands 2
+  example table for one enemy: 10% for a purple, 1% for a legendary [S].
+  Gearbox later tested and then tripled legendary rates in Borderlands 2
   (2015) [S]: rare, but not so rare that players stop believing.
 - **Brotato** has four tiers (tier 4, legendary, shown in red) [S]. Each has
   a minimum wave before it can appear; the average tier rises as waves pass;
@@ -396,8 +455,12 @@ real chance of failure, and preparation that tilts the odds.
   chest from an elite or boss, and they turn knives or crosses into something
   that looks and plays differently; NME calls them "one of the most
   meaningful progression systems" and the game an "excellent power fantasy"
-  [S]. New World's artifacts are the same idea, which is why players liked
-  them despite the gates [S].
+  [S].
+- **New World's version was quieter than its billing.** Artifacts were sold
+  as "playstyle-defining", but the official examples are conditional
+  bonuses: +25% damage for 4 s below half mana, lifesteal against knocked-down
+  enemies, a burst of movement speed [S]. Useful, but invisible on screen. On
+  a phone, a rule-breaker has to be *seen*.
 - **When top loot is a stat bag, players call it boring.** Diablo IV's
   launch headlines: "They've made looting boring", "underwhelming loot", "too
   much junk in the loot pool", and "legendaries are really only good for
@@ -417,15 +480,15 @@ real chance of failure, and preparation that tilts the odds.
   compelling way of getting your hands on those items" [S]. Blizzard had
   expected about 10% of players to use it [S].
 - **Smart Loot** (Loot 2.0, early 2014 [M]): about 85% of legendaries roll
-  for your class [S]. New World's loot biasing (2024) is the same idea [S].
-- **Pure deterministic fails too.** Destiny 2 launched with fixed perks
-  "for more precise control", at the cost, Destructoid noted, that players
-  were less likely to feel they "hit the jackpot" [S]; Kotaku had argued the
+  for your class [S]. New World's loot biasing is the same idea [S].
+- **Pure deterministic fails too.** Destiny 2 launched with fixed perks for
+  "more precise control", at the cost, Destructoid noted, that players were
+  less likely to feel they "hit the jackpot" [S]; Kotaku had argued the
   "flickering hope of getting a god roll" kept players for three years [S].
   Random rolls came back [S]. In Path of Exile, Chris Wilson's 2021 Harvest
   manifesto worried about "how deterministic some Harvest Crafts are and how
-  easily players can craft near-perfect items" [S]. New World's perk charms
-  are the deterministic end of the same swing.
+  easily players can craft near-perfect items" [S]. New World's Prismatic
+  Scarab and perk charms are the deterministic end of the same swing.
 - **What works is a known target with unknown timing, and skill that tilts
   the odds.** Monster Hunter shows the list of parts a monster can give, and
   each broken part is a separate roll: a top hunt that breaks everything and
@@ -450,10 +513,12 @@ real chance of failure, and preparation that tilts the odds.
 - **Last Epoch**: uniques drop with a "legendary potential" number that
   says how many affixes can be fused onto them, so a drop is a promise of a
   future craft [S].
-- **New World**: the craft roll with a shown range (595-600) is the game's
-  best reveal [S]. Its weakness was that *materials* were rarely a reveal:
-  the drops were mostly commodities headed for a known recipe, much like our
-  third prototype.
+- **New World**: until Oct 2023 the craft roll with a shown range (595-600)
+  was the game's best reveal [S]; gathering's rare resources "can add
+  special Perks to crafted items" [S]; Season 10's perk charms are crafted
+  from rare endgame drops [S]. Its weakness was that ordinary *materials*
+  were rarely a reveal: they were commodities headed for a known recipe,
+  much like our third prototype.
 
 ### 4.6 Droughts and bad-luck protection
 
@@ -480,118 +545,296 @@ real chance of failure, and preparation that tilts the odds.
 
 | | Reveal | Tiers | Top tier changes play? | Target vs random | Crafting hybrid | Show / sell |
 |---|---|---|---|---|---|---|
-| **New World** | Tooltip after pickup; crafting screen shows range [S]/[M] | 5 colours + named + artifact | Artifacts yes; most named, perks only | Named lists by boss; later perk choice | Craft with preparation, range shown | Trading post; BoP at the top |
-| **Diablo II** | Coloured name on the ground, rune sounds [M] | 4-5 + runes | Runewords, uniques | Random, boss runs | Cube recipes, runewords | Player trading [M] |
+| **New World** | Tooltip after pickup; crafting screen showed a range until 2023 [S]/[M] | Rarity = perk count, + named + artifact [S] | Artifacts, mildly [S]; most named, perks only | Named lists by boss; later chosen perks [S] | Craft with preparation; rare resources add perks [S] | Trading post; BoP at the top |
+| **Diablo II** | Coloured name on the ground, rune sounds [M] | 4-5 + runes | Runewords, uniques [S] | Random, boss runs | Cube recipes, runewords | Player trading [M] |
 | **Diablo III (RoS)** | Orange beam and sound [M] | 5 + sets | Legendary powers define builds [M] | Smart Loot 85% [S], Kadala, Cube | Cube | None after AH removed [S] |
 | **Diablo IV** | Beam and sound [M] | 5 + greater affixes | After S4, more so [S] | Boss-targeted uniques [M] | Tempering, masterworking [S] | Limited trade [M] |
 | **Path of Exile** | Filter-chosen colours and sounds [S] | 4 + currency | Uniques, crafted rares | Mostly random, filter-curated | Currency *is* crafting [S] | Barter market [S] |
 | **Borderlands** | Coloured beams on the ground [M] | 5 | Manufacturer quirks, legendaries | Random, boss farming | None to speak of | Show off, little trade |
 | **Destiny** | Engram colour, decoded later [M] | 5 | Exotics change play | Activity pools, vendors | Weapon crafting later [M] | Show off only |
 | **Monster Hunter** | Reward screen after the hunt [M] | Rarity per part | Weapon types and skills | Part list known, breaks add rolls [S] | Parts *are* the recipe [S] | None |
-| **Vampire Survivors** | Over-the-top chest with jingle [S] | Chests of 1/3/5 items [M] | Evolutions [S] | Random, conditions known | Evolution = recipe found in a chest | None |
+| **Vampire Survivors** | Over-the-top chest with jingle [S] | Chests of 1/3/5 items [M] | Evolutions [S] | Random, conditions known | Evolution = recipe found in a chest [S] | None |
 | **Brotato** | Shop slots with tier colour; crates [S] | 4 [S] | Some items break rules [M] | Random shop, reroll for gold [S] | Weapons combine to tier up [M] | None |
 
 ---
 
-## 5. Ten principles for a small 2D phone game
+## 5. Fighting with what you made
 
-These are proposals. Scrip today: 12 waves of about 47 seconds each (about
-13 minutes a run), weapons that fire on their own, benches between waves, and
-a town where things last (`docs/design/explore-run.md`, `round2/decisions.md`).
-The aim is loot that feels like New World's good moments and like Brotato's
+The owner's second problem: in Scrip the weapons and tools you fight with
+are given or bought, never crafted. This section looks at how the feeling of
+using your own gear works in New World and four comparable games. New World
+claims are sourced; the others are from memory, since the search budget ran
+out before they could be checked [M].
+
+### 5.1 New World
+
+- **Pride and ownership.** "There's no better feeling than wearing gear
+  you've painstakingly assembled yourself" (a review quoted in
+  `research-new-world.md`) [S]; the sateen hat (section 2) [S]. The game
+  starts you on it: the first quest on the beach is to craft a weapon [S].
+  The expertise backlash (section 3) shows how strongly players defend that
+  ownership: the anger was about gear they had made being quietly scaled
+  down [S].
+- **The chain.** Tools are crafted (engineers make them) [S]. A crafted 600
+  orichalcum pickaxe can carry a mining-luck perk worth 927 luck, one of the
+  sources that raise void-ore odds fifty-fold [S]. Gathering's rare
+  resources "can add special Perks to crafted items" [S]. Furnishing makes
+  the trophies that sit in your house and raise your crafts and your luck
+  [S]. Crafting stations "visually upgrade with each new tier" as the town
+  invests [S]. So the furniture you built makes the sword you forge better,
+  using ore your crafted pick found. That is "I made the thing that made the
+  thing", several levels deep.
+- **Tools that open resources.** In New World the *skill level* opens a node
+  tier ("leveling up a Gathering Skill unlocks the ability to gather
+  different, higher-level resources") [S], while the tool adds speed and luck
+  [S]/[M]. The gate is a visible number on a node you can already see
+  (`research-new-world.md`, hook 3).
+- **Crafted and dropped side by side.** At launch, crafting was the route to
+  a 600 legendary with three perks, and named drops supplied fixed uniques
+  [S]. Expertise nearly made crafting pointless and was walked back [S]. From
+  Oct 2023, drops became the source of uniques (named items, artifacts,
+  mostly BoP), and crafting the source of control (matrices, the
+  chosen-perk Prismatic craft, BoE and sellable) [S]. Even artifacts need a
+  crafted matrix to unlock their last perk [S], and Season 10's charms are
+  crafted from rare drops [S]. Drops feed the bench; the bench finishes the
+  drop.
+
+### 5.2 Monster Hunter [M]
+
+- Weapons and armour come almost only from the smithy, forged from parts of
+  monsters you hunted. Few entries drop finished weapons; the exceptions
+  (World's Kulve Taroth weapons, Wilds' randomly rolled Artian weapons) are
+  famous as exceptions.
+- **Pride is visual.** Rathalos armour looks like Rathalos. Your kit is a
+  record of what you have beaten, worn on your body.
+- **The chain is a tree you can see.** The forge tree shows what each weapon
+  becomes and which parts are missing, so every hunt has a reason ("two more
+  plates for the next step").
+- **Tools.** Older entries had breakable pickaxes and bug nets in tiers,
+  where a better tool raised the chance of rare ore or insects. World and
+  later games dropped them.
+- **Sharing the stage.** Drops never compete with crafted gear, because the
+  drops *are* the ingredients (section 4.5) [S]. The rare part (a ruby, a
+  plate) is the jackpot, and the forge turns it into the thing you fight
+  with.
+
+### 5.3 Valheim [M]
+
+- No finished gear drops at all; every weapon, tool and armour piece is made
+  at a workbench or forge, and the item shows who crafted it.
+- **Tools open the next world.** Each boss drops the key to the next tier:
+  the first boss's antler makes the pickaxe that mines copper and tin (so
+  bronze); the second boss's key opens the crypts that hold iron; the third
+  boss's wishbone finds silver; and so on. Each tool is a door, and each door
+  is earned in a fight.
+- **The thing that makes the thing.** The workbench and forge themselves
+  must be built and extended (a chopping block, a tanning rack, anvils,
+  bellows) before they can make better gear, and items upgrade only at
+  stations of matching level. The base visibly grows with your power.
+- **Lesson:** with no drops to compete, crafting carries all the pride, and
+  the *fights* carry the excitement by dropping the keys.
+
+### 5.4 Albion Online [M]
+
+- Almost all equipment is crafted by players; mobs drop silver, resources
+  and "artifacts" that are ingredients for special weapons. Items come in
+  tiers with enchantment levels, and a craft rolls a random quality (from
+  normal up to masterpiece), so the craft itself is a small reveal.
+- Full-loot PvP in the dangerous zones means gear is lost on death, so
+  demand for crafted gear never ends. Pride sits less in one item than in
+  being the crafter whose gear people buy, and in the risk of taking good
+  gear out.
+- **Lesson:** loss is what keeps crafting relevant for years, but it also
+  creates "gear fear". It suits a market game more than a single-player
+  phone game.
+
+### 5.5 RuneScape (Old School) [M]
+
+- Mining level decides which ore you can mine; better pickaxes need a level
+  to wield and mine faster, and the best pickaxe is a rare boss drop. Tools
+  are a mix of crafted and dropped.
+- Smithing and crafting make the low and middle gear; the best endgame
+  weapons drop from bosses. Crafting's endgame job is consumables (potions,
+  food, ammunition, runes) that the fights burn. Crafting supplies the fight
+  rather than competing with its drops.
+- **Ironman mode**, where you may not trade and must make or find everything
+  yourself, became one of the most popular ways to play among veterans. It
+  shows how much pride players take in self-sourced gear once trading is
+  removed. A collection log records every unique you have found, a chase
+  list in the sense of section 4.4.
+
+(Minecraft and Terraria [M] are the plainest case of tools opening
+resources: a better pickaxe is the only key to the next ore, and in
+Terraria the final sword is crafted from earlier swords, many of them
+drops.)
+
+### 5.6 What carries the feeling
+
+- **Pride and ownership** come from: effort you can trace (the sword's
+  history is in the item), your name or the monster's look on it, the item
+  lasting (nothing expires), and nobody being able to reduce it behind your
+  back (the expertise lesson).
+- **The chain** works when each link is visible and each crafted thing
+  *opens* something rather than only adding a number: a pick that opens a
+  vein, a trophy that raises a craft, a station tier that opens a recipe.
+- **Tools that open resources** work best as one object, one door, shown in
+  advance: Valheim's antler pickaxe, New World's "requires Mining 100" on a
+  node you can see [S]/[M].
+- **Crafted gear and dropped loot share the stage** when they have different
+  jobs:
+
+| Job | Crafted | Dropped | Bought in the run |
+|---|---|---|---|
+| Base you trust and keep | **yes** | | |
+| Your choice of perk, reliability | **yes** | | |
+| Rare part, unique effect, surprise | | **yes** | |
+| Ingredient that makes a craft better | | **yes** | |
+| Temporary power that changes this run | | sometimes | **yes** |
+
+  Failure modes on each side: crafting becomes pointless when drops or the
+  shop outclass it in a few minutes, or when a hidden rule scales it down
+  (expertise). Drops become pointless when the craft can produce anything
+  with any perks (the Prismatic Scarab, free-swap charms). In the games that
+  work, a great drop makes the next craft better instead of replacing it
+  (Monster Hunter, Valheim, Albion, New World's charms).
+
+### 5.7 What this means for Scrip (proposal)
+
+Scrip has a Brotato run (the shop between waves is the core) and a town
+where things last. Keep the shop. Change where the weapon you start with,
+and the tool you carry, come from.
+
+1. **Your starting weapon is the one you forged.** Replace the free starter
+   with the weapon on your rack in town. Its tier, its quality roll and one
+   perk you chose come from the bench; it carries your name and the
+   materials' history ("Steel hatchet, quality 94, made by you from rotwood
+   timber"). It never expires. The prototype's three-run charges should go:
+   a thing that runs out is rented, not owned.
+2. **Shop weapons stay run-only and different in kind.** The shop sells
+   second weapons, items and upgrades for this run, as Brotato does. A
+   forged weapon should match a mid-tier shop weapon and carry a perk the
+   shop cannot sell, so it stays relevant until about wave 8, and a shop
+   combine or an in-run drop can evolve it (section 6, rule 6).
+3. **Carry one crafted tool, and let it open a door in the arena.** A steel
+   pick makes silver veins glint in the arena; a skinning knife makes elites
+   drop thick hide; a lantern shows hidden caches. Without the tool the
+   vein is visible but closed ("needs a steel pick"), like a New World node
+   above your level. The tool's tier is the visible gate.
+4. **Close the chain.** Ore from the run → steel bar at the smelter → steel
+   pick → silver vein in the next run → silver sling. Make every step of
+   that chain a *new door*, not a bigger number.
+5. **Let drops finish crafts.** A named elite drop ("Kestrel's Eye") is a
+   part that slots into a forged weapon and adds its rule-breaking effect;
+   the bench sets the base and the quality. A good drop then makes the bench
+   better, not obsolete.
+
+---
+
+## 6. Ten principles for a small 2D phone game
+
+Proposals. Scrip today: 12 waves of about 47 seconds each (about 13 minutes
+a run), weapons that fire on their own, a shop between waves, and a town
+where things last (`docs/design/explore-run.md`, `round2/decisions.md`). The
+aim is loot that feels like New World's good moments and like Brotato's
 "meeting the curve", not like a shopping list.
 
 **1. Drop little, and make every visible drop change something.** Materials
-should arrive as a background stream that only moves a counter (no ceremony,
-no pickup chore). Everything that gets its own moment on screen must change
+arrive as a background stream that only moves a counter (no ceremony, no
+pickup chore). Everything that gets its own moment on screen must change
 play or a decision within about ten seconds: a pick, a new behaviour, an
 unlocked bench craft. Rough budget per 13-minute run: 8-12 small finds, 2-3
-rare ones, at most 1 top-tier one. ("Drop fewer, drop better" [S].)
+rare ones, at most one top-tier one. ("Drop fewer, drop better" [S].)
 
 **2. Four tiers, fixed colours, and a signal before the reveal.** White,
 blue, purple, orange (or red, as in Brotato). The colour shows on the drop
 while it flies to you, about half a second before you learn what it is (the
 Hearthstone glow, the engram). Commons get no ceremony, so they never slow
 the wave. A purple gets a chime and a short glow. An orange gets about 0.4 s
-of hit-stop, a unique sound, a phone vibration and its name on screen. The
-signal must never lie: an orange glow always holds an orange item.
+of hit-stop, a unique sound, a vibration and its name on screen. The signal
+never lies: an orange glow always holds an orange item.
 
 **3. The top tiers break rules, the bottom tiers add numbers.** Every purple
-and orange should be a new behaviour you can see in the next ten seconds:
-pierce turns into chaining, kills while moving leave fire, the pick hits
-twice on ore. Stats belong to whites and blues. If a top drop's effect cannot
-be seen on screen, it is the wrong item for that tier.
+and orange is a behaviour you can see within ten seconds: pierce becomes
+chaining, kills while moving leave fire, the pick hits ore twice. Stats
+belong to whites and blues. If a top drop's effect cannot be seen on screen,
+it is the wrong item for that tier (New World's artifacts, section 4.3).
 
 **4. Named things with a known list and an unknown timing.** Each elite,
 boss and rare vein has three or four named drops, shown in a bestiary as
-"?/4 found" once you have met it. You know what you hunt and where to hunt
-it; you do not know when it lands. Choosing a biome or a target elite is the
-target farming. Breaking an elite's armour or killing it in time adds a roll,
-as part breaks do in Monster Hunter [S], so skill tilts the odds.
+"?/4 found" once you have met it. You know what you hunt and where; you do
+not know when it lands. Choosing a biome or a target elite is the target
+farming. Breaking an elite's armour or killing it in time adds a roll, as
+part breaks do in Monster Hunter [S], so skill tilts the odds.
 
 **5. Schedule the rhythm and protect against droughts.** Small finds about
 every 30-60 seconds; a rare at each elite (waves 6 and 9) and at a vein; the
 boss rolls an orange about one run in three. A pity counter guarantees an
-orange by the third or fourth run and is shown on screen ("the vein is
-stirring"), so a drought builds anticipation instead of folklore. Never let
-gear, luck or skill make the jackpot *harder* (New World's 2021 luck bug
-[S]).
+orange by the third or fourth run and shows on screen ("the vein is
+stirring"), so a drought builds anticipation, not folklore. Never let gear,
+luck or skill make the jackpot *harder* (the 2021 luck sweet spot [S]).
 
 **6. Let the build meet the curve inside the run.** Brotato's moment comes
-when tiers and synergies stack mid-run [S]; Vampire Survivors' when a
-recipe found in a chest evolves a weapon [S]. So rare drops should combine
-in the run: two parts of a set, or a weapon plus the right rare, make an
-evolution at the next bench, aimed at waves 7-9. Loot that only pays at home
+when tiers and synergies stack mid-run [S]; Vampire Survivors' when a recipe
+found in a chest evolves a weapon [S]. So rare drops combine in the run: a
+named part plus your forged weapon, or two pieces of a set, make an
+evolution at the next shop, aimed at waves 7-9. Loot that only pays at home
 after the run (the third prototype) cannot make that moment.
 
-**7. Make the craft a second reveal, with the range shown.** The bench shows
-the possible outcome and how each material moves it, then rolls (round 2's
-"forge roll"). Let one rare slot add a perk you *choose* from a short list,
-as the kiln and perk charms did [S], and let quality stay random inside the
-shown range, with a small chance (about 1 in 20) of a named masterwork above
-it. Choice where it hurts to lose, chance where it is fun to win. A schematic
-is itself a drop with a tier and should open a new kind of item, never just
-a stronger copy.
+**7. Fight with what you made, and make the craft a second reveal.** The
+starting weapon and one tool come from your bench, keep your name, and never
+expire (5.7). The bench shows the possible result and how each material
+moves it, then rolls (round 2's "forge roll"). One rare slot adds a perk you
+*choose* from a short list, as the kiln and charms did [S]; quality stays
+random inside the shown range, with a small chance (about 1 in 20) of a
+named masterwork above it. Choice where losing hurts, chance where winning
+is fun. Do not let the bench produce *anything with any perks*: that is
+where New World's crafting ate its drops [S].
 
-**8. No junk, and no wrong-build drops.** Anything you do not want turns
-into currency or material the moment it lands, with a running tally, never a
-salvage screen. Bias drops toward your character and weapons as Smart Loot
-(85% [S]) and New World's biasing [S] did, but keep a little off-build loot,
-since it can tempt a new build. A dud is better than garbage [S].
+**8. Every crafted tool opens a door, and drops feed the bench.** A tool's
+tier is a visible gate in the arena (a closed vein, an unskinnable elite).
+Crafting it opens a new resource, and that resource opens the next craft:
+the chain from 5.7. Rare and named drops are parts and ingredients that
+make a forged item better, never a finished item that makes the forge
+pointless.
 
-**9. Make loot something you can show or sell.** Every orange and every
-named item gets a place on a trophy shelf in town, with the run, wave and
-date it was found. Spare rares and rare schematics sell for coin that buys
-something real (a station tier, a house piece, a scarce reagent). A small
-simulated market (or friends' towns) gives the "someone wanted this" moment
-of the Hope chest schematic [S]. Bind only the very top, if anything.
+**9. No junk; sell or show the rest.** Anything you do not want turns into
+currency or material the moment it lands, with a tally, never a salvage
+screen. Bias drops toward your character and weapons, as Smart Loot (85%
+[S]) and loot biasing [S] do, but keep some off-build loot, since New
+World's designers found "finding a new type of weapon is pretty fun" [S].
+Every orange and named item gets a place on a trophy shelf in town with the
+run, wave and date. Spare rares and rare schematics sell for coin that buys
+something real; a small simulated market gives the "someone wanted this"
+moment of the Hope chest schematic [S]. A dud is better than garbage [S].
 
-**10. Do not inflate the past away.** When a new tier opens, old finds keep a
-job: an upgrade path, a reagent, furniture, a permanent trophy bonus. New
-World's five cap raises wiped last year's best gear and its price each time
-[S]. On a phone the player measures progress in weeks; a town that only ever
-grows (round 2 decisions: "the town grows stronger over years; each run can
-become wilder") is the place where loot lasts.
+**10. Do not inflate the past away.** When a new tier opens, old finds and
+old crafts keep a job: an upgrade path, a reagent, furniture, a trophy
+bonus. New World's five cap raises wiped last year's best gear and its price
+each time, until Season 10 promised that "all gear in the new paradigm stays
+viable" [S]. On a phone the player measures progress in weeks; a town that
+only grows ("the town grows stronger over years; each run can become
+wilder", `round2/decisions.md`) is where loot and crafts last.
 
 ### How to make the reveal land on a phone
 
-- **Small screen:** the colour and the sound do the work. Use a short beam
-  or ring on the drop, not a text pop-up in the middle of a wave.
+- **Small screen:** colour and sound do the work. A short beam or ring on
+  the drop, not a text pop-up in the middle of a wave.
 - **Do not stop the action for anything below purple.** For an orange, stop
-  for under half a second, then let play run on and give the full card at
-  the next bench (one tap to read).
+  for under half a second, then let play run on and show the full card at
+  the next shop (one tap to read).
 - **Haptics by tier:** none, a tick, a double tick, a long buzz.
-- **A recap at the bench** shows what dropped this wave, in order of rarity,
+- **A recap at the shop** shows what dropped this wave in order of rarity,
   revealed one by one, commons fast and rares slow (the card-pack lesson
   [S]). This moves most of the reading out of the fight.
-- **Name every rare.** "Silver ore" is a commodity; "Kestrel's Eye, from the
-  rotwood stag" is a story.
+- **Name every rare and every craft.** "Silver ore" is a commodity;
+  "Kestrel's Eye, from the rotwood stag" is a story; "your Steel hatchet,
+  quality 94" is yours.
 
 ---
 
-## 6. Why the third prototype felt like a shopping list
+## 7. Why the third prototype felt like a shopping list
 
-Read against the principles above, using the numbers in `src/sim/core.ts`
+Read against the principles, using the numbers in `src/sim/core.ts`
 (`LOOT_TABLE`) and `src/client/loot/content.ts`:
 
 | Principle | `?proto=loot` | What broke |
@@ -601,35 +844,53 @@ Read against the principles above, using the numbers in `src/sim/core.ts`
 | 3. Rule-breakers at the top | The schematics make a tier-3 hatchet, a tier-4 sling, a jerkin (+3 armour, +3 health) | The top reward was a stat bump |
 | 4. Known list, unknown timing | The HUD strip showed "Iron 7/10 for a Steel hatchet" | The target was known *and* the drops were predictable, so no surprise was left |
 | 5. Rhythm and pity | Elites drop a schematic 35% of the time, the boss 70% | Fine for schematics; nothing else had a schedule |
-| 6. Meet the curve in the run | Everything is spent at home after the run; made things last 3 runs | No in-run payoff, so nothing to "roll from" |
-| 7. Craft as a reveal | Fixed recipe, known output | The craft was a checkout, not a roll |
+| 6. Meet the curve in the run | Everything is spent at home after the run | No in-run payoff, so nothing to "roll from" |
+| 7. Fight with what you made | The made weapon is "carried in besides your own weapon" and lasts 3 runs (`CHARGES = 3`) | The crafted thing was an extra and rented, not your weapon and not yours to keep; the craft was a fixed recipe, a checkout rather than a roll |
+| 8. Tools open doors | No tools; nothing in the arena was closed until you made something | The chain had no doors, only counts |
 | 9. Show or sell | Nothing to sell, nowhere to show | No outside value |
 
 The prototype tested New World's chain (raw → refined → schematic → item)
 without the parts of New World that make the chain exciting: the rare proc,
-the named drop, the shown range on the craft, the sale. It kept the
-bookkeeping and dropped the suspense.
+the named drop, the shown range on the craft, the tool that opens a node,
+the sale, and the item that is yours. It kept the bookkeeping and dropped
+the suspense and the ownership.
 
 A test that would follow from this (a suggestion for a test card, not one):
-keep the run as it is; give each elite a named drop list of three
-rule-breaking items with a pity counter; give the drop a coloured flight and
-an orange hit-stop; let the item take effect immediately in the run; show
-the shelf in town afterwards. Stop if, after three runs, the owner cannot
-name a drop they were glad of.
+the starting weapon is the one you forged, with your name and a quality
+roll; each elite has a named drop list of three rule-breaking parts with a
+pity counter; drops fly in their tier colour and an orange gets a short
+hit-stop; a named part can be fitted to your forged weapon at the next shop
+and takes effect at once; the town shows the shelf afterwards. Stop if,
+after three runs, the owner cannot name a drop they were glad of, or does
+not care which weapon is on the rack.
 
 ---
 
-## Sources (search results consulted 2026-11-12)
+## Sources
 
-Only result summaries were seen; pages could not be opened.
+Marked **(read)** where the page itself was read in this session; the rest
+are search-result summaries, consulted 2026-11-12.
 
-**New World: stages, systems, fixes**
+**New World: official notes and dev blogs (read)**
+- Items in New World (3 Jun 2020), rarity by perk count: https://www.newworld.com/en-us/news/articles/items-in-new-world
+- January Update, Expedition Mutators (24 Jan 2022): https://www.newworld.com/en-us/news/articles/january-expedition-mutator-update
+- Rise of the Angry Earth release notes (Oct 2023): expertise and umbral removal, chest floor, loot biasing, artifacts, perk rework, crafting roll range removed, Prismatic Scarab, matrices, chromatic seals BoP: https://www.newworld.com/en-us/game/releases/rise-of-the-angry-earth
+- Loot Biasing Deep Dive (26 Jan 2024): https://www.newworld.com/en-us/news/articles/loot-biasing-deep-dive
+- Season of Opportunity: Artifacts (17 Oct 2024): https://www.newworld.com/en-us/news/articles/season-of-opportunity-artifacts
+- Season 10 "Nighthaven" announcement (16 Sep 2025): https://www.newworld.com/en-us/news/articles/season-10-nighthaven-announcement
+
+**New World: wikis and databases (read)**
+- Patch notes archive incl. update 1.1 luck fix, PvP luck bonus, beach crafting quest, Tempest's Heart loot fix, Outpost Rush named 2.5%: https://newworld.wiki.fextralife.com/Patch_Notes
+- Fandom API pages Luck (quoting the Nov 2021 dev blogs), Gathering, Tools, Engineering, Crafting, Trophies, Salvage: https://newworld.fandom.com/api.php?action=parse&page=Luck&format=json&prop=wikitext (and the same with `page=` each title)
+- nwdb, storage chest schematic drop rate: https://nwdb.info/guides/how-to-get-the-orichalcum-braced-storage-chest-schematic
+- nwdb, void ore drop rate and luck sources: https://nwdb.info/guides/new-world-void-ore-drop-rate
+
+**New World: other sources (summaries)**
 - Named-item drops, expertise exemption at 590+: https://forums.newworld.com/t/named-item-drops-in-new-update/755517
 - Legendary drops tied to named bosses (2021 thread): https://steamcommunity.com/app/1063730/discussions/0/3163210610842545533
 - Expertise proposal and backlash: https://www.gamespot.com/articles/new-world-players-are-up-in-arms-about-the-games-newly-proposed-expertise-system/1100-6498587/ , https://www.thegamer.com/new-world-watermark-update-crafting-worthless/ , https://gamespot.com/articles/amazon-walks-back-new-world-expertise-system-following-community-backlash/1100-6498697/ , https://www.mmobomb.com/news/new-world-adjusts-progression-changes-won-t-nerf-players-existing-gear , https://massivelyop.com/2021/12/03/new-world-bans-botters-begins-testing-winter-event-plans-unpopular-endgame-gear-system/
 - Gypsum, 600-625, chest runs: https://www.studioloot.com/new-world/articles/how-gear-score-and-expertise-works-in-new-world/ , https://newworldfans.com/articles/how-gear-score-and-expertise-works-in-new-world , https://itemlevel.net/new-world-how-to-max-out-great-sword-600-625-brimstone-sands/ , https://steamcommunity.com/app/1063730/discussions/0/3203743641836742106
-- Patch 1.3 (Jan 2022), mutations, umbral shards: https://vulkk.com/2022/01/25/new-world-update-1-3-mutated-expeditions-changes-overview/ , https://vulkk.com/2022/01/07/new-world-1-3-expedition-mutators-and-new-gear-score-cap-now-on-ptr/ , https://www.newworld.com/en-us/news/articles/january-expedition-mutator-update
-- Patch notes incl. 1.3.2 luck fix and PvP luck: https://newworld.wiki.fextralife.com/Patch_Notes
+- Mutations overview: https://vulkk.com/2022/01/25/new-world-update-1-3-mutated-expeditions-changes-overview/ , https://vulkk.com/2022/01/07/new-world-1-3-expedition-mutators-and-new-gear-score-cap-now-on-ptr/
 - Luck FAQ (2022) and luck guides: https://devtrackers.gg/new-world/p/7f365209-dev-blog-luck-faq , https://www.tamtoucan.com/public/new-world-loot-luck , https://www.studioloot.com/new-world/articles/how-luck-works-in-new-world/
 - Fae iron and petrified wood droughts: https://forums.newworld.com/t/fae-iron-petrified-wood-drop-rates-make-0-sense/288328/5 , https://steamcommunity.com/app/1063730/discussions/0/2961670721748147644/ , https://www.pcgamesn.com/new-world/iron-fae-locations , https://diamondlobby.com/new-world/how-to-find-fae-iron-in-new-world/
 - 600 crafting: https://ghost.nwdb.info/how-to-craft-600-gear-score-items/ , https://www.aoeah.com/news/1655--new-world-crafting-guide-2023-best-way-to-craft-600-gear-score--increase-crafting-odds
@@ -638,16 +899,16 @@ Only result summaries were seen; pages could not be opened.
 - Schematics and trophies: https://screenrant.com/new-world-hope-storage-chest-crafting-guide/ , https://newworld.video.tm/new-world-chest-farm-route-get-trophies-that-sell-for-thousands , https://steamcommunity.com/app/1063730/discussions/0/3201493834347105119
 - Salvage: https://www.studioloot.com/new-world/articles/how-to-salvage-gear-in-new-world/ , https://diamondlobby.com/new-world/how-to-get-repair-parts-in-new-world/ , https://newworldnews.org/nighthaven-survival-guide/
 - Myrkgard chest runs: https://zerowastesonoma.org/blog/new-world-cast-chest-runs , https://gamesfuze.com/guides/best-season-10-chest-run-to-gear-up-fast-in-new-world-aeternum/
-- Rise of the Angry Earth (expertise and shards removed, 700, chest floor, artifacts): https://www.gamespot.com/articles/new-worlds-first-paid-expansion-adds-a-feature-fans-have-requested-for-years/1100-6517280/ , https://primagames.com/tips/new-world-rise-of-the-angry-earth-full-patch-notes-listed , https://www.newworld.com/en-us/game/releases/rise-of-the-angry-earth , https://mmos.com/news/new-world-season-3-balance-changes , https://newworld.com/en-gb/news/articles/behind-the-scenes-artifacts , https://mein-mmo.de/en/new-world-guide-to-dark-matter-how-to-get-it-and-what-you-can-do-with-it,1047206
-- Loot biasing: https://www.newworld.com/en-us/news/articles/loot-biasing-deep-dive , https://www.mmorpg.com/news/how-new-worlds-loot-biasing-system-is-tailoring-loot-drops-better-and-reducing-bad-feeling-scenarios-2000130252 , https://massivelyop.com/2024/01/27/new-worlds-loot-biasing-should-reduce-bad-feelings-over-rng/ , https://mein-mmo.de/en/new-world-mmorpg-by-amazon-on-steam-cheats-on-loot-so-you-feel-better,1084103/ , https://mein-mmo.de/en/how-does-loot-actually-work-in-new-world-a-developer-explains-it-in-detail,734725/
+- Rise of the Angry Earth coverage: https://www.gamespot.com/articles/new-worlds-first-paid-expansion-adds-a-feature-fans-have-requested-for-years/1100-6517280/ , https://primagames.com/tips/new-world-rise-of-the-angry-earth-full-patch-notes-listed , https://mmos.com/news/new-world-season-3-balance-changes , https://mein-mmo.de/en/new-world-guide-to-dark-matter-how-to-get-it-and-what-you-can-do-with-it,1047206
+- Loot biasing coverage: https://www.mmorpg.com/news/how-new-worlds-loot-biasing-system-is-tailoring-loot-drops-better-and-reducing-bad-feeling-scenarios-2000130252 , https://massivelyop.com/2024/01/27/new-worlds-loot-biasing-should-reduce-bad-feelings-over-rng/ , https://mein-mmo.de/en/new-world-mmorpg-by-amazon-on-steam-cheats-on-loot-so-you-feel-better,1084103/ , https://mein-mmo.de/en/how-does-loot-actually-work-in-new-world-a-developer-explains-it-in-detail,734725/
 - Named upgrades, kiln, chromatic seals: https://www.icy-veins.com/new-world/named-item-guide , https://primagames.com/tips/how-to-get-chromatic-seal-in-new-world , https://steamcommunity.com/app/1063730/discussions/0/3959288052798442437
 - Bind-on-pickup: https://steamcommunity.com/app/1063730/discussions/0/4477133359558765938/ , https://forums.newworld.com/t/tradable-bind-on-pickup-items/656989 , https://steamcommunity.com/id/RandomCoderZ/reviews
-- Aeternum and its columns: https://gamingtrend.com/reviews/new-world-aeternum-review-a-welcome-rebirth/ , https://www.mmorpg.com/reviews/new-world-aeternum-review-2000133364 , https://massivelyop.com/2024/10/16/vitae-aeternum-new-world-aeternum-leaves-veterans-casuals-and-pc-players-behind/ , https://massivelyop.com/2024/11/04/vitae-aeternum-how-to-fix-new-world-aeternums-endgame-starting-with-rewards-and-content-relevance/ , https://massivelyop.com/2024/11/05/vitae-aeternum-how-to-fix-new-world-aeternums-endgame-with-chase-items-and-solo-play/ , https://massivelyop.com/2025/01/28/vitae-aeternum-new-world-season-7-doubles-down-on-punishing-solo-and-casual-players/ , https://www.newworld.com/en-gb/news/articles/season-of-opportunity-artifacts , https://www.heartlessgamer.com/2025/01/new-world-pve.html , https://steamcommunity.com/app/1063730/discussions/0/4634861989070484282/ , https://steamcommunity.com/app/1063730/discussions/0/715609968122857498
-- Nighthaven / Season 10: https://massivelyop.com/2025/10/29/vitae-aeternum-too-late-nighthavens-catacombs-and-perk-revamp-saved-new-worlds-endgame/ , https://www.heartlessgamer.com/2025/10/nighthaven-week-later.html , https://www.heartlessgamer.com/2025/10/nighthaven-day-2-aka-what-is-up-with.html , https://thexamxam.com/2025/10/new-world-aeternum-nighthaven-gearing-and-perk-charms-guide/ , https://www.newworld.com/en-us/news/articles/season-10-nighthaven-announcement , https://www.iggm.com/news/new-world-aeternum-season-10-equipment-system-changes-and-catch-up-guide
+- Aeternum and its columns: https://gamingtrend.com/reviews/new-world-aeternum-review-a-welcome-rebirth/ , https://www.mmorpg.com/reviews/new-world-aeternum-review-2000133364 , https://massivelyop.com/2024/10/16/vitae-aeternum-new-world-aeternum-leaves-veterans-casuals-and-pc-players-behind/ , https://massivelyop.com/2024/11/04/vitae-aeternum-how-to-fix-new-world-aeternums-endgame-starting-with-rewards-and-content-relevance/ , https://massivelyop.com/2024/11/05/vitae-aeternum-how-to-fix-new-world-aeternums-endgame-with-chase-items-and-solo-play/ , https://massivelyop.com/2025/01/28/vitae-aeternum-new-world-season-7-doubles-down-on-punishing-solo-and-casual-players/ , https://www.heartlessgamer.com/2025/01/new-world-pve.html , https://steamcommunity.com/app/1063730/discussions/0/4634861989070484282/ , https://steamcommunity.com/app/1063730/discussions/0/715609968122857498
+- Nighthaven / Season 10 coverage: https://massivelyop.com/2025/10/29/vitae-aeternum-too-late-nighthavens-catacombs-and-perk-revamp-saved-new-worlds-endgame/ , https://www.heartlessgamer.com/2025/10/nighthaven-week-later.html , https://www.heartlessgamer.com/2025/10/nighthaven-day-2-aka-what-is-up-with.html , https://thexamxam.com/2025/10/new-world-aeternum-nighthaven-gearing-and-perk-charms-guide/ , https://www.iggm.com/news/new-world-aeternum-season-10-equipment-system-changes-and-catch-up-guide
 - Reviews: https://www.pcgamesn.com/new-world/review-pc , https://www.pcgamer.com/new-world-review/ , https://www.gamespot.com/reviews/new-world-review-faction-war-never-changes/1900-6417769/ , https://steamcommunity.com/app/1063730/reviews/
 - Shutdown: https://www.gamespot.com/articles/amazons-big-mmo-that-started-strong-is-shutting-down/1100-6537436/ , https://www.icy-veins.com/new-world/news/aeternum-closes-its-doors/
 
-**Other games and loot design**
+**Other games and loot design (summaries)**
 - Diablo III Loot 2.0, Smart Loot, Mosqueira GDC 2015: https://www.purediablo.com/josh-mosqueira-diablo-3-presentation-gdc-2015 , https://www.pcgamesn.com/diablo-iii/diablo-3s-josh-mosqueria-on-launch-failures-mistakes-and-the-road-to-redemption , https://www.d3guides.de/en/news/loot-2-0-patch-2-0-itemization , https://www.diablowiki.net/Loot_2.0 , https://icy-veins.com/d3/how-to-farm-legendary-and-set-items-guide , https://gamesbeat.com/no-auction-house-no-problem-diablo-iii-reaper-of-souls-sales-surpass-2-7-million-in-first-week/
 - Diablo IV launch and Loot Reborn: https://www.gamespot.com/articles/diablo-4-season-4-loot-overhaul-is-going-over-very-well-with-fans/1100-6523491/ , https://dotesports.com/diablo/news/diablo-4-players-agree-underwhelming-loot-system-desperately-needs-a-retune , https://mein-mmo.de/en/why-does-the-game-insist-on-being-so-boring-items-frustrate-players-in-diablo-4,1087697/
 - Diablo II runes: https://www.icy-veins.com/d2/rune-finding-guide , https://diablo.fandom.com/wiki/Zod_Rune
@@ -660,3 +921,4 @@ Only result summaries were seen; pages could not be opened.
 - Last Epoch: https://afkgaming.com/gaming/general/last-epoch-what-is-legendary-potential-and-how-does-it-affect-crafting
 - Reveal design: https://medium.com/n3twork/choreographed-emotion-6-steps-to-a-great-card-reveal-ux-a6e6bb8487dd , https://toucharcade.com/2017/04/04/designing-hearthstone-card-packs-animations-iterations-ungoro-and-more-with-art-director-ben-thompson/ , https://hearthstone.fandom.com/wiki/Card_pack , https://playhearthstone.com/en-gb/blog/20852959/ , https://royaletracker.gg/chest-simulator
 - Randomness, pity, near misses, reward schedules: https://www.gamedeveloper.com/design/emotions-and-randomness-loot-drops , https://oldschool.runescape.wiki/w/Bad_luck_mitigation , https://pmc.ncbi.nlm.nih.gov/articles/PMC2658737 , https://www.sciencenews.org/article/gamblers-brains-almost-counts , https://gamedeveloper.com/design/10-years-of-behavioral-game-design-with-bungie-s-research-boss
+- Valheim, Albion Online, RuneScape, Minecraft, Terraria: no sources reached before the search budget ran out; section 5 is from memory [M].
