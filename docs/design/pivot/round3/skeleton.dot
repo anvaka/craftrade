@@ -1,0 +1,55 @@
+// The whole game on one page: what the town makes, what the run uses, and what flows back.
+// Render: any Graphviz (dot -Tsvg skeleton.dot). Violet is the edge Scrip lacks today.
+digraph Skeleton {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=15, nodesep=0.35, ranksep=0.45, newrank=true, bgcolor="#faf9f6",
+         label="The town forges the loadout. The run bends it.\nViolet: the edge Scrip is missing today.", labelloc=t];
+  node  [fontname="Helvetica", fontsize=13, shape=box, style="rounded,filled", fillcolor="#ffffff", color="#44403c", margin="0.15,0.08"];
+  edge  [fontname="Helvetica", fontsize=11, color="#57534e", arrowsize=0.7];
+
+  subgraph cluster_town {
+    label="TOWN  (grows over months)"; fontsize=15; style="rounded"; color="#2563eb";
+    MATS   [label="Materials, tiers 1-5\n+ rare finds"];
+    REFINE [label="Refine\n(tier N eats tier N-1)"];
+    CRAFT  [label="Craft at a station\nrange shown, pick a perk,\nquality roll, your name", penwidth=2.2, fillcolor="#dbeafe"];
+    SKILL  [label="Trade skills\nopen tiers, raise the floor", fillcolor="#ccfbf1"];
+    STAT   [label="Stations T1-5\n(hand-ins)", fillcolor="#e7e5e4"];
+    HOUSE  [label="House\ntrophies: luck, craft floor;\nshelf of named finds", fillcolor="#ede9fe"];
+    MARKET [label="Market + Factor\nmaterials, keys, gear", fillcolor="#fef3c7"];
+  }
+
+  LOAD [label="LOADOUT you made\nweapon, tool, armour, food\n(wears with use)", shape=box, style="rounded,filled,bold", fillcolor="#ddd6fe", color="#6d28d9", penwidth=2.5];
+
+  subgraph cluster_run {
+    label="RUN = the dungeon  (10-13 minutes)"; fontsize=15; style="rounded"; color="#d97706";
+    ZONE   [label="Zone at tier H\nopens at loadout power", fillcolor="#fed7aa"];
+    FIGHT  [label="Waves, elites, boss\nweapons fire on their own"];
+    DOOR   [label="Tool doors\nsilver vein needs a steel pick", fillcolor="#fed7aa"];
+    DROPS  [label="Drops with a colour before the reveal\ncommon stream; rare keys;\none jackpot; bad-luck floor", fillcolor="#bbf7d0", color="#15803d"];
+    BUILD  [label="In-run build: level-ups,\nbench augments in your\nweapon's sockets, evolutions", fillcolor="#ccfbf1"];
+    HOME   [label="Get out: keep the haul\nfall: lose part of it", fillcolor="#fecaca", color="#b91c1c"];
+  }
+
+  MATS -> REFINE -> CRAFT;
+  SKILL -> CRAFT [style=dashed, label="opens"];
+  STAT -> CRAFT [style=dashed, label="caps tier"];
+  CRAFT -> SKILL [style=dotted, label="XP"];
+  CRAFT -> HOUSE [label="trophies,\nfurniture"];
+  HOUSE -> CRAFT [style=dotted];
+  CRAFT -> LOAD [color="#6d28d9", penwidth=3, label="  the crafted loadout"];
+  LOAD -> ZONE [color="#6d28d9", penwidth=2];
+  LOAD -> BUILD [color="#6d28d9", style=dashed, label="sockets and tier\nbound the build"];
+  ZONE -> FIGHT;
+  LOAD -> DOOR [color="#6d28d9", style=dashed, label="tools"];
+  FIGHT -> DROPS;
+  DOOR -> DROPS;
+  FIGHT -> BUILD [label="scrip"];
+  BUILD -> FIGHT [style=dotted, label="meet the curve"];
+  DROPS -> BUILD [label="named parts"];
+  DROPS -> HOME;
+  HOME -> MATS [color="#15803d", penwidth=2, label="materials of tier H"];
+  HOME -> CRAFT [color="#a16207", label="keys: schematics,\nrare parts"];
+  HOME -> HOUSE [label="named finds"];
+  MATS -> MARKET; LOAD -> MARKET; MARKET -> MATS [label="buy what you lack"];
+  MATS -> STAT [label="hand-ins"];
+  LOAD -> FIGHT [style=invis];
+}
