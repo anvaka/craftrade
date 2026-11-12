@@ -192,6 +192,73 @@ export function stepper(o: StepperOpts): HTMLElement {
   return el('span', 'step', minus, input, plus);
 }
 
+// ---- screen size ------------------------------------------------------------
+// The page is drawn for one of three widths. Under 700px the tabs are a bar at
+// the foot of the screen and each tab's main stamp sits in a dock above it; a
+// short landscape screen keeps the top tabs but docks the main stamp too. From
+// 900px every fold is open. shell.ts redraws when one of these flips.
+
+export const PHONE_Q = '(max-width: 699px)';
+export const DOCK_Q = '(max-width: 699px), (max-height: 500px)';
+export const WIDE_Q = '(min-width: 900px)';
+const mq = (q: string): boolean => typeof matchMedia === 'function' && matchMedia(q).matches;
+/** Bottom tab bar, one-line head, strips instead of lists. */
+export const isPhone = (): boolean => mq(PHONE_Q);
+/** The tab's main stamp is in the dock at the foot of the screen. */
+export const isDocked = (): boolean => mq(DOCK_Q);
+/** Room for everything: folds are open and have no toggle. */
+export const isWide = (): boolean => mq(WIDE_Q);
+
+/** The dock: one ruled line at the foot of a phone screen with what the tab is for and its stamp. */
+export function dock(text: Kid, ...stamps: Kid[]): HTMLElement {
+  return el('div', 'dock', el('div', 'dock-text', text), el('div', 'dock-acts', ...stamps));
+}
+
+// ---- folds -------------------------------------------------------------------
+
+const FOLD_KEY = 'scrip.folds';
+let folds: Record<string, boolean> = {};
+try {
+  const raw = localStorage.getItem(FOLD_KEY);
+  if (raw) folds = JSON.parse(raw) as Record<string, boolean>;
+} catch {
+  // all shut
+}
+
+/**
+ * A section whose body folds away on a phone, with a summary in its heading
+ * ("Pairs  0 of 66 tried  +"). Shut until opened; the choice is kept per
+ * section on this device. From 900px it is a plain open section.
+ */
+export function fold(key: string, cls: string, title: Kid, summary: Kid, ...body: Kid[]): HTMLElement {
+  if (isWide()) return el('section', `section ${cls}`.trim(), el('h2', '', title), ...body);
+  const open = folds[key] === true;
+  const sec = el('section', `section fold ${cls}${open ? '' : ' is-shut'}`.trim());
+  const inner = el('div', 'fold-body', ...body);
+  inner.id = `fold-${key}`;
+  const mark = el('span', 'fold-mark', open ? '\u2212' : '+');
+  mark.setAttribute('aria-hidden', 'true');
+  const btn = el('button', 'fold-btn', el('span', 'fold-title', title), summary || summary === 0 ? el('span', 'fold-sum num', summary) : null, mark);
+  btn.type = 'button';
+  btn.dataset.fk = `fold:${key}`;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.setAttribute('aria-controls', inner.id);
+  btn.addEventListener('click', () => {
+    const now = sec.classList.toggle('is-shut') === false;
+    btn.setAttribute('aria-expanded', String(now));
+    mark.textContent = now ? '\u2212' : '+';
+    folds = { ...folds, [key]: now };
+    try {
+      localStorage.setItem(FOLD_KEY, JSON.stringify(folds));
+    } catch {
+      // kept for this visit only
+    }
+    audio.play('lock');
+  });
+  sec.append(el('h2', 'fold-head', btn), inner);
+  return sec;
+}
+
 /** An empty state: one italic line that says what will be here and how. */
 export const empty = (text: string): HTMLElement => el('p', 'empty note', text);
 
