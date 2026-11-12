@@ -41,7 +41,7 @@ import { CHARACTER_IDS, boar, brute, burrower, gnat, magpie, mite, player, rotwo
 import { GLYPH_ICON, ICON_UNIT, MISC_ICON, RAW_ICON, STATION_ICON, STATION_IDS, STAT_ICON, WEAPON_ICON, WEAPON_IDS, type StationId, type WeaponId } from './icons.ts';
 import { INK, MADDER, OCHRE, SPRUCE, bake, capDpr, type Drawing, type Sprite } from './print.ts';
 import {
-  NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chip, hidePickup, hurtTick, orePickup,
+  NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chip, fibrePickup, hidePickup, plant, stubble, hurtTick, orePickup,
   playerGround, playerHead, pointer, rubble, scripToken, seam, shardShot, spitShot, stoneShot, stump, sweepArc, thrustArc, timberPickup, tree,
   type NodeId, type NodeStage,
 } from './world.ts';
@@ -88,7 +88,7 @@ export interface Sprites {
     tusk: { walk: Frames; phase: readonly [Sprite, Sprite, Sprite] };
   };
   node: Record<NodeId, NodeSprites>;
-  pickup: { scrip: Sprite; timber: Sprite; ore: Sprite; hide: Sprite };
+  pickup: { scrip: Sprite; timber: Sprite; ore: Sprite; hide: Sprite; fibre: Sprite };
   shot: { stone: Sprite; arrow: Sprite; ball: Sprite; axe: Sprite; bola: Sprite; spit: Sprite; shard: Sprite };
   mark: { ground: Sprite; head: Sprite; tick: Sprite; point: Sprite };
   arc: { sweep: Frames; thrust: Frames };
@@ -135,6 +135,7 @@ export function bakeAll(devicePixelRatio = 1): Sprites {
     tree: [tree, stump],
     seam: [seam, rubble],
     carcass: [carcass, bones],
+    plant: [plant, stubble],
   };
   const node = {} as Record<NodeId, NodeSprites>;
   for (const id of NODE_IDS) {
@@ -169,7 +170,7 @@ export function bakeAll(devicePixelRatio = 1): Sprites {
       tusk: { walk: tuskWalk, phase: [tuskWalk[0], b('tusk', tusk(2)), b('tusk', tusk(3))] },
     },
     node,
-    pickup: { scrip: b('p-scrip', scripToken), timber: b('p-timber', timberPickup), ore: b('p-ore', orePickup), hide: b('p-hide', hidePickup) },
+    pickup: { scrip: b('p-scrip', scripToken), timber: b('p-timber', timberPickup), ore: b('p-ore', orePickup), hide: b('p-hide', hidePickup), fibre: b('p-fibre', fibrePickup) },
     shot: {
       stone: b('s-stone', stoneShot), arrow: b('s-arrow', arrowShot), ball: b('s-ball', ballShot), axe: b('s-axe', axeShot),
       bola: b('s-bola', bolaShot), spit: b('s-spit', spitShot), shard: b('s-shard', shardShot),

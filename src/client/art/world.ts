@@ -8,7 +8,7 @@
 
 import { HATCH, INK, MADDER, MOSS, OCHRE, OUTLINE, SPRUCE, capDpr, rng, type Colour, type Drawing, type Print, type Sprite } from './print.ts';
 
-export const NODE_IDS = ['tree', 'seam', 'carcass'] as const;
+export const NODE_IDS = ['tree', 'seam', 'carcass', 'plant'] as const;
 export type NodeId = (typeof NODE_IDS)[number];
 /** 0 untouched, 1-3 worked. After 3 comes the remnant. */
 export type NodeStage = 0 | 1 | 2 | 3;
@@ -214,6 +214,40 @@ export const bones = (rich: boolean): Drawing => (p) => {
 // -------------------------------------------------------------------- pickups
 
 const OCT7 = [-3, -7, 3, -7, 7, -3, 7, 3, 3, 7, -3, 7, -7, 3, -7, -3];
+
+// ---------------------------------------------------------------------- plant
+
+/** A stand of flax (reed when rich): thin stalks that thin out as it is pulled. */
+export const plant = (rich: boolean, d: NodeStage): Drawing => (p) => {
+  lozenge(p, rich ? 24 : 20, 5);
+  const n = [7, 5, 4, 2][d]! + (rich ? 2 : 0);
+  for (let i = 0; i < n; i++) {
+    const x = -17 + (34 * (i + 0.5)) / n + (p.rnd() - 0.5) * 3;
+    const h = (rich ? 36 : 26) + p.rnd() * 10;
+    const lean = (p.rnd() - 0.5) * 18;
+    p.at(x, 0, lean, () => {
+      p.shape([-1.6, 0, -1.6, -h, 1.6, -h, 1.6, 0], SPRUCE);
+      p.flat([1, -h * 0.45, 9, -h * 0.45 - 6, 3, -h * 0.45 + 3], SPRUCE);
+      if (rich) p.shape([-2.5, -h + 2, -2.5, -h - 12, 2.5, -h - 12, 2.5, -h + 2], OCHRE);
+      else p.shape([-4.5, -h, 0, -h - 9, 4.5, -h, 0, -h + 4], OCHRE);
+    });
+  }
+  if (d > 0) litter(p, d * 2, SPRUCE, -20, 20);
+};
+
+export const stubble = (rich: boolean): Drawing => (p) => {
+  lozenge(p, 16, 4);
+  for (const x of rich ? [-11, -5, 1, 7, 12] : [-9, -2, 5, 10]) p.shape([x - 1.6, 0, x - 1.6, -5 - p.rnd() * 3, x + 1.6, -6, x + 1.6, 0], SPRUCE);
+  litter(p, rich ? 7 : 5, SPRUCE, -19, 20, -2, 6);
+};
+
+export const fibrePickup: Drawing = (p) => {
+  p.at(0, 0, -18, () => {
+    p.shape([-10, -3, 9, -4, 11, 0, 9, 4, -10, 3], OCHRE);
+    p.hatch([-10, -3, 2, -4, 2, 4, -10, 3], 4, 2.5);
+    p.shape([-1, -6, 3, -6, 3, 6, -1, 6], SPRUCE);
+  });
+};
 
 export const scripToken: Drawing = (p) => {
   p.shape(OCT7, OCHRE);

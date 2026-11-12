@@ -18,7 +18,7 @@ import {
   type Sprite, type Sprites,
 } from '../art/index.ts';
 import {
-  AI, ARENA_H, ARENA_W, ENEMIES, ES, HZ_RING, MAX_ENEMIES, MAX_ESHOTS, MAX_HAZARDS, MAX_NODES, MAX_PICKUPS, MAX_SHOTS,
+  AI, ENEMIES, ES, HZ_RING, MAX_ENEMIES, MAX_ESHOTS, MAX_HAZARDS, MAX_PICKUPS, MAX_SHOTS,
   NODE_RING, PK_SCRIP, SOURCE_IDS, SPAWN_TELL, WEAPONS, weaponRange,
   type Enemy, type Run, type SimEvent,
 } from '../../sim/index.ts';
@@ -40,7 +40,7 @@ const CULL = 90;
 
 // Draw-list kinds for the y-sort.
 const K_ENEMY = 0, K_NODE = 1, K_REMNANT = 2, K_PLAYER = 3, K_GHOST = 4;
-const MAX_ITEMS = MAX_ENEMIES + MAX_NODES + MAX_REMNANTS + MAX_GHOSTS + 4;
+const MAX_ITEMS = MAX_ENEMIES + 256 + MAX_REMNANTS + MAX_GHOSTS + 4;
 const BUCKET_PX = 3;
 
 export interface Renderer {
@@ -71,6 +71,9 @@ export interface Renderer {
   sweeping(): number;
   /** The name of what last hurt the player, '' if nothing has. */
   lastHurtBy(): string;
+  /** Extra drawing in world space: `under` on the ground before anything stands on it, `over` above what stands. */
+  under?: (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) => void;
+  over?: (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) => void;
   shake: boolean;
   /** prefers-reduced-motion: no optional hit-stop, no pulsing, rings do not grow. */
   reduced: boolean;
@@ -80,6 +83,8 @@ export interface Renderer {
 
 export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run: Run): Renderer {
   const ctx = canvas.getContext('2d', { alpha: false })!;
+  /** The node pool and the ground are the run's own: a clearing, or a whole zone on an outing. */
+  const NODES = run.nodes.length, ARENA_W = run.w, ARENA_H = run.h;
   let S = sprites0;
   let cssW = 1, cssH = 1, dpr = 1, zoom = 1, scale = 1;
   let vw = 1, vh = 1; // view size in world units
@@ -112,7 +117,9 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   function bind(): void {
     const e = S.enemy;
     enemyWalk = [e.mite.walk, e.gnat.walk, e.boar.walk, e.spitter.walk, e.magpie.walk, e.burrower.walk, e.brute.walk, e.stag.walk, e.rotwood.walk, e.tusk.walk];
-    pickupSprite = [S.pickup.scrip, S.pickup.timber, S.pickup.ore, S.pickup.hide];
+    pickupSprite = [S.pickup.scrip, S.pickup.timber, S.pickup.ore, S.pickup.hide,
+      // Outing materials, two tiers of each: wood, ore, hide, fibre.
+      S.pickup.timber, S.pickup.timber, S.pickup.ore, S.pickup.ore, S.pickup.hide, S.pickup.hide, S.pickup.fibre, S.pickup.fibre];
     shotSprite = SOURCE_IDS.map((id) =>
       id === 'sling' ? S.shot.stone : id === 'bow' ? S.shot.arrow : id === 'musket' ? S.shot.ball : id === 'axe' ? S.shot.axe
         : id === 'bola' ? S.shot.bola : id === 'shards' ? S.chip.ochre[1] : S.shot.stone);
@@ -209,7 +216,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
   const remKind = new Uint8Array(MAX_REMNANTS); // type * 2 + rich, 255 = empty
   remKind.fill(255);
   let remNext = 0;
-  const nodeKick = new Uint8Array(MAX_NODES);
+  const nodeKick = new Uint8Array(NODES);
   const enemyFlip = new Uint8Array(MAX_ENEMIES);
   const pullFrom = new Float32Array(MAX_PICKUPS);
   // What stood at the last draw, so a wave end can show what it swept away.
@@ -365,13 +372,13 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         if (tickAge < tickLife || hurtFrom(ev.a)) { tickAge = 0; tickLife = 3; }
         break;
       case 'work': {
-        for (let i = 0; i < MAX_NODES; i++) if (run.nodes[i].alive && run.nodes[i].x === ev.x && run.nodes[i].y === ev.y) nodeKick[i] = 4;
-        chips(ev.x, ev.y - 26, 2, ev.a === 0 ? C_SPRUCE : ev.a === 1 ? C_INK : C_OCHRE, 150);
+        for (let i = 0; i < NODES; i++) if (run.nodes[i].alive && run.nodes[i].x === ev.x && run.nodes[i].y === ev.y) nodeKick[i] = 4;
+        chips(ev.x, ev.y - 26, 2, ev.a === 0 || ev.a === 3 ? C_SPRUCE : ev.a === 1 ? C_INK : C_OCHRE, 150);
         chips(ev.x, ev.y - 26, 1, C_OCHRE, 130);
         break;
       }
       case 'break': {
-        chips(ev.x, ev.y - 24, 7, ev.a === 0 ? C_SPRUCE : C_INK, 260);
+        chips(ev.x, ev.y - 24, 7, ev.a === 0 || ev.a === 3 ? C_SPRUCE : C_INK, 260);
         chips(ev.x, ev.y - 24, 5, C_OCHRE, 220);
         const el = run.eliteIdx >= 0 ? run.enemies[run.eliteIdx] : null;
         const walking = el && el.alive && el.type === T_ROT && Math.abs(el.x - ev.x) < 2 && Math.abs(el.y - ev.y) < 2;
@@ -460,7 +467,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         // A new node may have been placed where an old stump stood.
         for (let i = 0; i < MAX_REMNANTS; i++) {
           if (remKind[i] === 255) continue;
-          for (let n = 0; n < MAX_NODES; n++) {
+          for (let n = 0; n < NODES; n++) {
             const nd = run.nodes[n];
             if (nd.alive && Math.abs(nd.x - remX[i]) < 110 && Math.abs(nd.y - remY[i]) < 90) { remKind[i] = 255; break; }
           }
@@ -691,8 +698,10 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     }
     ctx.stroke();
 
+    self.under?.(ctx, x0, y0, x1, y1);
+
     // Work rings.
-    for (let i = 0; i < MAX_NODES; i++) {
+    for (let i = 0; i < NODES; i++) {
       const n = run.nodes[i];
       if (!n.alive || n.x < x0 - NODE_RING || n.x > x1 + NODE_RING || n.y < y0 - NODE_RING || n.y > y1 + NODE_RING) continue;
       drawWorkRing(ctx, n.x, n.y, NODE_RING, n.work / n.need);
@@ -838,7 +847,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       if (remKind[i] === 255 || remX[i] < x0 || remX[i] > x1 || remY[i] < y0 || remY[i] > y1) continue;
       push(K_REMNANT, i, remX[i], remY[i]);
     }
-    for (let i = 0; i < MAX_NODES; i++) {
+    for (let i = 0; i < NODES; i++) {
       const n = run.nodes[i];
       if (!n.alive || n.x < x0 - 60 || n.x > x1 + 60 || n.y < y0 || n.y > y1 + 120) continue;
       push(K_NODE, i, n.x, n.y);
@@ -856,7 +865,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     push(K_PLAYER, 0, px, py);
     self.drawn = items;
 
-    const nodeIds = ['tree', 'seam', 'carcass'] as const;
+    const nodeIds = ['tree', 'seam', 'carcass', 'plant'] as const;
     for (let b = 0; b < bucketCount; b++) {
       for (let it = head[b]; it >= 0; it = next[it]) {
         const x = itemX[it], y = itemY[it], idx = itemIdx[it];
@@ -966,6 +975,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
       }
     }
 
+    self.over?.(ctx, x0, y0, x1, y1);
     drawTreeline(ctx, S.treeline, { x: 0, y: 0, w: ARENA_W, h: ARENA_H });
 
     // Enemy shots: over everything in the clearing, a heavy Ink rim round a

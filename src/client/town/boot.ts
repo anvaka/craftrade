@@ -6,6 +6,7 @@ import { bakeAll } from '../art/index.ts';
 import { api, isSolo } from './api.ts';
 import { setSprites } from './dom.ts';
 import { headOut, loadMountRun } from './run.ts';
+import { scout } from './outing.ts';
 import { currentView, loadTab, showTown, watchReach } from './shell.ts';
 import { app, getPrefs, redraw, setProfile } from './state.ts';
 
@@ -53,6 +54,9 @@ export async function boot(): Promise<void> {
     watchReach();
   }
   showTown();
+  // ?outing opens the home wood at once; ?outing=7 with that seed.
+  const q = new URLSearchParams(location.search);
+  if (q.has('outing')) void scout(q.get('outing') ? Number(q.get('outing')) >>> 0 : undefined);
 
   // On a first run the movement keys start it, so hands never leave them.
   window.addEventListener('keydown', (ev) => {

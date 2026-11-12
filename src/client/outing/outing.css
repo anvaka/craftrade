@@ -1,0 +1,77 @@
+/* The outing: a thin bar on top, skills at the foot, and nothing else over the ground. */
+.o-hud { position: absolute; inset: 0; pointer-events: none; font-size: 14px; color: var(--ink); }
+.o-hud button { pointer-events: auto; }
+.o-top {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: max(6px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 6px max(8px, env(safe-area-inset-left, 0px));
+  background: var(--bone); border-bottom: var(--rule) solid var(--ink);
+}
+.o-meter { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.o-meter .lab { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; line-height: 1.1; white-space: nowrap; }
+.o-meter .lab b { font-weight: 700; }
+.o-bar { position: relative; height: 9px; border: var(--hair) solid var(--ink); background: var(--bone); overflow: hidden; }
+.o-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--spruce); }
+.o-hp .o-bar i { background: var(--madder); }
+.o-threat .o-bar i { background: var(--ochre); }
+.o-threat.is-1 .o-bar i { background: var(--ochre); }
+.o-threat.is-2 .o-bar i, .o-threat.is-3 .o-bar i { background: var(--madder); }
+.o-threat.is-3 .lab b { color: var(--madder); }
+.o-threat .o-bar s { position: absolute; top: 0; bottom: 0; width: 0; border-left: var(--hair) solid var(--ink); }
+.o-bag.is-full .lab b { color: var(--madder); }
+.o-hp { flex: 0 1 110px; }
+.o-bag { flex: 0 1 96px; }
+.o-top .stamp { flex: 0 0 auto; min-height: 36px; padding: 4px 10px; }
+
+.o-note {
+  position: absolute; left: 50%; top: calc(max(6px, env(safe-area-inset-top, 0px)) + 52px); transform: translateX(-50%);
+  max-width: min(420px, calc(100% - 24px)); padding: 6px 12px; text-align: center;
+  background: var(--bone); border: var(--rule) solid var(--ink);
+}
+.o-note.is-bad { background: var(--madder); color: var(--bone); }
+.o-note b { display: block; font-size: 17px; line-height: 1.2; }
+.o-note span { font-size: 13px; }
+
+.o-foot {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+}
+.o-skills { display: grid; grid-template-columns: repeat(4, minmax(0, 74px)); gap: 4px; flex: 1 1 auto; }
+.o-skill { background: var(--bone); border: var(--hair) solid var(--ink); padding: 2px 4px 3px; font-size: 11px; line-height: 1.15; }
+.o-skill .n { display: flex; justify-content: space-between; gap: 2px; white-space: nowrap; overflow: hidden; }
+.o-skill .o-bar { height: 5px; }
+.o-skill.is-up { background: var(--ochre); }
+.o-way { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.o-compass { background: var(--bone); border: var(--hair) solid var(--ink); padding: 3px 8px; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.o-compass i { display: inline-block; font-style: normal; font-weight: 700; }
+.o-leave { pointer-events: auto; }
+
+.o-toasts { position: absolute; left: max(8px, env(safe-area-inset-left, 0px)); bottom: calc(max(8px, env(safe-area-inset-bottom, 0px)) + 44px); display: flex; flex-direction: column; gap: 2px; }
+.o-toast { background: var(--ink); color: var(--bone); padding: 1px 7px; font-size: 12px; width: max-content; animation: o-rise 1.6s linear forwards; }
+@keyframes o-rise { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+.o-sheet { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; overflow-y: auto; background-image: var(--hatch);
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+.o-panel { width: min(440px, 100%); max-height: 100%; overflow-y: auto; background: var(--bone); border: var(--rule) solid var(--ink); padding: 12px 14px 14px; }
+.o-panel h2 { font-size: 24px; line-height: 1.15; padding-bottom: 6px; border-bottom: var(--rule) solid var(--ink); }
+.o-panel .sub { font-size: 13px; padding: 6px 0 2px; }
+.o-panel table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 14px; }
+.o-panel th { text-align: right; font-weight: 400; font-size: 12px; padding: 2px 0; }
+.o-panel th:first-child, .o-panel td:first-child { text-align: left; }
+.o-panel td { text-align: right; padding: 3px 0; border-top: var(--hair) solid var(--ink); font-variant-numeric: tabular-nums; }
+.o-panel td.lost { color: var(--madder); }
+.o-panel .skrow { display: grid; grid-template-columns: 88px 1fr 46px; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+.o-panel .skrow .o-bar { height: 8px; }
+.o-panel .skrow .g { text-align: right; font-variant-numeric: tabular-nums; }
+.o-panel h3 { font-size: 14px; margin-top: 12px; }
+.o-panel .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.o-panel .acts .stamp { flex: 1 1 140px; }
+.o-panel .fine { font-size: 12px; margin-top: 10px; opacity: 0.8; }
+
+@media (max-height: 420px) {
+  /* A phone on its side: the note keeps to a corner so it never covers the player. */
+  .o-note { top: calc(max(6px, env(safe-area-inset-top, 0px)) + 44px); left: max(8px, env(safe-area-inset-left, 0px)); transform: none; max-width: 280px; text-align: left; }
+  .o-meter .lab { font-size: 11px; }
+  .o-top .stamp { min-height: 32px; }
+}
