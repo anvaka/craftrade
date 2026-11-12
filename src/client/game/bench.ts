@@ -202,7 +202,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     // A tap on the card (not on its buttons) selects it: a heavy frame, the full text, and its stat change in the ribbon.
     node.dataset.card = key;
     node.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('button, a, .term')) return;
+      if ((e.target as HTMLElement).closest('button, a, input')) return;
       pinned = pinned?.key === key ? null : { key, delta };
       audio.play('stamp', { gain: 0.5 });
       markSelected();

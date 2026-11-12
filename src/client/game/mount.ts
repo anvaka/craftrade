@@ -23,7 +23,7 @@ import {
 } from '../../sim/index.ts';
 import { fusedOf, killsOf, rec, record, replayOf, resumeInto } from '../../shared/replay.ts';
 import type { RunHandle, RunHost, RunRecap } from '../seam.ts';
-import { createBench } from './bench.ts';
+import { CONFIRM_GAP, DISARM_MS, createBench } from './bench.ts';
 import { el, loadShake, saveShake, stamp } from './dom.ts';
 import { createEndScreen, defaultCarry, gotYou, killerName, sourceName, theName, type EndScreen } from './end.ts';
 import { createHud, soundControls } from './hud.ts';
@@ -185,6 +185,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const pausePanel = el('div', 'g-pause g-overlay');
   pausePanel.hidden = true;
   let quitArmed = false;
+  let quitArmedAt = 0, quitTimer = 0;
   let pauseSound: ReturnType<typeof soundControls> | null = null;
   function renderPause(): void {
     pauseSound?.dispose();
@@ -200,9 +201,19 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     song.setAttribute('aria-pressed', String(audio.songOn));
     song.setAttribute('aria-label', audio.songOn ? 'The work song is on' : 'The work song is off');
     song.addEventListener('click', () => { audio.setSong(!audio.songOn); audio.play('stamp'); renderPause(); });
-    const quit = stamp(quitArmed ? 'Sure?' : 'Quit', 'stamp--plain stamp--small');
+    const quit = stamp(quitArmed ? 'Sure?' : 'Quit', `stamp--plain stamp--small${quitArmed ? ' is-pressed' : ''}`);
+    quit.dataset.fk = 'quit';
     quit.addEventListener('click', () => {
-      if (!quitArmed) { quitArmed = true; audio.play('lock'); renderPause(); return; }
+      if (!quitArmed) {
+        quitArmed = true; quitArmedAt = performance.now(); audio.play('lock'); renderPause();
+        // Unanswered, it goes back to Quit: a tap much later is not the yes.
+        window.clearTimeout(quitTimer);
+        quitTimer = window.setTimeout(() => { if (quitArmed && paused && alive) { quitArmed = false; renderPause(); } }, DISARM_MS);
+        return;
+      }
+      // A double tap or a bounce is not a decision.
+      if (performance.now() - quitArmedAt < CONFIRM_GAP) return;
+      window.clearTimeout(quitTimer);
       doQuit();
     });
     pausePanel.replaceChildren(el('div', 'g-panel',
@@ -229,6 +240,8 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       pausePanel.hidden = true;
       pausePanel.replaceChildren();
       pauseSound?.dispose(); pauseSound = null;
+      quitArmed = false;
+      window.clearTimeout(quitTimer);
       last = performance.now();
       acc = 0;
       slowT = 0; slowBadT = 0; slowSkip = 500;

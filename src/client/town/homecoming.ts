@@ -51,9 +51,12 @@ export function showHomecoming(h: Homecoming): void {
   let relicShown = false;
   const shownAt = performance.now();
 
+  let drawn = false;
   const draw = (): void => {
     const hadFocus = (document.activeElement as HTMLElement | null)?.dataset.fk;
-    const at = window.scrollY;
+    // A redraw keeps the reader's place; the first draw opens at the top, wherever the town was scrolled to.
+    const at = drawn ? window.scrollY : 0;
+    drawn = true;
     const root = showSheet(...sheet(h, report, copied, relicShown, { again, toTown, copy }));
     if (at) window.scrollTo(0, at);
     const key = hadFocus && root.querySelector(`[data-fk="${hadFocus}"]`) ? hadFocus : 'again';
