@@ -947,18 +947,36 @@
 }
 
 /* ---- the bench's weapon rows -------------------------------------------------
-   Up to three stamps (Tier up, Combine, Scrap) share the action cell. They
-   wrap inside it, right-aligned, and never push the table past its column:
-   at 340px (the desk side column) and on a phone they would otherwise be cut off. */
+   Up to three stamps (Tier up, Combine, Scrap) and the name do not fit one
+   line of the 340px side column, and a nowrap cell pushed Scrap out of sight.
+   Each row is two lines: name and tier, then its stamps right-aligned. */
+.g-weapons tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-bottom: var(--hair) solid var(--ink);
+}
+.g-weapons td {
+  border-bottom: 0;
+}
+.g-weapons tr.g-combined {
+  border-bottom: var(--rule) solid var(--ink);
+}
+.g-weapons tr.g-combined td {
+  border-bottom: 0;
+}
 .g-weapons td.act {
-  white-space: normal;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 8px;
   width: auto;
+  padding-top: 0;
+  white-space: normal;
 }
 .g-weapons td.act .stamp {
-  margin: 2px 0 2px 6px;
-}
-.g-weapons td:first-child {
-  width: 99%;
+  white-space: nowrap;
 }
 
 /* ---- the bench on a phone ------------------------------------------------------
@@ -996,7 +1014,7 @@
 .g-top-acts .stamp {
   min-height: 40px;
 }
-.g-pausebtn {
+.g-top .g-pausebtn {
   min-width: 44px;
   width: 44px;
   padding: 0;
@@ -1261,6 +1279,7 @@
   gap: 3px;
 }
 .g-dock-tabs .tab {
+  -webkit-tap-highlight-color: transparent;
   flex: 1 1 auto;
   min-width: 0;
   padding: 6px 6px 5px;
@@ -1407,8 +1426,8 @@
     padding: 0 3px;
   }
 }
-.g-bench.is-compact .g-items canvas.icon,
-.g-bench.is-compact .g-anvil-slot canvas.icon {
+.g-bench.is-compact .g-items .thing > canvas.icon,
+.g-bench.is-compact .g-anvil-slot .thing > canvas.icon {
   width: 32px !important;
   height: 32px !important;
 }
@@ -1554,4 +1573,377 @@
     align-self: end;
     padding-top: 0;
   }
+}
+
+/* ---- the HUD on a phone ----------------------------------------------------------
+   On a desk the counters and the weapon slots are cells of the HUD grid; the
+   pause stamp says Pause. Under a finger the stamp is a 44px square with the
+   two-bar glyph. Upright, the HUD is two rows: health with the XP folded in,
+   the wave, Pause; then the counters and the slots on one row. On its side it
+   is one row. Measured against a 667px screen: 189px before, about 84 now. */
+.g-r2 {
+  display: contents;
+}
+.g-hud .g-pz {
+  display: none;
+}
+@media (pointer: coarse) {
+  .hud.g-hud .g-snd .g-pausebtn {
+    min-width: 44px;
+    width: 44px;
+    padding: 0;
+  }
+  .g-hud .g-pz {
+    display: inline-flex;
+  }
+  .g-hud .g-pz-word {
+    display: none;
+  }
+}
+
+/* Health slip with the level and XP as a thin strip under the bar. */
+@media (max-width: 620px), (min-width: 621px) and (max-height: 520px) {
+  .g-tl .hp {
+    padding: 3px 6px 3px 3px;
+    gap: 6px;
+  }
+  .g-tl .hp .bar i {
+    height: 12px;
+  }
+  .hud.g-hud .hp .num {
+    font-size: 15px;
+  }
+  .g-lv {
+    gap: 6px;
+    padding: 0 4px 1px 6px;
+    min-height: 14px;
+  }
+  .g-lv .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+  .meter.g-xp {
+    height: 6px;
+    border: 0;
+    outline: var(--hair) solid var(--ink);
+  }
+  .g-owed {
+    font-size: 11px;
+    padding: 0 4px;
+    line-height: 1.25;
+  }
+  /* Counters and slots: 20px icons. */
+  .hud.g-hud .counter {
+    font-size: 15px;
+    padding: 0 5px 0 2px;
+  }
+  .hud.g-hud .counter canvas.icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .g-tr .counter,
+  .g-tr .counter.is-scrip {
+    min-width: 0;
+  }
+  .g-slot {
+    width: 27px;
+    height: 30px;
+    padding: 2px 2px 0;
+  }
+  .g-slot canvas.icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .g-slot-tier {
+    font-size: 11px;
+    top: 1px;
+    right: 1px;
+  }
+  .g-cd {
+    bottom: 2px;
+  }
+  /* Scrip left behind hangs under the counters instead of taking a row. */
+  .g-tr {
+    position: relative;
+  }
+  .g-bank {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    border: var(--rule) solid var(--ink);
+    border-top: 0;
+    font-size: 12px;
+    padding: 0 6px 1px;
+    white-space: nowrap;
+  }
+  /* The danger card is one line: tag, name, what it does. The bar sits right under it, as wide. */
+  .g-card--danger .g-card-body {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 8px;
+    min-width: 0;
+  }
+  .g-card--danger .g-card-title {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .g-card--danger .g-card-sub {
+    font-size: 13px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .g-card .tag {
+    font-size: 11px;
+    padding: 0 6px;
+  }
+  .g-card-title {
+    font-size: 18px;
+  }
+  .g-card-sub {
+    font-size: 14px;
+  }
+  .g-card-body {
+    padding: 2px 10px 3px 8px;
+  }
+  .g-elite {
+    padding: 1px 4px 1px 6px;
+    gap: 6px;
+  }
+  .g-elite .label {
+    font-size: 11px;
+  }
+  .g-ebar {
+    height: 8px;
+  }
+}
+
+@media (max-width: 620px) {
+  .hud.g-hud {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      'tl tc bk'
+      'r2 r2 r2'
+      'mid mid mid'
+      '. . .'
+      'snd snd snd';
+    gap: 5px 6px;
+  }
+  .g-r2 {
+    grid-area: r2;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 5px 6px;
+    min-width: 0;
+  }
+  .g-r2 > .g-slots {
+    margin-left: auto;
+  }
+  .hud.g-hud .wave {
+    padding: 2px 7px 2px;
+  }
+  .hud.g-hud .wave .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .hud.g-hud .wave .time {
+    font-size: 19px;
+  }
+  .g-mid {
+    justify-self: stretch;
+    gap: 3px;
+  }
+  .g-mid > .g-card,
+  .g-mid > .g-elite {
+    align-self: stretch;
+    width: auto;
+  }
+  /* Name first, then its bar. */
+  .g-mid > .g-card {
+    order: -1;
+  }
+  /* The left-behind line hangs under the counters; the middle column starts below it. */
+  .g-hud:has(.g-bank:not([hidden])) .g-mid {
+    margin-top: 18px;
+  }
+}
+
+/* On its side: one top row (health, wave, counters and slots, Pause); the card and the bar share one line at the foot. */
+@media (min-width: 621px) and (max-height: 520px) {
+  .hud.g-hud {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas:
+      'tl tc r2 bk'
+      '. . . .'
+      'mid mid mid mid'
+      '. . . snd';
+    gap: 6px 8px;
+  }
+  .g-tl {
+    justify-self: stretch;
+  }
+  .g-r2 {
+    grid-area: r2;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .g-r2 > .g-slots {
+    order: -1;
+  }
+  .hud.g-hud .wave {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 10px 5px;
+  }
+  .hud.g-hud .wave .label {
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .hud.g-hud .wave .time {
+    font-size: 21px;
+  }
+  .g-mid {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    gap: 8px;
+  }
+  .g-mid .g-elite {
+    width: min(300px, 36vw);
+  }
+  .g-mid .g-card {
+    order: -1;
+    min-width: 0;
+    max-width: 60%;
+  }
+}
+
+/* ---- pause panel on a phone ------------------------------------------------------
+   Centred while it fits; when it does not (a phone on its side) it starts at
+   the top and scrolls, instead of being cut off above the screen. */
+.g-pause {
+  align-items: safe center;
+}
+@media (max-width: 560px) {
+  .g-panel {
+    padding: 10px 14px 14px;
+  }
+  .g-panel h2 {
+    font-size: 24px;
+    padding-bottom: 4px;
+  }
+  .g-panel-rows {
+    gap: 8px;
+    padding-top: 10px;
+  }
+  .g-panel-row {
+    padding-top: 8px;
+  }
+}
+@media (max-height: 520px) {
+  .g-pause {
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  }
+  .g-panel {
+    width: min(600px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 20px;
+    padding: 8px 16px 12px;
+  }
+  .g-panel > .label,
+  .g-panel > h2,
+  .g-panel > .note {
+    grid-column: 1 / -1;
+  }
+  .g-panel h2 {
+    font-size: 22px;
+    padding-bottom: 4px;
+  }
+  .g-panel-rows {
+    display: contents;
+  }
+  .g-panel-rows > * {
+    margin-top: 10px;
+  }
+  .g-panel {
+    grid-auto-flow: row dense;
+  }
+  .g-panel-rows > .stamp,
+  .g-panel-rows > .sound {
+    grid-column: 1;
+  }
+  .g-panel-row {
+    grid-column: 2;
+  }
+  .g-panel-row.g-panel-quit {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- run end on a phone: the carry list in two-line rows, the foot in one row ---- */
+@media (max-width: 899px) {
+  .g-end .page-head .meta .note {
+    font-size: 13px;
+  }
+  .g-end .g-items .thing > canvas.icon {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .g-end .g-foot-row {
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+  .g-end .g-foot-acts {
+    flex: 0 1 auto;
+  }
+  .g-end .g-foot-acts .stamp {
+    min-height: 48px;
+    min-width: 150px;
+  }
+  .g-end .g-reason.is-empty {
+    display: none;
+  }
+  .g-end .section > .note {
+    font-size: 13px;
+  }
+}
+.g-end .ledger td.act .stamp {
+  min-width: 112px;
+}
+@media (max-height: 520px) {
+  .g-end .page-head {
+    padding: 8px 0 6px;
+    margin-bottom: 10px;
+  }
+  .g-end .page-head h1 {
+    font-size: 22px;
+  }
+  .g-end .section > h2 {
+    font-size: 18px;
+  }
+  .g-end .section.g-first {
+    margin-top: 2px;
+  }
+  .g-end .g-foot-row {
+    padding-top: 6px;
+  }
+  .g-end .g-foot-acts .stamp {
+    min-height: 44px;
+  }
+}
+.g-bench.is-compact .g-reveal > canvas.icon {
+  width: 48px !important;
+  height: 48px !important;
 }

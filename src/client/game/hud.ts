@@ -80,6 +80,8 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
   const tr = el('div', 'g-tr', counters, bank);
 
   const slots = el('div', 'g-slots');
+  // Counters and weapon slots: separate cells of the HUD grid on a desk (display: contents), one wrapping row on a phone.
+  const r2 = el('div', 'g-r2', tr, slots);
   const eliteName = el('span', 'label');
   const eliteFill = el('i');
   const elite = el('div', 'g-elite', eliteName, el('div', 'g-ebar', eliteFill));
@@ -92,7 +94,9 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
   cardEl.hidden = true;
   const mid = el('div', 'g-mid', elite, cardEl, notices);
 
-  const pause = stamp('Pause', 'stamp--plain stamp--small');
+  // On a desk the word; under a finger a square stamp with two inked bars (game.css).
+  const pause = stamp(el('span', 'g-pz', el('i'), el('i')), 'stamp--plain stamp--small g-pausebtn', el('span', 'g-pz-word', 'Pause'));
+  pause.setAttribute('aria-label', 'Pause');
   pause.addEventListener('click', () => { pause.blur(); onPause(); });
   const sound = soundControls(true);
   sound.el.prepend(pause);
@@ -101,7 +105,7 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
   const teach = el('div', 'g-teach');
   teach.hidden = true;
 
-  const root = el('div', 'hud g-hud', tl, wave, tr, slots, mid, sound.el);
+  const root = el('div', 'hud g-hud', tl, wave, r2, mid, sound.el);
   stage.append(root, teach);
 
   function buildCounters(): void {
@@ -265,13 +269,14 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
     insets() {
       const s = stage.getBoundingClientRect();
       let top = 0, bottom = 0;
-      for (const e of [tl, wave, tr, slots, sound.el, elite]) {
+      // The card counts too: an elite arriving under it should not be.
+      for (const e of [tl, wave, tr, slots, sound.el, elite, cardEl]) {
         if (e.hidden) continue;
         const r = e.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
         if (r.top - s.top < s.height / 2) top = Math.max(top, r.bottom - s.top);
         // At the foot only the elite bar counts (a phone on its side): the sound panel is a corner, not a band.
-        else if (e === elite) bottom = Math.max(bottom, s.bottom - r.top);
+        else if (e === elite || e === cardEl) bottom = Math.max(bottom, s.bottom - r.top);
       }
       // Never give more than 45% of the screen to the furniture.
       return [Math.min(top, s.height * 0.45), 0, Math.min(bottom, s.height * 0.3), 0];

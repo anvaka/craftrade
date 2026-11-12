@@ -223,7 +223,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       el('div', 'g-panel-rows', resume, pauseSound.el,
         el('div', 'g-panel-row', el('span', '', 'Work song'), song),
         el('div', 'g-panel-row', el('span', '', 'Screen shake'), shake),
-        el('div', 'g-panel-row', el('span', '', quitArmed ? 'The run ends here as a loss' : 'Quit the run'), quit))));
+        el('div', 'g-panel-row g-panel-quit', el('span', '', quitArmed ? 'The run ends here as a loss' : 'Quit the run'), quit))));
   }
   function setPaused(on: boolean): void {
     if (!alive || paused === on || state === 'end' || state === 'done' || state === 'beat' || state === 'clear') return;
@@ -649,6 +649,25 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
     e.preventDefault();
     setPaused(!paused);
   };
+  // Back during a run (Android's back, an edge swipe, the browser's button) opens
+  // the pause panel instead of leaving: the run stands on a history entry of
+  // its own, and a back that takes it away puts it back.
+  const RUN_STATE = 'scrip-run';
+  const onRunEntry = (): boolean => (history.state as { [k: string]: unknown } | null)?.[RUN_STATE] === true;
+  const pushRunEntry = (): void => { try { history.pushState({ ...(history.state ?? {}), [RUN_STATE]: true }, ''); } catch { /* sandboxed: no history */ } };
+  const onPop = (): void => {
+    if (!alive || onRunEntry()) return;
+    pushRunEntry();
+    if (state === 'wave' || state === 'bench') setPaused(true);
+  };
+  pushRunEntry();
+  window.addEventListener('popstate', onPop);
+  // The browser's bar takes the clearing's colour while the run is up.
+  const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]') ?? null;
+  const themeWas = themeMeta?.getAttribute('content') ?? null;
+  const themeOwn = themeMeta ?? document.head.appendChild(Object.assign(document.createElement('meta'), { name: 'theme-color' }));
+  themeOwn.setAttribute('content', getComputedStyle(root).backgroundColor || '#2f4a3c');
+
   // Safari's own pinch event, for versions that let it through touch-action.
   const onGesture = (e: Event): void => { e.preventDefault(); };
   root.addEventListener('gesturestart', onGesture);
@@ -673,6 +692,12 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       document.removeEventListener('visibilitychange', onVis);
       document.removeEventListener('visibilitychange', onHidden);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      // Leave history as it was: step back off the run's own entry if it is still the current one.
+      if (onRunEntry()) history.back();
+      if (themeMeta && themeWas !== null) themeMeta.setAttribute('content', themeWas);
+      else themeOwn.remove();
+      window.clearTimeout(quitTimer);
       audio.setBed(null);
       pauseSound?.dispose();
       input.destroy();
