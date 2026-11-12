@@ -8,7 +8,7 @@
 
 import { HATCH, INK, MADDER, MOSS, OCHRE, OUTLINE, SPRUCE, capDpr, rng, type Colour, type Drawing, type Print, type Sprite } from './print.ts';
 
-export const NODE_IDS = ['tree', 'seam', 'carcass', 'plant'] as const;
+export const NODE_IDS = ['tree', 'seam', 'carcass', 'plant', 'chest'] as const;
 export type NodeId = (typeof NODE_IDS)[number];
 /** 0 untouched, 1-3 worked. After 3 comes the remnant. */
 export type NodeStage = 0 | 1 | 2 | 3;
@@ -239,6 +239,30 @@ export const stubble = (rich: boolean): Drawing => (p) => {
   lozenge(p, 16, 4);
   for (const x of rich ? [-11, -5, 1, 7, 12] : [-9, -2, 5, 10]) p.shape([x - 1.6, 0, x - 1.6, -5 - p.rnd() * 3, x + 1.6, -6, x + 1.6, 0], SPRUCE);
   litter(p, rich ? 7 : 5, SPRUCE, -19, 20, -2, 6);
+};
+
+// ---------------------------------------------------------------------- chest
+
+/** A strongbox. The lid lifts as it is worked. */
+export const chest = (_rich: boolean, d: NodeStage): Drawing => (p) => {
+  lozenge(p, 26, 6);
+  p.shape([-20, 0, -20, -17, 20, -17, 20, 0], OCHRE);
+  p.hatch([-20, 0, -20, -17, -9, -17, -9, 0], 88, 3);
+  p.line([9, -17, 9, 0], true);
+  p.at(-20, -17, -[0, 5, 11, 18][d]!, () => {
+    p.shape([0, 0, 3, -11, 37, -11, 40, 0], OCHRE);
+    p.hatch([0, 0, 3, -11, 12, -11, 11, 0], 88, 3);
+    p.line([29, -11, 29, 0], true);
+  });
+  p.shape([-3, -21, 3, -21, 4, -11, -4, -11], INK);
+};
+
+export const chestOpen = (_rich: boolean): Drawing => (p) => {
+  lozenge(p, 26, 6);
+  p.at(-20, -17, -62, () => p.shape([0, 0, 3, -11, 37, -11, 40, 0], OCHRE));
+  p.shape([-20, 0, -20, -17, 20, -17, 20, 0], OCHRE);
+  p.hatch([-20, 0, -20, -17, -9, -17, -9, 0], 88, 3);
+  p.flat([-16, -17, -13, -12, 13, -12, 16, -17], INK);
 };
 
 export const fibrePickup: Drawing = (p) => {

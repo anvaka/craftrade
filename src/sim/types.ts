@@ -119,7 +119,7 @@ export interface Pickup {
   claimed: number;
 }
 
-export const NODE_TREE = 0, NODE_SEAM = 1, NODE_CARCASS = 2, NODE_PLANT = 3;
+export const NODE_TREE = 0, NODE_SEAM = 1, NODE_CARCASS = 2, NODE_PLANT = 3, NODE_CHEST = 4;
 export interface ResNode {
   alive: boolean;
   x: number; y: number;
@@ -275,7 +275,9 @@ export type EventType =
   | 'tell' | 'eliteSpawn' | 'eliteDeath' | 'bossSpawn' | 'bossPhase' | 'bossDeath' | 'steal' | 'escape'
   | 'waveStart' | 'waveEnd' | 'shieldBreak' | 'secondWind' | 'burst' | 'slam' | 'death'
   // Outings: a: skill, b: xp, c: new level or 0 | a: threat stage | bag full | a: node type, b: level needed | a: how it ended.
-  | 'skill' | 'stage' | 'full' | 'locked' | 'left';
+  | 'skill' | 'stage' | 'full' | 'locked' | 'left'
+  // The lull after a wave: a: seconds, b: nodes standing, c: 1 if a chest stands | a chest opened: a: scrip in it.
+  | 'lull' | 'chest';
 
 /** One presentation event. Objects are reused; copy what you need before the next step. */
 export interface SimEvent { type: EventType; x: number; y: number; a: number; b: number; c: number; d: number }
@@ -295,6 +297,10 @@ export interface RunOptions {
   startWeapon?: string;
   /** Hazard level 0-5. 0 is the standard game; each level adds one rule (HAZARD_RULES). */
   hazard?: number;
+  /** Seconds of safe gathering after each wave but the last. 0 or absent: none (the standard game). */
+  lull?: number;
+  /** Gathering experience at the start, by node type (tree, seam, carcass). Only read when lull is set. */
+  skillXp?: readonly number[];
 }
 
 /** State of an outing: one visit to a zone to gather, ending at a camp, by recall or by death. */
@@ -340,6 +346,10 @@ export interface Run {
   w: number; h: number;
   /** Set for an outing (see outing.ts); null for a run of waves. */
   outing: Outing | null;
+  /** Length of the lull after each wave in seconds (0: none), and what is left of the one under way (0: fighting). */
+  lull: number; lullT: number;
+  /** Gathering experience by node type, and what this run has added. */
+  skillXp: Float64Array; skillGained: Float64Array;
   character: CharacterId;
   /** Hazard level 0-5. */
   hazard: number;

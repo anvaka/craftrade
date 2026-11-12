@@ -55,22 +55,23 @@ branch at `.../b/<branch with slashes as dashes>/`. One-time setup: Settings,
 Pages, "Deploy from a branch", `gh-pages`, `/ (root)`. All of these share one
 solo save, because they are one site to the browser.
 
-## The home wood (prototype)
+## Gathering prototypes
 
-The game is being reworked toward gathering and crafting; the plan is in
-`docs/design/pivot/`. The first slice is playable: **Scout** on the stash page,
-or `?outing` in the address (`?outing=7` for a fixed seed).
+The game is being reworked toward gathering and crafting; the plan and what
+has been learned are in `docs/design/pivot/`.
 
-An outing is one visit to a zone that is laid out afresh each time. It starts
-quiet at a camp. Trees, ore seams and plants are worked by standing in their
-ring; beasts leave a carcass to skin. Each kind has its own skill, and tier 2
-nodes ask for level 5. A threat meter fills with time and with the noise of
-work, and what it sends gets worse. Walking out at a camp keeps the whole bag,
-a recall keeps 60%, a fall keeps 30%. Skills and the store are kept on the
-device; the town does not use them yet.
+**Gather between waves** (the current test): **Try it** on the stash page
+starts a normal run with a 30 second lull after every wave but the last.
+Nothing comes during a lull, more nodes stand than can be reached, marks at
+the screen edge point to them (Ochre for rich ones, the largest for a chest),
+and a chest pays scrip, raws and an upgrade pick. Logging, Mining and Skinning
+gain experience from every node and each level works its node 6% faster. The
+run stays on the device and brings nothing home. Sim: `startLull` in
+`src/sim/world.ts`; test: `tests/lull.test.ts`.
 
-The sim is `src/sim/outing.ts`, the screen is `src/client/outing/`, and
-`tests/outing.test.ts` plays it headless.
+**The home wood** (tried and dropped as the core loop: it played as boring):
+`?outing` in the address opens a calm zone with camps, tiered nodes, a bag and
+a threat meter. Sim: `src/sim/outing.ts`; screen: `src/client/outing/`.
 
 ## Fusion and the model
 

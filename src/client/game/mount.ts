@@ -18,7 +18,7 @@ import { audio } from '../audio/index.ts';
 import { bedLevel } from '../audio/music.ts';
 import type { ItemSpec } from '../../shared/item.ts';
 import {
-  DT, ENEMIES, HAZARD_RULES, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
+  DT, ENEMIES, HAZARD_RULES, NODE_CHEST, SKILL_NAME, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
   createBot, createRun, nextWave, setCarry, step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
 import { fusedOf, killsOf, rec, record, replayOf, resumeInto } from '../../shared/replay.ts';
@@ -71,7 +71,7 @@ const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMe
 
 export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const t = host.ticket;
-  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0 } as Parameters<typeof createRun>[0]);
+  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0, lull: host.proto?.lull, skillXp: host.proto?.skillXp } as Parameters<typeof createRun>[0]);
   // The input log the town checks the report against. A run driven by the dev harness is not a real one and is not logged.
   if (!Object.keys(dev).length) record(run);
   // A run saved at a bench: play its log forward (a second or two) and stand at that bench again.
@@ -85,6 +85,8 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   // A phone may close the page without a word once it is in the background.
   const onHidden = (): void => { if (document.visibilityState === 'hidden') saveAtBench(); };
   document.addEventListener('visibilitychange', onHidden);
+  // For tests of the lull prototype.
+  if (host.proto) (window as unknown as { __run?: Run }).__run = run;
   const bot = dev.bot || dev.wave || dev.bench ? createBot((t.seed ^ 0x5bd1e995) >>> 0) : null;
   const botIn = { mx: 0, my: 0 };
 
@@ -122,6 +124,42 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const input = createInput(stage);
   const moveIn = { mx: 0, my: 0 };
   const hud = createHud(stage, sprites, run, () => setPaused(true));
+
+  // In a lull, every node off the screen has a mark at the edge pointing to it: plain Ink, rich Ochre, the chest largest.
+  // Without them a phone shows one node at a time and there is nothing to choose between.
+  if (run.lull > 0) {
+    renderer.over = (ctx, x0, y0, x1, y1) => {
+      if (run.lullT <= 0) return;
+      const z = renderer.zoom(), [it, ir, ib, il] = hud.insets();
+      const m = 22 / z;
+      const L = x0 + 90 + il / z + m, R = x1 - 90 - ir / z - m, T = y0 + 90 + it / z + m, B = y1 - 90 - ib / z - m;
+      if (R <= L || B <= T) return;
+      const cx = (L + R) / 2, cy = (T + B) / 2;
+      ctx.save();
+      ctx.lineJoin = 'miter';
+      ctx.lineWidth = 3 / z;
+      ctx.strokeStyle = '#1B2226';
+      for (const n of run.nodes) {
+        if (!n.alive || (n.x >= L && n.x <= R && n.y >= T && n.y <= B)) continue;
+        const dx = n.x - cx, dy = n.y - cy;
+        const k = Math.min(dx !== 0 ? (dx > 0 ? R - cx : L - cx) / dx : 1e9, dy !== 0 ? (dy > 0 ? B - cy : T - cy) / dy : 1e9);
+        const px = cx + dx * k, py = cy + dy * k, a = Math.atan2(dy, dx);
+        const chest = n.type === NODE_CHEST, s = (chest ? 15 : n.rich ? 11 : 8) / z;
+        ctx.fillStyle = chest || n.rich ? '#D99A2B' : '#D9D3BD';
+        ctx.beginPath();
+        ctx.moveTo(px + Math.cos(a) * s, py + Math.sin(a) * s);
+        ctx.lineTo(px + Math.cos(a + 2.45) * s, py + Math.sin(a + 2.45) * s);
+        ctx.lineTo(px + Math.cos(a - 2.45) * s, py + Math.sin(a - 2.45) * s);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        if (chest) {
+          const bx = px - Math.cos(a) * s * 1.5, by = py - Math.sin(a) * s * 1.5, h = 6 / z;
+          ctx.fillRect(bx - h, by - h, h * 2, h * 2); ctx.strokeRect(bx - h, by - h, h * 2, h * 2);
+        }
+      }
+      ctx.restore();
+    };
+  }
 
   type State = 'wave' | 'clear' | 'bench' | 'beat' | 'end' | 'done';
   let state: State = 'wave';
@@ -304,6 +342,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       damageBy: Object.entries(s.damageBy).sort((a, b) => b[1] - a[1]).map(([id, damage]) => ({ id, name: sourceName(id), damage, tier: run.player.weapons.filter((w) => w.id === id).reduce((t, w) => Math.max(t, w.tier), 0) || undefined })),
       damageTaken: s.damageTaken,
       rawsGathered: s.rawsGathered,
+      ...(run.lull > 0 ? { skillXp: Array.from(run.skillXp) } : {}),
       items: run.player.items.slice(),
       carried,
       nearMiss: nearMiss(),
@@ -327,6 +366,16 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
           if (def) hud.notice(`Wave ${ev.a}`, def.brief, !!def.elite, 3.6);
           break;
         }
+        case 'lull':
+          hud.card('Cleared', `${Math.round(ev.a)} seconds to gather`, ev.c ? 'A chest stands somewhere out there. You will not reach everything.' : 'Nothing will come. You will not reach everything.', 'paid', 4);
+          break;
+        case 'chest':
+          audio.play('paid');
+          hud.notice('Chest', `${ev.a} scrip, raws, and one more upgrade pick at the bench.`, false, 4);
+          break;
+        case 'skill':
+          if (ev.c > 0) { audio.play('levelUp'); hud.notice(`${SKILL_NAME[ev.a]} ${ev.c}`, 'You work that kind of node 6% faster.', false, 3.4); }
+          break;
         case 'hurt':
           hud.hurt();
           if (teachKeep) keepArmed = true;

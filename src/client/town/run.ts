@@ -7,6 +7,7 @@ import type { FuseOutcome, MountRun, RunHandle, RunRecap, RunSave } from '../sea
 import { ApiFail, api, asFail, currentWorld } from './api.ts';
 import { sprites } from './dom.ts';
 import { showHomecoming } from './homecoming.ts';
+import { bankSkills, loadOuting } from '../outing/store.ts';
 import { loadTab, showRun, showTown, watchReach } from './shell.ts';
 import { app, hazardNow, redraw, say, savePrefs, sayFail, setProfile } from './state.ts';
 
@@ -17,6 +18,8 @@ export interface Launch {
   character: CharacterId;
   kit: string[];
   hazard: number;
+  /** The lull prototype (see RunHost.proto). Such a run is never reported to the town. */
+  proto?: { lull: number; skillXp: number[] };
 }
 
 /** How a finished run was received by the town. */
@@ -134,6 +137,26 @@ function localTicket(character: CharacterId): RunStartRes {
   };
 }
 
+/** Seconds of safe gathering after each wave in the lull prototype. */
+export const LULL_SECONDS = 30;
+
+/** The lull prototype: a run on this device only, with a stretch of safe gathering after every wave. */
+export async function headOutLull(): Promise<void> {
+  if (starting || handle) return;
+  starting = true;
+  let mount: MountRun;
+  try {
+    mount = await loadMountRun();
+  } catch (e) {
+    starting = false;
+    sayFail('Run', e);
+    return;
+  }
+  dropSavedRun();
+  const launch: Launch = { mode: 'run', character: app.character, kit: [], hazard: 0, proto: { lull: LULL_SECONDS, skillXp: loadOuting().xp.slice(0, 3) } };
+  play(mount, localTicket(launch.character), launch, false);
+}
+
 /** Start a run with the current choices. One press from town or from the homecoming. */
 export async function headOut(mode: Mode = 'run'): Promise<void> {
   if (starting || handle) return;
@@ -228,6 +251,7 @@ function play(mount: MountRun, t: RunStartRes, launch: Launch, firstRun: boolean
     if (ended) return;
     ended = true;
     dropSavedRun();
+    if (recap.skillXp) bankSkills(recap.skillXp);
     report = local ? Promise.resolve<Report>({ state: 'local' }) : sendReport(t.runId, recap);
     // Let the game half finish its own callback before it is torn down.
     setTimeout(() => {
@@ -266,7 +290,7 @@ function play(mount: MountRun, t: RunStartRes, launch: Launch, firstRun: boolean
   };
 
   try {
-    handle = mount({ root, sprites: sprites(), ticket: t, mode, firstRun, fuse, onEnd, onQuit, onSave, resume });
+    handle = mount({ root, sprites: sprites(), ticket: t, mode, firstRun, fuse, onEnd, onQuit, onSave, resume, proto: launch.proto });
   } catch (e) {
     console.error(e);
     handle = null;

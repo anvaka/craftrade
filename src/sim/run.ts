@@ -17,7 +17,7 @@ import { buildZone, newOuting, OUTING, outingDirect, outingNodes, outingOver, ou
 import { seedStreams } from './rng.ts';
 import type { Enemy, EShot, Hazard, Pickup, ResNode, Run, RunOptions, Shot, SimEvent } from './types.ts';
 import { makeWeapon, updateShots, updateWeapons } from './weapons.ts';
-import { endWave, startWave, updateNodes, updatePickups } from './world.ts';
+import { endWave, startLull, startWave, updateNodes, updatePickups } from './world.ts';
 
 /** Player input for one tick: a direction with length 0..1. Longer vectors are normalised. */
 export interface StepInput { mx: number; my: number }
@@ -41,7 +41,7 @@ const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0, c: 0, d
 
 /** Start a run. The first wave is already under way when this returns. */
 export function createRun(opts: RunOptions): Run {
-  const run = newRun(opts, ARENA_W, ARENA_H, MAX_NODES);
+  const run = newRun(opts, ARENA_W, ARENA_H, opts.lull ? 24 : MAX_NODES);
   startWave(run);
   return run;
 }
@@ -83,7 +83,8 @@ function newRun(opts: RunOptions, W: number, H: number, nodeCount: number): Run 
   let relics = 0;
   const kit = (opts.kit ?? []).slice(0, KIT_SLOTS).filter((k) => k.relic !== true || (Object.hasOwn(RELIC, k.id) && ++relics === 1));
   const run: Run = {
-    seed: opts.seed >>> 0, w: W, h: H, outing: null, character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
+    seed: opts.seed >>> 0, w: W, h: H, outing: null, lull: Math.max(0, Math.min(120, Number(opts.lull) || 0)), lullT: 0,
+    skillXp: Float64Array.from([0, 1, 2], (i) => (opts.lull ? Math.max(0, Number(opts.skillXp?.[i]) || 0) : 0)), skillGained: new Float64Array(3), character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
     stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1, ...(opts.stations ?? {}) },
     rng: seedStreams(opts.seed), tick: 0, phase: 'wave', wave: 0, waveTime: 0, waveSeconds: 0, wavesCleared: 0, won: false,
     player: {
@@ -138,7 +139,8 @@ export function step(run: Run, input: StepInput): void {
   if (p.mendPerSec > 0 && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.mendPerSec * DT);
 
   const out = run.outing !== null;
-  if (out) outingDirect(run); else direct(run);
+  const lull = run.lullT > 0;
+  if (out) outingDirect(run); else if (!lull) direct(run);
   buildGrid(run);
   updateEnemies(run);
   if (run.phase === 'wave') updateHazards(run);
@@ -151,7 +153,13 @@ export function step(run: Run, input: StepInput): void {
   updateNodes(run);
   updatePickups(run);
 
-  if (run.bossDead || run.waveTime >= run.waveSeconds) endWave(run);
+  if (lull) {
+    run.lullT -= DT;
+    if (run.lullT <= 0) { run.lullT = 0; endWave(run); }
+  } else if (run.bossDead || run.waveTime >= run.waveSeconds) {
+    // A lull follows every wave but the last: the fight stops and the clearing can be worked in peace.
+    if (run.lull > 0 && run.wave < run.totalWaves) startLull(run); else endWave(run);
+  }
 }
 
 /** Leave the bench and start the next wave. Unspent upgrade picks carry over. */

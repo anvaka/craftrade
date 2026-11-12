@@ -865,7 +865,7 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     push(K_PLAYER, 0, px, py);
     self.drawn = items;
 
-    const nodeIds = ['tree', 'seam', 'carcass', 'plant'] as const;
+    const nodeIds = ['tree', 'seam', 'carcass', 'plant', 'chest'] as const;
     for (let b = 0; b < bucketCount; b++) {
       for (let it = head[b]; it >= 0; it = next[it]) {
         const x = itemX[it], y = itemY[it], idx = itemIdx[it];

@@ -171,9 +171,11 @@ export function createHud(stage: HTMLElement, sprites: Sprites, run: Run, onPaus
     const xv = Math.round(Math.min(1, p.xp / p.xpNext) * 40) / 40;
     if (xv !== xpV) { xp.style.setProperty('--v', String(xv)); xpV = xv; }
 
-    const wt = `Wave ${run.wave} of ${run.totalWaves}`;
+    // In the lull after a wave the clock is the time left to gather.
+    const lull = run.lullT > 0;
+    const wt = lull ? 'Gather' : `Wave ${run.wave} of ${run.totalWaves}`;
     if (wt !== waveText) { waveLabel.textContent = wt; waveText = wt; }
-    const tt = clock(run.waveSeconds - run.waveTime);
+    const tt = clock(lull ? run.lullT : run.waveSeconds - run.waveTime);
     if (tt !== timeText) { waveTime.textContent = tt; timeText = tt; }
 
     // Counters tick toward their value and flash Ink when it changes.

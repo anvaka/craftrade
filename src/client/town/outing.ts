@@ -3,6 +3,7 @@
 import { loadOuting } from '../outing/store.ts';
 import { SKILL_NAME, skillLevel } from '../../sim/index.ts';
 import { el, sprites, stamp } from './dom.ts';
+import { headOutLull, LULL_SECONDS } from './run.ts';
 import { showRun, showTown } from './shell.ts';
 import { app } from './state.ts';
 
@@ -23,13 +24,14 @@ export async function scout(seed?: number): Promise<void> {
   }
 }
 
-/** The home wood on the stash page: what the skills stand at, and the way out. */
+/** The prototype on the stash page: a run with a stretch of safe gathering after every wave. */
 export function outingSection(): HTMLElement {
   const s = loadOuting();
-  const levels = SKILL_NAME.map((n, i) => `${n} ${skillLevel(s.xp[i])}`).join(', ');
+  const levels = SKILL_NAME.slice(0, 3).map((n, i) => `${n} ${skillLevel(s.xp[i])}`).join(', ');
   return el('section', 'section outing',
-    el('h2', '', 'The home wood'),
+    el('h2', '', 'Try: gather between waves'),
     el('div', 'bar',
-      el('div', 'bar-text', el('strong', '', 'Gather, then get out. '), s.outings > 0 ? `${levels}. ` : '', el('span', 'note', 'A first look at the gathering game: quiet at first, 5 to 10 minutes.')),
-      stamp('Scout', { cls: 'stamp--plain', key: 'scout', sound: 'waveStart', onClick: () => void scout() })));
+      el('div', 'bar-text', el('strong', '', `${LULL_SECONDS} quiet seconds after every wave. `), `More nodes than you can reach, sometimes a chest, and ${levels}. `,
+        el('span', 'note', 'A test: this run stays on this device and brings nothing home.')),
+      stamp('Try it', { cls: 'stamp--plain', key: 'scout', sound: 'waveStart', onClick: () => void headOutLull() })));
 }

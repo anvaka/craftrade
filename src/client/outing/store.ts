@@ -28,6 +28,13 @@ export function loadOuting(): OutingSave {
   }
 }
 
+/** Write down gathering experience from a run with lulls (tree, seam, carcass). */
+export function bankSkills(xp: readonly number[]): void {
+  const s = loadOuting();
+  for (let i = 0; i < 3; i++) s.xp[i] = Math.max(s.xp[i], Number(xp[i]) || 0);
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode */ }
+}
+
 /** Add an outing's haul to the store and write it down. */
 export function bankHaul(h: Haul): OutingSave {
   const s = loadOuting();

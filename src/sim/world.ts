@@ -14,7 +14,8 @@ import { openBench } from './bench.ts';
 import { damageEnemy, emit, gainScrip, killEnemy, RAW_OF_KIND, rebuild, SP, spawnEnemy, spawnPickup, ST, targetable } from './core.ts';
 import { LANE_MOUTHS } from './enemies.ts';
 import { rnd, Stream } from './rng.ts';
-import { NODE_CARCASS, NODE_TREE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
+import { skillLevel } from './outing.ts';
+import { NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
 import { fireShot } from './weapons.ts';
 
 export const NODE_IDS = ['tree', 'seam', 'carcass'] as const;
@@ -44,7 +45,7 @@ function placeNodes(run: Run): void {
     if (type === NODE_CARCASS && ch.carcassMul) want = Math.max(1, want) * ch.carcassMul;
     for (let k = have[type]; k < want && live < MAX_LIVE_NODES; k++) {
       let slot: ResNode | null = null;
-      for (let i = 0; i < MAX_NODES; i++) if (!run.nodes[i].alive) { slot = run.nodes[i]; break; }
+      for (let i = 0; i < run.nodes.length; i++) if (!run.nodes[i].alive) { slot = run.nodes[i]; break; }
       if (!slot) return;
       let x = 0, y = 0, ok = false;
       // Decided before the spot is chosen: the richer the node, the nearer the lane mouth it stands.
@@ -121,16 +122,20 @@ function callPack(run: Run, n: ResNode): void {
 export function updateNodes(run: Run): void {
   const p = run.player;
   p.workingNode = -1;
-  for (let i = 0; i < MAX_NODES; i++) {
+  for (let i = 0; i < run.nodes.length; i++) {
     const n = run.nodes[i];
     if (!n.alive) continue;
     const dx = p.x - n.x, dy = p.y - n.y;
     n.working = p.workingNode === -1 && dx * dx + dy * dy <= NODE_RING * NODE_RING;
     if (!n.working) { if (n.work > 0) n.work = Math.max(0, n.work - NODE_DECAY * DT); continue; }
     p.workingNode = i;
-    const rate = p.workRate * (hasTool(run, n.type) ? 2 : 1) * DT;
+    // A skill level is 6% faster work on its kind of node.
+    const skill = run.lull > 0 && n.type < 3 ? 1 + 0.06 * (skillLevel(run.skillXp[n.type]) - 1) : 1;
+    const rate = p.workRate * (n.type < 3 && hasTool(run, n.type) ? 2 : 1) * skill * DT;
     n.work += rate; n.tickAcc += rate; n.noise += rate;
-    if (n.noise >= NOISE_EVERY && run.wave >= NOISE_FROM_WAVE) { n.noise -= NOISE_EVERY; callPack(run, n); }
+    // Nothing hears work during a lull.
+    if (run.lullT > 0) n.noise = 0;
+    else if (n.noise >= NOISE_EVERY && run.wave >= NOISE_FROM_WAVE) { n.noise -= NOISE_EVERY; callPack(run, n); }
     if (n.tickAcc >= WORK_TICK) { n.tickAcc -= WORK_TICK; emit(run, 'work', n.x, n.y, n.type); }
     if (n.work >= n.need) {
       // Seed corn: the first break of a node in a wave leaves it standing, unworked.
@@ -138,7 +143,14 @@ export function updateNodes(run: Run): void {
       else n.alive = false;
       n.working = false;
       p.workingNode = -1;
+      if (n.type === NODE_CHEST) { n.alive = false; openChest(run, n.x, n.y); continue; }
       breakNode(run, n.x, n.y, n.type, n.rich, nodeYield(run, n.type, n.rich));
+      if (run.lull > 0 && n.type < 3) {
+        const before = skillLevel(run.skillXp[n.type]), gain = n.rich ? LULL.xpRich : LULL.xp;
+        run.skillXp[n.type] += gain; run.skillGained[n.type] += gain;
+        const after = skillLevel(run.skillXp[n.type]);
+        emit(run, 'skill', n.x, n.y, n.type, gain, after > before ? after : 0);
+      }
     }
   }
   // The rotwood is a tree that walks. Work it while it lives.
@@ -161,6 +173,85 @@ export function updateNodes(run: Run): void {
       }
     }
   }
+}
+
+/** The lull: how many nodes stand, what a chest holds, what a node teaches. */
+export const LULL = {
+  nodes: 9,
+  richChance: 0.35,
+  /** Rich nodes and the chest stand at least this far from where the player is when the fight stops. */
+  farFrom: 620,
+  chestFromWave: 2,
+  chestChance: 0.5,
+  chestWork: 2.5,
+  chestScrip: [8, 5] as readonly [number, number],
+  chestRaws: 2,
+  xp: 10, xpRich: 28,
+} as const;
+
+/** A chest pays scrip, a few raws of each kind, and one upgrade pick at the bench. */
+function openChest(run: Run, x: number, y: number): void {
+  const scrip = LULL.chestScrip[0] + LULL.chestScrip[1] * run.wave;
+  const part = Math.ceil(scrip / 5);
+  for (let i = 0; i < 5; i++) spawnPickup(run, x, y, PK_SCRIP, part, 200);
+  for (let k = 0; k < 3; k++) for (let i = 0; i < LULL.chestRaws; i++) spawnPickup(run, x, y, PK_TIMBER + k, 1, 170);
+  run.bench.picks++;
+  emit(run, 'chest', x, y, part * 5);
+  emit(run, 'break', x, y, NODE_CHEST, 0);
+}
+
+/** The fight stops. What is still in the clearing leaves, and the clearing fills with more than can be worked in the time. */
+export function startLull(run: Run): void {
+  const p = run.player;
+  for (let i = 0; i < MAX_ENEMIES; i++) {
+    const e = run.enemies[i];
+    if (!e.alive) continue;
+    if (e.loot0 > 0) p.bank += e.loot0;
+    if (e.loot1 > 0) grant(run, 1, e.loot1);
+    if (e.loot2 > 0) grant(run, 2, e.loot2);
+    if (e.loot3 > 0) grant(run, 3, e.loot3);
+    killEnemy(run, i, false);
+  }
+  for (let i = 0; i < MAX_SHOTS; i++) run.shots[i].alive = false;
+  for (let i = 0; i < MAX_ESHOTS; i++) run.eshots[i].alive = false;
+  for (let i = 0; i < MAX_HAZARDS; i++) run.hazards[i].alive = false;
+  run.burstN = 0;
+  run.lullT = run.lull;
+  const r = (): number => rnd(run.rng, Stream.Spawn);
+  let live = 0;
+  for (const n of run.nodes) if (n.alive) live++;
+  const place = (type: number, rich: boolean, far: boolean): boolean => {
+    for (let tries = 0; tries < 30; tries++) {
+      const x = 90 + r() * (run.w - 180), y = 90 + r() * (run.h - 180);
+      const dx = x - p.x, dy = y - p.y, d2 = dx * dx + dy * dy;
+      if (far ? d2 < LULL.farFrom * LULL.farFrom : d2 < 220 * 220) continue;
+      let ok = true;
+      for (const o of run.nodes) {
+        if (!o.alive) continue;
+        const ox = o.x - x, oy = o.y - y;
+        if (ox * ox + oy * oy < 210 * 210) { ok = false; break; }
+      }
+      if (!ok) continue;
+      for (const n of run.nodes) {
+        if (n.alive) continue;
+        n.alive = true; n.x = x; n.y = y; n.type = type; n.rich = rich; n.tier = 1;
+        n.work = 0; n.need = type === NODE_CHEST ? LULL.chestWork : rich ? NODE_WORK_RICH : NODE_WORK;
+        n.working = false; n.tickAcc = 0; n.regrown = false; n.noise = 0;
+        return true;
+      }
+      return false;
+    }
+    return false;
+  };
+  let chest = 0;
+  // An elite's wave always leaves a chest; other waves, a coin toss.
+  const def = WAVES[run.plan[run.wave - 1] - 1];
+  if (run.wave >= LULL.chestFromWave && (def.elite || r() < LULL.chestChance) && place(NODE_CHEST, false, true)) chest = 1;
+  for (let k = 0; live < LULL.nodes && k < LULL.nodes; k++) {
+    const rich = r() < LULL.richChance;
+    if (place(k % 3, rich, rich)) live++;
+  }
+  emit(run, 'lull', p.x, p.y, run.lull, live, chest);
 }
 
 export function updatePickups(run: Run): void {
@@ -234,13 +325,15 @@ export function startWave(run: Run): void {
   p.hp = run.hazard >= 3 && run.wave > 1 ? Math.min(p.maxHp, p.hp + (p.maxHp - p.hp) / 2) : p.maxHp;
   p.shield = p.sp[SP.waveShield];
   for (let i = 0; i < p.weapons.length; i++) { p.weapons[i].cd = 0.25 + i * 0.07; p.weapons[i].swing = 0; }
-  for (let i = 0; i < MAX_NODES; i++) run.nodes[i].regrown = false;
+  for (let i = 0; i < run.nodes.length; i++) run.nodes[i].regrown = false;
   placeNodes(run);
   emit(run, 'waveStart', p.x, p.y, run.wave, run.plan[run.wave - 1]);
 }
 
 export function endWave(run: Run): void {
   const p = run.player, ch = CHARACTER[run.character];
+  // A chest not reached in the lull is gone.
+  for (const n of run.nodes) if (n.alive && n.type === NODE_CHEST) n.alive = false;
   // Magpies still in the clearing drop what they took.
   for (let i = 0; i < MAX_ENEMIES; i++) {
     const e = run.enemies[i];

@@ -1,6 +1,7 @@
 # Pivot plan: from wave arena to a gathering and crafting world
 
-Status: proposal, nothing built. Research behind it is in this folder:
+Status: step 1 was built and played, and it failed its test. See "What step 1
+taught" at the end; the loop below is being revised, the town half stands. Research behind it is in this folder:
 `research-new-world.md`, `research-comparables.md`, `research-ai-economy.md`.
 Caveat on the research: most wikis and dev blogs were blocked by this
 session's network rules, so numbers come from search summaries or memory and
@@ -246,3 +247,31 @@ answer before going on.
 3. **Is step 1 the right first test?** It is the cheapest way to find out
    whether calm gathering in 2D holds your attention before the rest is
    built.
+
+## What step 1 taught
+
+The one-zone outing was built (`?outing`) and the owner played it on a phone.
+Verdict: extremely boring, on every count: the gathering itself, the lack of
+anything happening, and having no reason to collect.
+
+Why, as far as can be told:
+
+- Standing in a ring asks for no decision, no skill and no risk.
+- Calm with nothing in it is empty. The pull of the old game was pressure.
+- Nothing grows during an outing: no level-ups, no new weapons.
+- No surprises.
+
+So the expedition is dropped as the core loop. The fight stays the heart of
+the game and the New World layer goes around and inside it:
+
+- The run keeps its waves, level-ups and bench. After each wave comes a short
+  lull with a countdown: nothing attacks, more nodes stand than can be
+  reached, and which to go for is the decision.
+- Chests appear in lulls and pay an upgrade pick.
+- Gathering skills level during runs.
+- Zones become arenas by tier, entered with charts.
+- Refining, crafting from patterns and materials, station tiers, the house
+  and the model's three jobs are unchanged.
+
+The first slice of this is built as "Try it" on the stash page (device only).
+The question it has to answer is the same: is it more fun than a plain run?

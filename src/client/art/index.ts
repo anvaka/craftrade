@@ -41,7 +41,7 @@ import { CHARACTER_IDS, boar, brute, burrower, gnat, magpie, mite, player, rotwo
 import { GLYPH_ICON, ICON_UNIT, MISC_ICON, RAW_ICON, STATION_ICON, STATION_IDS, STAT_ICON, WEAPON_ICON, WEAPON_IDS, type StationId, type WeaponId } from './icons.ts';
 import { INK, MADDER, OCHRE, SPRUCE, bake, capDpr, type Drawing, type Sprite } from './print.ts';
 import {
-  NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chip, fibrePickup, hidePickup, plant, stubble, hurtTick, orePickup,
+  NODE_IDS, arrowShot, axeShot, bakeFloor, bakeTreeline, ballShot, bolaShot, bones, carcass, chest, chestOpen, chip, fibrePickup, hidePickup, plant, stubble, hurtTick, orePickup,
   playerGround, playerHead, pointer, rubble, scripToken, seam, shardShot, spitShot, stoneShot, stump, sweepArc, thrustArc, timberPickup, tree,
   type NodeId, type NodeStage,
 } from './world.ts';
@@ -136,6 +136,7 @@ export function bakeAll(devicePixelRatio = 1): Sprites {
     seam: [seam, rubble],
     carcass: [carcass, bones],
     plant: [plant, stubble],
+    chest: [chest, chestOpen],
   };
   const node = {} as Record<NodeId, NodeSprites>;
   for (const id of NODE_IDS) {

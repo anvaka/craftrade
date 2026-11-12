@@ -97,14 +97,14 @@ export {
 export type { FuseQuote } from './bench.ts';
 export { ST, SP, CLASSES, xpForLevel, weaponSlots, HIT_TOUCH, HIT_SHOT, HIT_SLAM, HIT_CHARGE, HIT_SHARD } from './core.ts';
 export { weaponRange, weaponDamage, weaponCooldown } from './weapons.ts';
-export { nodeYield, NODE_IDS } from './world.ts';
+export { nodeYield, NODE_IDS, LULL } from './world.ts';
 export {
   SKILLS, SKILL_NAME, OUTING_NODE, MATERIALS, matIndex, PK_MAT, OUTING, STAGE_NAME, xpToNext, skillLevel, skillProgress,
   bagUsed, bagCount, nodeLocked, leaveOuting, haul,
 } from './outing.ts';
 export type { MaterialDef, Haul } from './outing.ts';
 export { LANE_MOUTHS, TELL_CHARGE, TELL_SPIT, TELL_SLAM, TELL_SURFACE, TELL_SUMMON } from './enemies.ts';
-export { ES, HZ_RING, HZ_SHARD, PK_SCRIP, PK_TIMBER, PK_ORE, PK_HIDE, NODE_TREE, NODE_SEAM, NODE_CARCASS, NODE_PLANT } from './types.ts';
+export { ES, HZ_RING, HZ_SHARD, PK_SCRIP, PK_TIMBER, PK_ORE, PK_HIDE, NODE_TREE, NODE_SEAM, NODE_CARCASS, NODE_PLANT, NODE_CHEST } from './types.ts';
 export type {
   Run, RunOptions, Player, Enemy, Shot, EShot, Pickup, ResNode, Hazard, WeaponState, Bench, Offer, OfferKind,
   UpgradeChoice, SimEvent, EventType, EventQueue, Phase, Outing,
