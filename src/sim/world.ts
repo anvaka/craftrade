@@ -11,11 +11,12 @@ import {
 import { MULE_AFTER, PLAN_PACE, WAVES } from './data/waves.ts';
 import { SRC_SHARDS, WEAPONS } from './data/weapons.ts';
 import { openBench } from './bench.ts';
-import { damageEnemy, emit, gainScrip, killEnemy, RAW_OF_KIND, rebuild, SP, spawnEnemy, spawnPickup, ST, targetable } from './core.ts';
+import { clampX, clampY, damageEnemy, emit, gainScrip, killEnemy, RAW_OF_KIND, rebuild, SP, spawnEnemy, spawnNode, spawnPickup, ST, targetable } from './core.ts';
 import { LANE_MOUTHS } from './enemies.ts';
 import { rnd, Stream } from './rng.ts';
+import { doorShut, forgeWin, nodeKind, takeForge } from './forge.ts';
 import { skillLevel } from './outing.ts';
-import { ES, NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_RARE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
+import { ES, NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
 import { fireShot } from './weapons.ts';
 
 export const NODE_IDS = ['tree', 'seam', 'carcass'] as const;
@@ -71,9 +72,25 @@ function placeNodes(run: Run): void {
       }
       if (!ok) continue;
       slot.alive = true; slot.x = x; slot.y = y; slot.type = type;
-      slot.rich = rich; slot.tier = 1; slot.noise = 0;
+      // In the fen most nodes are of the fen, and want a tool of the fen to open.
+      const t2 = !!run.forge && run.forge.zone >= 2 && type < 3 && rnd(run.rng, Stream.Spawn) < 0.55;
+      slot.rich = rich || t2; slot.tier = t2 ? 2 : 1; slot.noise = 0;
       slot.work = 0; slot.need = slot.rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0; slot.regrown = false;
       live++;
+    }
+  }
+  // In the home wood one tier 2 node stands each wave from the second: a door for the tool that opens it.
+  if (run.forge && run.forge.zone < 2 && run.wave >= 2 && !run.nodes.some((n) => n.alive && n.tier > 1)) {
+    const type = Math.floor(rnd(run.rng, Stream.Spawn) * 3);
+    for (let tries = 0; tries < 20; tries++) {
+      const x = 140 + rnd(run.rng, Stream.Spawn) * (run.w - 280), y = 140 + rnd(run.rng, Stream.Spawn) * (run.h - 280);
+      const dx = x - run.w / 2, dy = y - run.h / 2;
+      if (dx * dx + dy * dy < 300 * 300 || run.nodes.some((n) => n.alive && (n.x - x) ** 2 + (n.y - y) ** 2 < 200 * 200)) continue;
+      if (spawnNode(run, x, y, type, true)) {
+        const n = run.nodes.find((m) => m.alive && m.x === clampX(run, x) && m.y === clampY(run, y));
+        if (n) { n.tier = 2; n.need = NODE_WORK; }
+      }
+      break;
     }
   }
 }
@@ -89,11 +106,12 @@ function throwShards(run: Run, x: number, y: number): void {
   }
 }
 
-function breakNode(run: Run, x: number, y: number, type: number, rich: boolean, base: number): void {
+function breakNode(run: Run, x: number, y: number, type: number, rich: boolean, base: number, kind = PK_TIMBER + type): void {
   const p = run.player;
   let n = base;
   if (p.sp[SP.richNodes] > 0 && rnd(run.rng, Stream.Drop) * 100 < p.sp[SP.richNodes]) n *= 2;
-  for (let k = 0; k < n; k++) spawnPickup(run, x, y, PK_TIMBER + type, 1, 170);
+  for (let k = 0; k < n; k++) spawnPickup(run, x, y, kind, 1, 170);
+  if (kind !== PK_TIMBER + type) emit(run, 'glint', x, y, 2, kind);
   const heal = p.sp[SP.nodeHeal] + (CHARACTER[run.character].nodeHeal ?? 0);
   if (heal > 0) p.hp = Math.min(p.maxHp, p.hp + heal);
   throwShards(run, x, y);
@@ -127,6 +145,11 @@ export function updateNodes(run: Run): void {
     if (!n.alive) continue;
     const dx = p.x - n.x, dy = p.y - n.y;
     n.working = p.workingNode === -1 && dx * dx + dy * dy <= NODE_RING * NODE_RING;
+    // A tool door: a tier 2 node opens only to a tool of its kind at tier 2.
+    if (n.working && doorShut(run, n.type, n.tier)) {
+      n.working = false;
+      if (run.tick % 150 === 0) emit(run, 'locked', n.x, n.y, n.type, n.tier);
+    }
     if (!n.working) { if (n.work > 0) n.work = Math.max(0, n.work - NODE_DECAY * DT); continue; }
     p.workingNode = i;
     // A skill level is 6% faster work on its kind of node.
@@ -144,7 +167,8 @@ export function updateNodes(run: Run): void {
       n.working = false;
       p.workingNode = -1;
       if (n.type === NODE_CHEST) { n.alive = false; openChest(run, n.x, n.y); continue; }
-      breakNode(run, n.x, n.y, n.type, n.rich, nodeYield(run, n.type, n.rich));
+      if (n.tier > 1 && run.forge) breakNode(run, n.x, n.y, n.type, n.rich, nodeYield(run, n.type, false), nodeKind(n.type, n.tier));
+      else breakNode(run, n.x, n.y, n.type, n.rich, nodeYield(run, n.type, n.rich));
       if (run.lull > 0 && n.type < 3) {
         const before = skillLevel(run.skillXp[n.type]), gain = n.rich ? LULL.xpRich : LULL.xp;
         run.skillXp[n.type] += gain; run.skillGained[n.type] += gain;
@@ -307,7 +331,7 @@ export function updatePickups(run: Run): void {
 function collect(run: Run, kind: number, value: number): void {
   const p = run.player;
   if (kind === PK_SCRIP) gainScrip(run, value);
-  else if (kind >= PK_RARE) run.rare[kind - PK_RARE] += value;
+  else if (takeForge(run, kind, value)) { /* a forge drop */ }
   else {
     const raw = RAW_OF_KIND[kind]!;
     p.raws[raw] += value;
@@ -397,6 +421,7 @@ export function endWave(run: Run): void {
   if (run.wave >= run.totalWaves) {
     run.phase = 'over';
     run.won = true;
+    forgeWin(run);
     return;
   }
   run.phase = 'bench';
@@ -404,7 +429,7 @@ export function endWave(run: Run): void {
 }
 
 function grant(run: Run, kind: number, value: number): void {
-  if (kind >= PK_RARE) { run.rare[kind - PK_RARE] += value; return; }
+  if (takeForge(run, kind, value)) return;
   const raw = RAW_OF_KIND[kind]!;
   run.player.raws[raw] += value;
   run.gathered[raw] += value;

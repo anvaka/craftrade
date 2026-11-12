@@ -179,7 +179,8 @@ function rollOffers(run: Run): void {
     if (o.locked && !o.sold) continue;
     o.locked = false; o.sold = false;
     // The first offer is the rack: always a weapon. The first two benches rack two.
-    const weapon = i === 0 || (b.index <= 2 ? i < 2 : rnd(run.rng, Stream.Bench) >= BENCH_ITEM_SHARE);
+    // A forge run sells no weapons: what you fight with was made at home.
+    const weapon = !run.forge && (i === 0 || (b.index <= 2 ? i < 2 : rnd(run.rng, Stream.Bench) >= BENCH_ITEM_SHARE));
     if (weapon) rollWeaponOffer(run, o, i === 0); else rollItemOffer(run, o, i);
   }
 }
@@ -294,7 +295,7 @@ export function addWeapon(run: Run, def: number, tier: number): boolean {
 /** Index of a held twin of weapon i (same weapon, same tier, below tier 4), or -1. */
 export function twinOf(run: Run, i: number): number {
   const ws = run.player.weapons, w = ws[i];
-  if (!w || w.tier >= 4) return -1;
+  if (!w || w.tier >= 4 || w.tier >= w.cap) return -1;
   for (let k = 0; k < ws.length; k++) if (k !== i && ws[k].def === w.def && ws[k].tier === w.tier) return k;
   return -1;
 }
@@ -322,6 +323,7 @@ export function tierUpBlock(run: Run, i: number): string | null {
   const w = run.player.weapons[i];
   if (run.phase !== 'bench' || !w) return 'Not at the bench.';
   if (w.tier >= 4) return 'Already tier 4.';
+  if (w.tier >= w.cap) return `Made at tier ${w.cap - 1}: a run can raise it one tier, no more.`;
   if (w.tier + 1 > maxTierAt(run.bench.index)) return 'The bench cannot work that tier yet.';
   if (run.player.scrip < tierUpCost(run, i)) return 'Not enough scrip.';
   return null;

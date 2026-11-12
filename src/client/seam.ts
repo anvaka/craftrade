@@ -9,6 +9,7 @@
 import type { ItemSpec } from '../shared/item.ts';
 import type { FuseRes, RunEndReq, RunStartRes } from '../shared/protocol.ts';
 import type { Sprites } from './art/index.ts';
+import type { ForgeOptions, RunSummary } from '../sim/index.ts';
 
 /** What the run recap needs beyond the server report. Mirrors sim summary(). */
 export interface RunRecap {
@@ -20,8 +21,8 @@ export interface RunRecap {
   damageBy: { id: string; name: string; damage: number; tier?: number }[];
   damageTaken: number;
   rawsGathered: { timber: number; ore: number; hide: number };
-  /** Loot runs: rare materials held by kind, and schematic indexes found. */
-  loot?: { rare: number[]; found: number[] };
+  /** Forge runs: what the run brought for the town. */
+  forge?: NonNullable<RunSummary['forge']>;
   /** Gathering experience at the end, when the run had lulls. */
   skillXp?: number[];
   /** Items held at the end, for the recap. */
@@ -48,16 +49,14 @@ export interface RunSave {
   wave: number;
 }
 
-/** The loot prototype, as the run needs it. */
-export interface LootProto {
-  /** Schematic names, by the index the sim rolls; and which are already known. */
-  schematics: string[];
-  known: boolean[];
-  /** Rare material names by kind (PK_RARE + i). */
-  rares: string[];
-  weapons: { id: string; tier: number }[];
-  /** The craft the strip counts toward: raws still wanted, with what is already at home. */
-  goal: { name: string; needs: { label: string; kind: number; need: number; home: number }[] } | null;
+/** The forge game, as the run needs it. */
+export interface ForgeProto {
+  run: ForgeOptions;
+  /** Zone name for the banner. */
+  zoneName: string;
+  /** Names for what drops: tier 2 materials by kind - PK_T2, and the schematics the next drops will teach, in order. */
+  t2Names: string[];
+  teach: string[];
 }
 
 export interface RunHost {
@@ -70,7 +69,7 @@ export interface RunHost {
   /** True on the player's very first run: teach by play, no modal. */
   firstRun: boolean;
   /** The lull prototype: seconds of safe gathering after each wave, and gathering experience so far (tree, seam, carcass). */
-  proto?: { lull?: number; skillXp?: number[]; loot?: LootProto };
+  proto?: { lull?: number; skillXp?: number[]; forge?: ForgeProto };
   /** Pick the run up at the bench this save was made at. mountRun throws if the save cannot be played. */
   resume?: RunSave;
   /** Called at every bench, and again as the player leaves it, with the run so far. */

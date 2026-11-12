@@ -13,9 +13,10 @@ import { SOURCE_COUNT, SOURCE_IDS, WEAPON_INDEX } from './data/weapons.ts';
 import { BENCH_OFFERS, newOffer } from './bench.ts';
 import { buildGrid, clampX, clampY, rebuild, refresh, runBursts, SP, SPECIAL_COUNT, ST, weaponSlots, xpForLevel } from './core.ts';
 import { direct, updateEnemies, updateEShots, updateHazards } from './enemies.ts';
+import { T2_COUNT } from './forge.ts';
 import { buildZone, newOuting, OUTING, outingDirect, outingNodes, outingOver, outingPickups } from './outing.ts';
 import { seedStreams } from './rng.ts';
-import { RARE_COUNT } from './types.ts';
+import type { ForgeOptions, WeaponState } from './types.ts';
 import type { Enemy, EShot, Hazard, Pickup, ResNode, Run, RunOptions, Shot, SimEvent } from './types.ts';
 import { makeWeapon, updateShots, updateWeapons } from './weapons.ts';
 import { endWave, startLull, startWave, updateNodes, updatePickups } from './world.ts';
@@ -43,12 +44,7 @@ const newEvent = (): SimEvent => ({ type: 'hit', x: 0, y: 0, a: 0, b: 0, c: 0, d
 /** Start a run. The first wave is already under way when this returns. */
 export function createRun(opts: RunOptions): Run {
   const run = newRun(opts, ARENA_W, ARENA_H, opts.lull ? 24 : MAX_NODES);
-  // Weapons made at home come along, as far as the slots go.
-  for (const w of opts.extraWeapons ?? []) {
-    const def = WEAPON_INDEX[w.id];
-    if (def === undefined || run.player.weapons.length >= weaponSlots(run)) continue;
-    run.player.weapons.push(makeWeapon(def, Math.max(1, Math.min(4, Math.floor(w.tier) || 1))));
-  }
+  if (opts.forge) startForge(run, opts.forge);
   startWave(run);
   return run;
 }
@@ -77,6 +73,31 @@ export function createOuting(opts: OutingOptions): Run {
   return run;
 }
 
+/** The forge game: what was made at home replaces the free weapon, and the run keeps a ledger for the town. */
+function startForge(run: Run, o: ForgeOptions): void {
+  const p = run.player;
+  const made: WeaponState[] = [];
+  let sockets = 0;
+  for (const w of o.weapons) {
+    const def = WEAPON_INDEX[w.id];
+    if (def === undefined || made.length >= weaponSlots(run)) continue;
+    const ws = makeWeapon(def, Math.max(1, Math.min(4, Math.floor(w.tier) || 1)));
+    ws.mul = Math.max(0.5, Math.min(1.5, Number(w.mul) || 1));
+    ws.cap = Math.max(ws.tier, Math.min(4, Math.floor(w.cap) || ws.tier + 1));
+    sockets += Math.max(0, Math.min(3, Math.floor(w.sockets) || 0));
+    made.push(ws);
+  }
+  // Nothing made: a plain sling, so the run can still be played.
+  if (made.length) p.weapons = made;
+  for (const it of o.kit) { p.items.push(it); p.itemKit.push(true); }
+  run.forge = {
+    zone: Math.max(1, Math.min(2, Math.floor(o.zone) || 1)), pity: Math.max(0, Math.floor(o.pity) || 0), sockets,
+    t2: new Int32Array(T2_COUNT), parts: [], fitted: [], schematics: 0, relics: [], dirty: false,
+  };
+  rebuild(run);
+  p.hp = p.maxHp;
+}
+
 function newRun(opts: RunOptions, W: number, H: number, nodeCount: number): Run {
   const ch = CHARACTER[opts.character];
   if (!ch) throw new Error(`Unknown character ${opts.character}`);
@@ -92,7 +113,7 @@ function newRun(opts: RunOptions, W: number, H: number, nodeCount: number): Run 
   const run: Run = {
     seed: opts.seed >>> 0, w: W, h: H, outing: null, lull: Math.max(0, Math.min(120, Number(opts.lull) || 0)), lullT: 0,
     skillXp: Float64Array.from([0, 1, 2], (i) => (opts.lull ? Math.max(0, Number(opts.skillXp?.[i]) || 0) : 0)), skillGained: new Float64Array(3),
-    loot: Math.max(0, Math.floor(Number(opts.loot) || 0)), rare: new Int32Array(RARE_COUNT), found: [], character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
+    forge: null, character: ch.id, hazard: Math.max(0, Math.min(MAX_HAZARD, Math.floor(Number(opts.hazard) || 0))), bossRose: false, totalWaves, plan: WAVE_PLAN[totalWaves],
     stations: { sawmill: 1, smelter: 1, tannery: 1, assay: 1, ...(opts.stations ?? {}) },
     rng: seedStreams(opts.seed), tick: 0, phase: 'wave', wave: 0, waveTime: 0, waveSeconds: 0, wavesCleared: 0, won: false,
     player: {
@@ -160,6 +181,7 @@ export function step(run: Run, input: StepInput): void {
   if (out) { outingNodes(run); outingPickups(run); return; }
   updateNodes(run);
   updatePickups(run);
+  if (run.forge?.dirty) { run.forge.dirty = false; rebuild(run); }
 
   if (lull) {
     run.lullT -= DT;
@@ -231,9 +253,8 @@ export interface RunSummary {
   damageTaken: number;
   rawsGathered: RawBag;
   carryLimit: number;
-  /** Loot runs: rare materials held by kind, and schematic indexes found. */
-  rare: number[];
-  found: number[];
+  /** Forge runs: what came of the run for the town (null otherwise). */
+  forge: { zone: number; t2: number[]; parts: number[]; fitted: number[]; schematics: number; relics: string[] } | null;
   seconds: number;
 }
 
@@ -248,7 +269,7 @@ export function summary(run: Run): RunSummary {
     character: run.character, totalWaves: run.totalWaves, killedBy: run.killedBy,
     endWave: run.phase === 'over' && !run.won ? run.deathWave : run.wave,
     damageBy, damageTaken: run.damageTaken, rawsGathered: { ...run.gathered }, carryLimit: carryLimit(run),
-    rare: Array.from(run.rare), found: run.found.slice(),
+    forge: run.forge ? { zone: run.forge.zone, t2: Array.from(run.forge.t2), parts: run.forge.parts.slice(), fitted: run.forge.fitted.slice(), schematics: run.forge.schematics, relics: run.forge.relics.slice() } : null,
     seconds: run.tick * DT,
   };
 }
@@ -269,8 +290,7 @@ export function stateHash(run: Run): number {
   hn(run.tick); hn(run.wave); hn(run.phase === 'wave' ? 1 : run.phase === 'bench' ? 2 : 3); hn(run.waveTime);
   hn(p.x); hn(p.y); hn(p.hp); hn(p.shield); hn(p.level); hn(p.xp); hn(p.scrip); hn(p.bank);
   for (const r of RAWS) { hn(p.raws[r]); hn(run.mule[r]); hn(run.gathered[r]); }
-  for (let i = 0; i < run.rare.length; i++) hn(run.rare[i]);
-  for (const f of run.found) hn(f);
+  if (run.forge) { for (let i = 0; i < run.forge.t2.length; i++) hn(run.forge.t2[i]); for (const x of run.forge.parts) hn(x); hn(run.forge.schematics); }
   for (let i = 0; i < p.base.length; i++) { hn(p.base[i]); hn(p.stat[i]); }
   for (const w of p.weapons) { hn(w.def); hn(w.tier); hn(w.cd); }
   for (const it of p.items) hn(fnv1a(it.id));

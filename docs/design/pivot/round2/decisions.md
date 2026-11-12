@@ -55,3 +55,20 @@ the loop gather, refine, craft gear, use it to reach rarer materials is open.
 Open question for round 3: how the loadout taken into a run can be the output
 of the chain while the run itself still gets wilder (the owner's own split:
 the town grows stronger over years, each run can become wilder).
+
+## 2026-11-12: round 3, and the forge game
+
+Round 3 mapped New World as one system (`../round3/`). The owner approved the
+whole-game skeleton ("the town forges the loadout, the run bends it") and the
+change that the bench stops selling weapons, and asked for the build.
+
+Built as `?proto=forge`, one thin version through every node of the skeleton:
+two material tiers, refining, three stations with tiers, three trade skills,
+13 recipes with a shown range and a quality roll, parts as perks, a house with
+trophies and a relic shelf, a trader, wear and repair; in the run, made weapons
+only, tool doors, two zones, drops in four colours, parts that fit sockets, and
+a bad-luck floor for relics. The model is not wired into the forge yet: a first
+part-and-recipe pair is named from a word list.
+
+Question for the owner: after a few runs, which moment do you remember, and do
+you want to go back to the forge?

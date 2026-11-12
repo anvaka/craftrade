@@ -57,20 +57,30 @@ solo save, because they are one site to the browser.
 
 ## Gathering prototypes
 
-**Loot that is for something** (the current test, card 1 in
-`docs/design/pivot/round2/decisions.md`): open the game with `?proto=loot`
-(it stays on for this device; `?proto=off` turns it off). A Workbench appears
-on the stash page and Head out starts a loot run. Kills drop raws that fly to
-you; big kills drop rare materials (silver ore, thick hide) and elites and the
-boss sometimes a schematic, each with a short freeze and a card. A line at the
-foot of the run counts toward the craft you track, home and held together.
-At home: smelt and cure, make from schematics, pack up to two made things for
-the next three runs. A fall brings half home; schematics always come home.
-Sim: `dropLoot` in `src/sim/core.ts`; town: `src/client/town/loot.ts`;
-content: `src/client/loot/`; test: `tests/loot.test.ts`.
+**The forge game** (the current build; the plan is `docs/design/pivot/round3/summary.md`
+and its graph `skeleton.svg`): open the game with `?proto=forge` (it stays on for this
+device; `?proto=off` turns it off). The stash page becomes the Forge:
 
-The game is being reworked toward gathering and crafting; the plan and what
-has been learned are in `docs/design/pivot/`.
+- What you fight with is made at home. There is no free weapon, and the bench
+  sells items but no weapons. A made weapon has a quality (its damage), sockets,
+  and a cap: a run can raise it one tier past what was forged.
+- Refine raws into planks, bars and leather; tier 2 eats tier 1. Four stations
+  (forge, outfitter, kitchen, house), the first three with a tier you raise by
+  hand-in, and three trade skills that open tier 2 recipes and raise the craft roll.
+- A craft shows the range it can land in before you make it; 95 and up is a
+  masterwork with one more socket. A part fitted at the forge stays with the weapon,
+  and the first such pair gets a name in your codex.
+- Two zones: the home wood, and the fen once a tier 2 weapon is packed. Each wave
+  in the home wood stands a tier 2 node that only a tier 2 tool opens.
+- Drops show a colour ring before you know what they are: blue tier 2 materials,
+  purple named parts and schematics, orange relics. A part fits a free socket at
+  once. After three runs without a relic the boss always drops one.
+- A fall brings half the materials home; parts, schematics and relics always come
+  home. Made things wear (5 runs) and are repaired with a bar. A trader buys and
+  sells materials; the house holds trophies (luck, craft floor) and a relic shelf.
+
+Sim: `src/sim/forge.ts`; town: `src/client/town/forge.ts`; content:
+`src/client/forge/content.ts`; test: `tests/forge.test.ts`.
 
 **Gather between waves** (the current test): **Try it** on the stash page
 starts a normal run with a 30 second lull after every wave but the last.

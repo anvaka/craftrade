@@ -19,7 +19,7 @@ import {
 } from '../art/index.ts';
 import {
   AI, ENEMIES, ES, HZ_RING, MAX_ENEMIES, MAX_ESHOTS, MAX_HAZARDS, MAX_PICKUPS, MAX_SHOTS,
-  NODE_RING, PK_SCRIP, SOURCE_IDS, SPAWN_TELL, WEAPONS, weaponRange,
+  NODE_RING, PK_SCRIP, SOURCE_IDS, pickTier, SPAWN_TELL, WEAPONS, weaponRange,
   type Enemy, type Run, type SimEvent,
 } from '../../sim/index.ts';
 
@@ -42,6 +42,8 @@ const CULL = 90;
 const K_ENEMY = 0, K_NODE = 1, K_REMNANT = 2, K_PLAYER = 3, K_GHOST = 4;
 const MAX_ITEMS = MAX_ENEMIES + 256 + MAX_REMNANTS + MAX_GHOSTS + 4;
 const BUCKET_PX = 3;
+/** Ring colours by drop tier: blue, purple, orange. */
+const TIER_RING: readonly string[] = ['', '', '#3E6C8A', '#7B4BA0', '#D99A2B'];
 
 export interface Renderer {
   resize(cssW: number, cssH: number, dpr: number): void;
@@ -119,7 +121,9 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
     enemyWalk = [e.mite.walk, e.gnat.walk, e.boar.walk, e.spitter.walk, e.magpie.walk, e.burrower.walk, e.brute.walk, e.stag.walk, e.rotwood.walk, e.tusk.walk];
     pickupSprite = [S.pickup.scrip, S.pickup.timber, S.pickup.ore, S.pickup.hide,
       // Outing materials, two tiers of each: wood, ore, hide, fibre.
-      S.pickup.timber, S.pickup.timber, S.pickup.ore, S.pickup.ore, S.pickup.hide, S.pickup.hide, S.pickup.fibre, S.pickup.fibre];
+      S.pickup.timber, S.pickup.timber, S.pickup.ore, S.pickup.ore, S.pickup.hide, S.pickup.hide, S.pickup.fibre, S.pickup.fibre,
+      // Forge game: tier 2 wood, ore, hide; a part, a schematic, a relic.
+      S.pickup.timber, S.pickup.ore, S.pickup.hide, S.pickup.hide, S.pickup.fibre, S.pickup.scrip];
     shotSprite = SOURCE_IDS.map((id) =>
       id === 'sling' ? S.shot.stone : id === 'bow' ? S.shot.arrow : id === 'musket' ? S.shot.ball : id === 'axe' ? S.shot.axe
         : id === 'bola' ? S.shot.bola : id === 'shards' ? S.chip.ochre[1] : S.shot.stone);
@@ -827,7 +831,15 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites0: Sprites, run
         }
       } else pullFrom[i] = 0;
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
-      drawSprite(ctx, pickupSprite[k.kind] ?? pickupSprite[PK_SCRIP], snapPx(x), snapPx(y), false, sc);
+      // Above plain, a ring in the drop's colour: the colour is known before the name.
+      const pt = k.kind >= 12 ? pickTier(k.kind) : 1;
+      if (pt >= 2) {
+        const r = (pt === 4 ? 22 : pt === 3 ? 18 : 14) + ((Math.sin(time * 6 + i) * 0.5 + 0.5) * (pt - 1));
+        ctx.lineWidth = pt >= 3 ? 4 : 3;
+        ctx.strokeStyle = TIER_RING[pt];
+        ctx.beginPath(); ctx.arc(snapPx(x), snapPx(y), r, 0, 6.2832); ctx.stroke();
+      }
+      drawSprite(ctx, pickupSprite[k.kind] ?? pickupSprite[PK_SCRIP], snapPx(x), snapPx(y), false, pt >= 3 ? sc * 1.35 : sc);
     }
     // The wave-end sweep: what was left on the floor flies to the player.
     if (sweepLeft > 0) {

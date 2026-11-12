@@ -2087,3 +2087,26 @@ p.num,
 .loot-row .stamp { flex: 0 0 auto; }
 .loot-row.is-tracked { background: linear-gradient(90deg, var(--ochre) 0 5px, transparent 5px); padding-left: 10px; }
 .loot-row.is-unknown { opacity: 0.6; }
+
+/* The forge game. */
+.fg h3 { font-size: 15px; margin: 12px 0 4px; }
+.fg-last, .fg-load { font-size: 14px; margin: 6px 0 0; }
+.fg-store { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.fg-mats { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; }
+.fg-mats .mat.is-none { opacity: 0.4; }
+.fg-mats .mat.t2, .fg-mats .mat.t4 { color: #2d5670; }
+.fg-mats .mat.t5 { color: #6a3b8e; }
+.fg-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.fg-head { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+.fg-head .what { flex: 1 1 auto; min-width: 0; }
+.fg-skill { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 13px; margin-top: 6px; }
+.fg-bar { height: 8px; border: var(--hair) solid var(--ink); position: relative; }
+.fg-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--spruce); }
+.fg-rows { display: flex; flex-direction: column; }
+.fg-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: var(--hair) solid var(--ink); }
+.fg-row .what { flex: 1 1 auto; min-width: 0; font-size: 14px; }
+.fg-row .what .note { font-size: 12px; }
+.fg-row .stamp, .fg-row select { flex: 0 0 auto; }
+.fg-row select { max-width: 9em; font: inherit; font-size: 13px; }
+.fg-row.is-packed { background: linear-gradient(90deg, var(--ochre) 0 5px, transparent 5px); padding-left: 10px; }
+.fg-row.is-unknown { opacity: 0.6; }

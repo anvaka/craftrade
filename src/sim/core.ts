@@ -11,9 +11,10 @@ import {
   SCRIP_DAMAGE_AT, SLOW_VULN, SPAWN_TELL, SPECIAL_CAP, STAT_CAP, WORK_EXPOSED,
 } from './data/tuning.ts';
 import { BLUNT_KNOCK, SET_BONUS, SHOT_PIERCE, SRC_BURN, SRC_BURST, SRC_RECOIL, SRC_THORNS, WEAPONS, type WeaponClass } from './data/weapons.ts';
+import { forgeDrops, ZONE_DMG, ZONE_HP } from './forge.ts';
 import { rnd, Stream } from './rng.ts';
 import {
-  ES, NODE_CARCASS, PK_HIDE, PK_ORE, PK_RARE, PK_SCRIP, PK_TIMBER, RARE_COUNT,
+  ES, NODE_CARCASS, PK_HIDE, PK_ORE, PK_SCRIP, PK_TIMBER,
   type Enemy, type EventType, type Pickup, type ResNode, type Run,
 } from './types.ts';
 
@@ -233,7 +234,8 @@ export function spawnPickup(run: Run, x: number, y: number, kind: number, value:
   for (let i = 0; i < MAX_PICKUPS; i++) if (!ps[i].alive) { slot = ps[i]; break; }
   if (!slot) {
     // Pool full: fold the value into an existing pickup of the same kind so nothing is lost.
-    for (let i = 0; i < MAX_PICKUPS; i++) if (ps[i].kind === kind) { ps[i].value += value; return; }
+    // A part or a relic is one thing, not an amount: it cannot be folded into another.
+    if (kind < 15) for (let i = 0; i < MAX_PICKUPS; i++) if (ps[i].kind === kind) { ps[i].value += value; return; }
     return;
   }
   const ang = rnd(run.rng, Stream.Drop) * 6.283185307179586;
@@ -251,35 +253,6 @@ export function spawnNode(run: Run, x: number, y: number, type: number, rich: bo
   slot.alive = true; slot.x = clampX(run, x); slot.y = clampY(run, y); slot.type = type; slot.rich = rich; slot.tier = 1;
   slot.work = 0; slot.need = rich ? NODE_WORK_RICH : NODE_WORK; slot.working = false; slot.tickAcc = 0; slot.regrown = false; slot.noise = 0;
   return true;
-}
-
-/** Loot prototype: what a kill drops besides scrip. [chance of a raw, which raw (0 any), raws, chance of a rare, schematic chance]. */
-const LOOT_TABLE: Record<string, readonly [number, number, number, number, number]> = {
-  mite: [0.012, 0, 1, 0, 0], gnat: [0.006, 0, 1, 0, 0], boar: [0.1, PK_HIDE, 1, 0.003, 0], spitter: [0.07, 0, 1, 0.003, 0],
-  magpie: [0.3, 0, 1, 0.01, 0], burrower: [0.1, PK_ORE, 1, 0.004, 0], brute: [0.5, 0, 2, 0.05, 0.01],
-  stag: [1, PK_HIDE, 4, 1, 0.35], rotwood: [1, PK_TIMBER, 4, 1, 0.35], tusk: [1, 0, 6, 1, 0.7],
-};
-
-/** A kill in a loot run: raws, sometimes a rare material, and from big things a schematic. */
-function dropLoot(run: Run, x: number, y: number, id: string, rank: number): void {
-  const t = LOOT_TABLE[id];
-  if (!t) return;
-  const luck = 1 + Math.max(0, run.player.stat[ST.luck]) / 100;
-  if (rnd(run.rng, Stream.Drop) < t[0] * luck) {
-    for (let k = 0; k < t[2]; k++) spawnPickup(run, x, y, t[1] || PK_TIMBER + Math.floor(rnd(run.rng, Stream.Drop) * 3), 1, 140);
-  }
-  const rares = rank === 2 ? 2 : 1;
-  for (let k = 0; k < rares; k++) {
-    if (rnd(run.rng, Stream.Drop) >= t[3] * luck) continue;
-    const kind = PK_RARE + Math.floor(rnd(run.rng, Stream.Drop) * RARE_COUNT);
-    spawnPickup(run, x, y, kind, 1, 120);
-    emit(run, 'loot', x, y, kind, -1);
-  }
-  if (t[4] > 0 && rnd(run.rng, Stream.Drop) < t[4]) {
-    const s = Math.floor(rnd(run.rng, Stream.Drop) * run.loot);
-    run.found.push(s);
-    emit(run, 'loot', x, y, -1, s);
-  }
 }
 
 /** Carcass tier a beast leaves on an outing. Insects and birds leave nothing worth skinning. */
@@ -313,8 +286,9 @@ export function spawnEnemy(run: Run, type: number, x: number, y: number, tell = 
   e.alive = true; e.uid = run.nextUid++; e.type = type;
   e.x = e.px = clampX(run, x); e.y = e.py = clampY(run, y);
   e.kx = e.ky = 0;
-  e.hp = e.maxHp = (def.hp + def.hpW * w) * HAZARD_HP[run.hazard] * (def.rank === 0 ? WAVE_HP[w] ?? 1 : 1);
-  e.dmg = (def.dmg + def.dmgW * w) * (WAVE_DMG[w] ?? 1);
+  const zone = run.forge?.zone ?? 0;
+  e.hp = e.maxHp = (def.hp + def.hpW * w) * HAZARD_HP[run.hazard] * (def.rank === 0 ? WAVE_HP[w] ?? 1 : 1) * (ZONE_HP[zone] ?? 1);
+  e.dmg = (def.dmg + def.dmgW * w) * (WAVE_DMG[w] ?? 1) * (ZONE_DMG[zone] ?? 1);
   e.r = def.r;
   e.state = ES.Spawn; e.t = tell; e.t2 = 0; e.t3 = 0;
   e.dx = 1; e.dy = 0; e.tx = e.x; e.ty = e.y;
@@ -394,7 +368,7 @@ export function killEnemy(run: Run, idx: number, slain: boolean): void {
   if (def.rank === 1) emit(run, 'eliteDeath', e.x, e.y, e.type);
   if (def.rank === 2) { emit(run, 'bossDeath', e.x, e.y, e.type); run.bossDead = true; }
   // After the elite's own card, so the reveal is what stays on screen.
-  if (run.loot > 0 && !e.called) dropLoot(run, e.x, e.y, def.id, def.rank);
+  if (run.forge && !e.called) forgeDrops(run, e.x, e.y, def.id, def.rank);
   if (p.sp[SP.killBlast] > 0 && def.rank === 0 && rnd(run.rng, Stream.Combat) * 100 < p.sp[SP.killBlast]) {
     queueBurst(run, e.x, e.y, KILL_BLAST_BASE + e.maxHp * KILL_BLAST_HP_FRACTION);
   }

@@ -17,8 +17,9 @@ import { bakeAll, capDpr, type Sprites } from '../art/index.ts';
 import { audio } from '../audio/index.ts';
 import { bedLevel } from '../audio/music.ts';
 import type { ItemSpec } from '../../shared/item.ts';
+import { RELICS } from '../../shared/content/relics.ts';
 import {
-  DT, ENEMIES, HAZARD_RULES, NODE_CHEST, PK_RARE, SKILL_NAME, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
+  DT, ENEMIES, HAZARD_RULES, NODE_CHEST, PARTS, PK_PART, PK_RELIC, PK_SCHEMATIC, PK_T2, SKILL_NAME, doorShut, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
   createBot, createRun, nextWave, setCarry, step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
 import { fusedOf, killsOf, rec, record, replayOf, resumeInto } from '../../shared/replay.ts';
@@ -72,7 +73,7 @@ const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMe
 export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const t = host.ticket;
   const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0, lull: host.proto?.lull, skillXp: host.proto?.skillXp,
-    loot: host.proto?.loot ? host.proto.loot.schematics.length : 0, extraWeapons: host.proto?.loot?.weapons } as Parameters<typeof createRun>[0]);
+    forge: host.proto?.forge?.run } as Parameters<typeof createRun>[0]);
   // The input log the town checks the report against. A run driven by the dev harness is not a real one and is not logged.
   if (!Object.keys(dev).length) record(run);
   // A run saved at a bench: play its log forward (a second or two) and stand at that bench again.
@@ -86,37 +87,9 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   // A phone may close the page without a word once it is in the background.
   const onHidden = (): void => { if (document.visibilityState === 'hidden') saveAtBench(); };
   document.addEventListener('visibilitychange', onHidden);
-  // Loot prototype: one line that says what the raws are for, counting what is at home and what is held.
-  const seenNow = new Set<number>();
-  const lootFound: number[] = [];
-  const lootGoal = host.proto?.loot?.goal ?? null;
-  let goalEl: HTMLElement | null = null, goalText = '', goalT = 0, goalPulse = 0;
-  if (lootGoal) {
-    goalEl = el('div', 'g-goal');
-    goalEl.setAttribute('aria-live', 'polite');
-  }
-  const heldOf = (kind: number): number =>
-    kind === 1 ? run.player.raws.timber : kind === 2 ? run.player.raws.ore : kind === 3 ? run.player.raws.hide : kind >= PK_RARE ? run.rare[kind - PK_RARE] ?? 0 : 0;
-  function goalTick(dt: number): void {
-    if (!goalEl || !lootGoal) return;
-    goalT -= dt;
-    if (goalPulse > 0) { goalPulse -= dt; if (goalPulse <= 0) goalEl.classList.remove('is-pulse'); }
-    if (goalT > 0) return;
-    goalT = 0.2;
-    let done = true;
-    const parts = lootGoal.needs.map((n) => {
-      const have = Math.min(n.need, n.home + heldOf(n.kind));
-      if (have < n.need) done = false;
-      return `${n.label} ${have}/${n.need}`;
-    });
-    const text = done ? `${lootGoal.name}: you have enough. Get home.` : `${lootGoal.name} · ${parts.join(' · ')}`;
-    if (text !== goalText) {
-      if (goalText) { goalEl.classList.add('is-pulse'); goalPulse = 0.5; }
-      goalText = text;
-      goalEl.textContent = text;
-      goalEl.classList.toggle('is-done', done);
-    }
-  }
+  // Forge game: what each drop is called, and which schematics the next drops teach.
+  const fp = host.proto?.forge ?? null;
+  let teachNext = 0;
 
   // For tests of the lull prototype.
   if (host.proto) (window as unknown as { __run?: Run }).__run = run;
@@ -150,7 +123,6 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   root.append(stage);
   host.root.append(root);
 
-  if (goalEl) stage.append(goalEl);
   const renderer = createRenderer(canvas, sprites, run);
   renderer.shake = loadShake();
   renderer.reduced = reducedMotion();
@@ -158,6 +130,27 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const input = createInput(stage);
   const moveIn = { mx: 0, my: 0 };
   const hud = createHud(stage, sprites, run, () => setPaused(true));
+
+  // Forge game: a shut door says what opens it.
+  if (fp) {
+    renderer.over = (ctx, x0, y0, x1, y1) => {
+      const z = renderer.zoom();
+      ctx.save();
+      ctx.font = `700 ${13 / z}px "Zilla Slab", serif`;
+      ctx.textAlign = 'center';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 4 / z;
+      for (const n of run.nodes) {
+        if (!n.alive || n.tier < 2 || n.x < x0 || n.x > x1 || n.y < y0 || n.y > y1 + 120) continue;
+        const shut = doorShut(run, n.type, n.tier);
+        const text = shut ? `Tier ${n.tier} ${['hatchet', 'pick', 'knife'][n.type] ?? 'tool'}` : 'Tier 2';
+        ctx.strokeStyle = '#D9D3BD'; ctx.fillStyle = shut ? '#B8402E' : '#3E6C8A';
+        ctx.strokeText(text, n.x, n.y + 22 / z);
+        ctx.fillText(text, n.x, n.y + 22 / z);
+      }
+      ctx.restore();
+    };
+  }
 
   // In a lull, every node off the screen has a mark at the edge pointing to it: plain Ink, rich Ochre, the chest largest.
   // Without them a phone shows one node at a time and there is nothing to choose between.
@@ -377,7 +370,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       damageTaken: s.damageTaken,
       rawsGathered: s.rawsGathered,
       ...(run.lull > 0 ? { skillXp: Array.from(run.skillXp) } : {}),
-      ...(run.loot > 0 ? { loot: { rare: s.rare, found: lootFound.slice() } } : {}),
+      ...(s.forge ? { forge: s.forge } : {}),
       items: run.player.items.slice(),
       carried,
       nearMiss: nearMiss(),
@@ -398,32 +391,39 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       switch (ev.type) {
         case 'waveStart': {
           const def = WAVES[ev.b - 1];
-          if (def) hud.notice(`Wave ${ev.a}`, def.brief, !!def.elite, 3.6);
+          if (def) hud.notice(fp && ev.a === 1 ? `${fp.zoneName}, wave 1` : `Wave ${ev.a}`, def.brief, !!def.elite, 3.6);
           break;
         }
         case 'lull':
           hud.card('Cleared', `${Math.round(ev.a)} seconds to gather`, ev.c ? 'Plain nodes are free. Rich ones and the chest are guarded.' : 'Plain nodes are free. Rich ones are guarded.', 'paid', 4);
           break;
+        case 'glint':
+          // The colour comes before the name: a chime for purple, a stop and a ring for orange.
+          if (!fp) break;
+          if (ev.a >= 4) { freezeT = Math.max(freezeT, renderer.reduced ? 0 : 0.4); audio.play('relic'); }
+          else if (ev.a === 3) audio.play('reveal');
+          break;
         case 'loot': {
-          const lp = host.proto?.loot;
-          if (!lp) break;
-          freezeT = Math.max(freezeT, renderer.reduced ? 0 : 0.32);
-          if (ev.a < 0) {
-            // A schematic drop is the first one not yet known, in order; once all are known it is a duplicate, broken down at home for raws.
-            let pick = -1;
-            for (let i = 0; i < lp.schematics.length; i++) if (!lp.known[i] && !seenNow.has(i)) { pick = i; break; }
-            if (pick >= 0) seenNow.add(pick);
-            lootFound.push(pick);
-            audio.play(pick < 0 ? 'reveal' : 'revealFirst');
-            hud.card('Schematic', pick < 0 ? 'A schematic you know' : lp.schematics[pick], pick < 0 ? 'It will be broken down for raws at home.' : 'New. You can make it at home.', 'paid', 3.2);
-          } else {
-            const name = lp.rares[ev.a - PK_RARE] ?? 'Something rare';
-            const used = lp.goal?.needs.some((n) => n.kind === ev.a);
-            audio.play('reveal');
-            hud.card('Rare', name, used ? `For your ${lp.goal!.name}. Pick it up.` : 'Pick it up. Rarer things make better gear.', 'paid', 2.6);
+          if (!fp) break;
+          if (ev.a === PK_SCHEMATIC) {
+            const name = fp.teach[teachNext++];
+            audio.play(name ? 'revealFirst' : 'reveal');
+            hud.card('Schematic', name ?? 'One you know', name ? 'New. You can make it at home.' : 'Known already: it will sell at home.', 'paid', 3.4);
+          } else if (ev.a === PK_PART) {
+            const pd = PARTS[ev.b];
+            audio.play('combine');
+            if (pd) hud.card('Part', pd.name, ev.c ? `${pd.what} Fitted for this run.` : 'No free socket. It goes home with you.', 'paid', 3.4);
+          } else if (ev.a === PK_RELIC) {
+            const r = RELICS[ev.b];
+            if (r) hud.card('Relic', r.name, 'In play for the rest of the run, and yours to keep.', 'paid', 4);
+          } else if (ev.a >= PK_T2 && ev.a < PK_T2 + 3) {
+            hud.notice(fp.t2Names[ev.a - PK_T2] ?? 'Tier 2', 'A tier 2 material.', false, 1.6);
           }
           break;
         }
+        case 'locked':
+          if (fp) hud.notice(`Needs a tier ${ev.b} ${['hatchet', 'pick', 'knife'][ev.a] ?? 'tool'}`, 'Made at the forge at home.', false, 2.2);
+          break;
         case 'chest':
           audio.play('paid');
           hud.notice('Chest', `${ev.a} scrip, raws, and one more upgrade pick at the bench.`, false, 4);
@@ -656,7 +656,6 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       }
       hud.update(dt);
       if (run.phase === 'wave') { teach(dt); heart(dt); }
-      goalTick(dt);
       if (dev.perf && run.enemyCount > perfEnemies) perfEnemies = run.enemyCount;
       if (run.phase === 'bench') {
         // The beat between the fight and the bench.

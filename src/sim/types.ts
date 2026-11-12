@@ -105,8 +105,7 @@ export interface EShot {
 }
 
 export const PK_SCRIP = 0, PK_TIMBER = 1, PK_ORE = 2, PK_HIDE = 3;
-/** Rare materials of the loot prototype: silver ore, thick hide. Kinds 4-11 are the outing's. */
-export const PK_RARE = 12, RARE_COUNT = 2;
+/** Kinds 4-11 are the outing's materials; 12-17 belong to the forge game (forge.ts). */
 export interface Pickup {
   alive: boolean;
   x: number; y: number; px: number; py: number;
@@ -165,6 +164,8 @@ export interface WeaponState {
   cd: number;
   /** Seconds left of the swing or recoil animation, and its full length. */
   swing: number; swingDur: number;
+  /** Damage multiplier from the quality of the make (1 for bench weapons), and the highest tier it may reach. */
+  mul: number; cap: number;
   /** Unit aim vector of the last attack. */
   ax: number; ay: number;
   /** Alternates each swing so sweeps go left then right. */
@@ -280,8 +281,9 @@ export type EventType =
   | 'skill' | 'stage' | 'full' | 'locked' | 'left'
   // The lull after a wave: a: seconds, b: nodes standing, c: 1 if a chest stands | a chest opened: a: scrip in it.
   | 'lull' | 'chest'
-  // Loot runs: a rare thing dropped. a: pickup kind, or -1 for a schematic; b: schematic index.
-  | 'loot';
+  // Forge runs. glint: something above plain dropped (a: colour tier 2-4, b: pickup kind).
+  // loot: it was picked up (a: pickup kind, b: value, c: 1 if a part went into a socket).
+  | 'glint' | 'loot';
 
 /** One presentation event. Objects are reused; copy what you need before the next step. */
 export interface SimEvent { type: EventType; x: number; y: number; a: number; b: number; c: number; d: number }
@@ -303,10 +305,8 @@ export interface RunOptions {
   hazard?: number;
   /** Seconds of safe gathering after each wave but the last. 0 or absent: none (the standard game). */
   lull?: number;
-  /** Loot prototype: kills drop raws, rarer things drop from big ones, and schematics drop from elites. N schematics to roll from. */
-  loot?: number;
-  /** Weapons carried in besides the starting one (crafted at home). */
-  extraWeapons?: readonly { id: string; tier: number }[];
+  /** The forge game (forge.ts): the loadout made at home, a zone, and the bad-luck count. */
+  forge?: ForgeOptions;
   /** Gathering experience at the start, by node type (tree, seam, carcass). Only read when lull is set. */
   skillXp?: readonly number[];
 }
@@ -340,6 +340,31 @@ export interface Outing {
   quiet: number;
 }
 
+/** A weapon made at home. `mul` is its quality, `cap` the highest tier a run may raise it to. */
+export interface MadeWeapon { id: string; tier: number; mul: number; cap: number; sockets: number }
+export interface ForgeOptions {
+  zone: number;
+  /** Runs since the last relic. */
+  pity: number;
+  weapons: readonly MadeWeapon[];
+  /** Armour, food, perks and trophies made at home: in play from the first second. */
+  kit: readonly ItemSpec[];
+}
+export interface ForgeState {
+  zone: number;
+  pity: number;
+  sockets: number;
+  /** Tier 2 materials picked up, by kind - PK_T2. */
+  t2: Int32Array;
+  /** Part indexes picked up, and those fitted to a socket. */
+  parts: number[];
+  fitted: number[];
+  schematics: number;
+  relics: string[];
+  /** Set when an item went into play; the step rebuilds stats. */
+  dirty: boolean;
+}
+
 export interface Grid {
   cols: number; rows: number;
   /** start[c]..start[c+1] indexes `items` for cell c. */
@@ -356,8 +381,8 @@ export interface Run {
   outing: Outing | null;
   /** Length of the lull after each wave in seconds (0: none), and what is left of the one under way (0: fighting). */
   lull: number; lullT: number;
-  /** Loot prototype: number of schematics to roll from (0: off), rare materials held by kind (PK_RARE + i), schematic indexes found. */
-  loot: number; rare: Int32Array; found: number[];
+  /** The forge game, or null. */
+  forge: ForgeState | null;
   /** Gathering experience by node type, and what this run has added. */
   skillXp: Float64Array; skillGained: Float64Array;
   character: CharacterId;

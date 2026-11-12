@@ -90,7 +90,7 @@ export function updateWeapons(run: Run): void {
     w.ax = ax; w.ay = ay; w.flip = !w.flip;
     w.cd = weaponCooldown(p, def, w.tier);
     w.swingDur = w.cd < 0.22 ? w.cd : 0.22; w.swing = w.swingDur;
-    const dmg = weaponDamage(p, def, w.tier);
+    const dmg = weaponDamage(p, def, w.tier) * w.mul;
     const crit = p.critChance + def.crit / 100;
     // Burn follows Damage, so fire keeps pace with the rest of a build.
     const burn = ((def.burn ? def.burn[w.tier - 1] : 0) + p.sp[SP.burn]) * p.dmgMul;
@@ -205,5 +205,5 @@ export function updateShots(run: Run): void {
 }
 
 export function makeWeapon(def: number, tier: number): WeaponState {
-  return { def, id: WEAPONS[def].id, tier, cd: 0.3, swing: 0, swingDur: 0.2, ax: 1, ay: 0, flip: false };
+  return { def, id: WEAPONS[def].id, tier, mul: 1, cap: 4, cd: 0.3, swing: 0, swingDur: 0.2, ax: 1, ay: 0, flip: false };
 }
