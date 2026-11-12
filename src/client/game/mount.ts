@@ -18,7 +18,7 @@ import { audio } from '../audio/index.ts';
 import { bedLevel } from '../audio/music.ts';
 import type { ItemSpec } from '../../shared/item.ts';
 import {
-  DT, ENEMIES, HAZARD_RULES, NODE_CHEST, SKILL_NAME, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
+  DT, ENEMIES, HAZARD_RULES, NODE_CHEST, PK_RARE, SKILL_NAME, MAX_ENEMIES, MAX_NODES, NODE_IDS, PK_SCRIP, WAVES, abandon, botBench, botInput, carryLimit, carryable, clearEvents,
   createBot, createRun, nextWave, setCarry, step, summary, type Run, type SimEvent,
 } from '../../sim/index.ts';
 import { fusedOf, killsOf, rec, record, replayOf, resumeInto } from '../../shared/replay.ts';
@@ -71,7 +71,8 @@ const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMe
 
 export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   const t = host.ticket;
-  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0, lull: host.proto?.lull, skillXp: host.proto?.skillXp } as Parameters<typeof createRun>[0]);
+  const run = createRun({ seed: t.seed, character: t.character, waves: t.waves, kit: t.kit, stations: t.stations, hazard: t.hazard ?? 0, lull: host.proto?.lull, skillXp: host.proto?.skillXp,
+    loot: host.proto?.loot ? host.proto.loot.schematics.length : 0, extraWeapons: host.proto?.loot?.weapons } as Parameters<typeof createRun>[0]);
   // The input log the town checks the report against. A run driven by the dev harness is not a real one and is not logged.
   if (!Object.keys(dev).length) record(run);
   // A run saved at a bench: play its log forward (a second or two) and stand at that bench again.
@@ -85,6 +86,38 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   // A phone may close the page without a word once it is in the background.
   const onHidden = (): void => { if (document.visibilityState === 'hidden') saveAtBench(); };
   document.addEventListener('visibilitychange', onHidden);
+  // Loot prototype: one line that says what the raws are for, counting what is at home and what is held.
+  const seenNow = new Set<number>();
+  const lootFound: number[] = [];
+  const lootGoal = host.proto?.loot?.goal ?? null;
+  let goalEl: HTMLElement | null = null, goalText = '', goalT = 0, goalPulse = 0;
+  if (lootGoal) {
+    goalEl = el('div', 'g-goal');
+    goalEl.setAttribute('aria-live', 'polite');
+  }
+  const heldOf = (kind: number): number =>
+    kind === 1 ? run.player.raws.timber : kind === 2 ? run.player.raws.ore : kind === 3 ? run.player.raws.hide : kind >= PK_RARE ? run.rare[kind - PK_RARE] ?? 0 : 0;
+  function goalTick(dt: number): void {
+    if (!goalEl || !lootGoal) return;
+    goalT -= dt;
+    if (goalPulse > 0) { goalPulse -= dt; if (goalPulse <= 0) goalEl.classList.remove('is-pulse'); }
+    if (goalT > 0) return;
+    goalT = 0.2;
+    let done = true;
+    const parts = lootGoal.needs.map((n) => {
+      const have = Math.min(n.need, n.home + heldOf(n.kind));
+      if (have < n.need) done = false;
+      return `${n.label} ${have}/${n.need}`;
+    });
+    const text = done ? `${lootGoal.name}: you have enough. Get home.` : `${lootGoal.name} · ${parts.join(' · ')}`;
+    if (text !== goalText) {
+      if (goalText) { goalEl.classList.add('is-pulse'); goalPulse = 0.5; }
+      goalText = text;
+      goalEl.textContent = text;
+      goalEl.classList.toggle('is-done', done);
+    }
+  }
+
   // For tests of the lull prototype.
   if (host.proto) (window as unknown as { __run?: Run }).__run = run;
   const bot = dev.bot || dev.wave || dev.bench ? createBot((t.seed ^ 0x5bd1e995) >>> 0) : null;
@@ -117,6 +150,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
   root.append(stage);
   host.root.append(root);
 
+  if (goalEl) stage.append(goalEl);
   const renderer = createRenderer(canvas, sprites, run);
   renderer.shake = loadShake();
   renderer.reduced = reducedMotion();
@@ -343,6 +377,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       damageTaken: s.damageTaken,
       rawsGathered: s.rawsGathered,
       ...(run.lull > 0 ? { skillXp: Array.from(run.skillXp) } : {}),
+      ...(run.loot > 0 ? { loot: { rare: s.rare, found: lootFound.slice() } } : {}),
       items: run.player.items.slice(),
       carried,
       nearMiss: nearMiss(),
@@ -369,6 +404,26 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
         case 'lull':
           hud.card('Cleared', `${Math.round(ev.a)} seconds to gather`, ev.c ? 'Plain nodes are free. Rich ones and the chest are guarded.' : 'Plain nodes are free. Rich ones are guarded.', 'paid', 4);
           break;
+        case 'loot': {
+          const lp = host.proto?.loot;
+          if (!lp) break;
+          freezeT = Math.max(freezeT, renderer.reduced ? 0 : 0.32);
+          if (ev.a < 0) {
+            // A schematic drop is the first one not yet known, in order; once all are known it is a duplicate, broken down at home for raws.
+            let pick = -1;
+            for (let i = 0; i < lp.schematics.length; i++) if (!lp.known[i] && !seenNow.has(i)) { pick = i; break; }
+            if (pick >= 0) seenNow.add(pick);
+            lootFound.push(pick);
+            audio.play(pick < 0 ? 'reveal' : 'revealFirst');
+            hud.card('Schematic', pick < 0 ? 'A schematic you know' : lp.schematics[pick], pick < 0 ? 'It will be broken down for raws at home.' : 'New. You can make it at home.', 'paid', 3.2);
+          } else {
+            const name = lp.rares[ev.a - PK_RARE] ?? 'Something rare';
+            const used = lp.goal?.needs.some((n) => n.kind === ev.a);
+            audio.play('reveal');
+            hud.card('Rare', name, used ? `For your ${lp.goal!.name}. Pick it up.` : 'Pick it up. Rarer things make better gear.', 'paid', 2.6);
+          }
+          break;
+        }
         case 'chest':
           audio.play('paid');
           hud.notice('Chest', `${ev.a} scrip, raws, and one more upgrade pick at the bench.`, false, 4);
@@ -601,6 +656,7 @@ export function mount(host: RunHost, dev: DevOpts = {}): RunHandle {
       }
       hud.update(dt);
       if (run.phase === 'wave') { teach(dt); heart(dt); }
+      goalTick(dt);
       if (dev.perf && run.enemyCount > perfEnemies) perfEnemies = run.enemyCount;
       if (run.phase === 'bench') {
         // The beat between the fight and the bench.

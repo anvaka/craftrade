@@ -377,7 +377,7 @@ function thief(run: Run, e: Enemy, idx: number, sp: number): void {
     let best = 1e12;
     for (let k = 0; k < MAX_PICKUPS; k++) {
       const pk = ps[k];
-      if (!pk.alive || pk.pulled || (pk.claimed >= 0 && pk.claimed !== idx)) continue;
+      if (!pk.alive || pk.pulled || pk.kind > 3 || (pk.claimed >= 0 && pk.claimed !== idx)) continue;
       const dx = pk.x - e.x, dy = pk.y - e.y, d2 = dx * dx + dy * dy;
       if (d2 < best) { best = d2; target = k; }
     }

@@ -2074,3 +2074,16 @@ p.num,
     min-height: 40px;
   }
 }
+
+/* Loot prototype: the workbench. */
+.loot h3 { font-size: 15px; margin: 12px 0 4px; }
+.loot-last { font-size: 14px; margin: 6px 0 0; }
+.loot-store { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+.loot-store .mat.is-none { opacity: 0.45; }
+.loot-rows { display: flex; flex-direction: column; }
+.loot-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: var(--hair) solid var(--ink); }
+.loot-row .what { flex: 1 1 auto; min-width: 0; font-size: 14px; }
+.loot-row .what .note { font-size: 12px; }
+.loot-row .stamp { flex: 0 0 auto; }
+.loot-row.is-tracked { background: linear-gradient(90deg, var(--ochre) 0 5px, transparent 5px); padding-left: 10px; }
+.loot-row.is-unknown { opacity: 0.6; }

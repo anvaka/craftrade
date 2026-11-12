@@ -105,6 +105,8 @@ export interface EShot {
 }
 
 export const PK_SCRIP = 0, PK_TIMBER = 1, PK_ORE = 2, PK_HIDE = 3;
+/** Rare materials of the loot prototype: silver ore, thick hide. Kinds 4-11 are the outing's. */
+export const PK_RARE = 12, RARE_COUNT = 2;
 export interface Pickup {
   alive: boolean;
   x: number; y: number; px: number; py: number;
@@ -277,7 +279,9 @@ export type EventType =
   // Outings: a: skill, b: xp, c: new level or 0 | a: threat stage | bag full | a: node type, b: level needed | a: how it ended.
   | 'skill' | 'stage' | 'full' | 'locked' | 'left'
   // The lull after a wave: a: seconds, b: nodes standing, c: 1 if a chest stands | a chest opened: a: scrip in it.
-  | 'lull' | 'chest';
+  | 'lull' | 'chest'
+  // Loot runs: a rare thing dropped. a: pickup kind, or -1 for a schematic; b: schematic index.
+  | 'loot';
 
 /** One presentation event. Objects are reused; copy what you need before the next step. */
 export interface SimEvent { type: EventType; x: number; y: number; a: number; b: number; c: number; d: number }
@@ -299,6 +303,10 @@ export interface RunOptions {
   hazard?: number;
   /** Seconds of safe gathering after each wave but the last. 0 or absent: none (the standard game). */
   lull?: number;
+  /** Loot prototype: kills drop raws, rarer things drop from big ones, and schematics drop from elites. N schematics to roll from. */
+  loot?: number;
+  /** Weapons carried in besides the starting one (crafted at home). */
+  extraWeapons?: readonly { id: string; tier: number }[];
   /** Gathering experience at the start, by node type (tree, seam, carcass). Only read when lull is set. */
   skillXp?: readonly number[];
 }
@@ -348,6 +356,8 @@ export interface Run {
   outing: Outing | null;
   /** Length of the lull after each wave in seconds (0: none), and what is left of the one under way (0: fighting). */
   lull: number; lullT: number;
+  /** Loot prototype: number of schematics to roll from (0: off), rare materials held by kind (PK_RARE + i), schematic indexes found. */
+  loot: number; rare: Int32Array; found: number[];
   /** Gathering experience by node type, and what this run has added. */
   skillXp: Float64Array; skillGained: Float64Array;
   character: CharacterId;

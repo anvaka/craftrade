@@ -25,7 +25,7 @@ What follows from them:
   thread that already worked.
 - Out: the lull, standing in rings as the main way to gather, calm phases.
 
-## Test card 1: loot that is for something (proposed, not approved)
+## Test card 1: loot that is for something (approved 2026-11-12, built, link `?proto=loot`)
 
 - **Feeling:** "that drop is exactly what I needed", and wanting the next run
   to get the rest.

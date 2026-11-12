@@ -3,7 +3,8 @@
 
 import type { CharacterId, RunEndRes, RunStartRes } from '../../shared/protocol.ts';
 import { audio } from '../audio/index.ts';
-import type { FuseOutcome, MountRun, RunHandle, RunRecap, RunSave } from '../seam.ts';
+import type { FuseOutcome, MountRun, RunHandle, RunHost, RunRecap, RunSave } from '../seam.ts';
+import { bankLoot, lootLaunch } from './loot.ts';
 import { ApiFail, api, asFail, currentWorld } from './api.ts';
 import { sprites } from './dom.ts';
 import { showHomecoming } from './homecoming.ts';
@@ -19,7 +20,7 @@ export interface Launch {
   kit: string[];
   hazard: number;
   /** The lull prototype (see RunHost.proto). Such a run is never reported to the town. */
-  proto?: { lull: number; skillXp: number[] };
+  proto?: RunHost['proto'];
 }
 
 /** How a finished run was received by the town. */
@@ -157,6 +158,24 @@ export async function headOutLull(): Promise<void> {
   play(mount, localTicket(launch.character), launch, false);
 }
 
+/** The loot prototype: a run on this device with what was made at home, dropping loot. */
+export async function headOutLoot(): Promise<void> {
+  if (starting || handle) return;
+  starting = true;
+  let mount: MountRun;
+  try {
+    mount = await loadMountRun();
+  } catch (e) {
+    starting = false;
+    sayFail('Run', e);
+    return;
+  }
+  dropSavedRun();
+  const { proto, kit } = lootLaunch();
+  const launch: Launch = { mode: 'run', character: app.character, kit: [], hazard: 0, proto: { loot: proto } };
+  play(mount, { ...localTicket(launch.character), kit }, launch, false);
+}
+
 /** Start a run with the current choices. One press from town or from the homecoming. */
 export async function headOut(mode: Mode = 'run'): Promise<void> {
   if (starting || handle) return;
@@ -245,13 +264,15 @@ function play(mount: MountRun, t: RunStartRes, launch: Launch, firstRun: boolean
     }
   };
 
-  const onSave = (save: RunSave): void => keepRun({ v: 1, at: Date.now(), ticket: t, launch, firstRun, save });
+  // A prototype run is not saved at the bench: its options are not in the ticket, so it could not be played forward.
+  const onSave = launch.proto ? undefined : (save: RunSave): void => keepRun({ v: 1, at: Date.now(), ticket: t, launch, firstRun, save });
 
   const onEnd = (recap: RunRecap): void => {
     if (ended) return;
     ended = true;
     dropSavedRun();
     if (recap.skillXp) bankSkills(recap.skillXp);
+    if (launch.proto?.loot) bankLoot(recap);
     report = local ? Promise.resolve<Report>({ state: 'local' }) : sendReport(t.runId, recap);
     // Let the game half finish its own callback before it is torn down.
     setTimeout(() => {
@@ -263,6 +284,12 @@ function play(mount: MountRun, t: RunStartRes, launch: Launch, firstRun: boolean
       handle = null;
       if (quit) {
         backToTown(report!, recap);
+        return;
+      }
+      // The loot test goes straight back to the workbench, where what came home is listed.
+      if (launch.proto?.loot) {
+        audio.play(recap.report.won ? 'win' : 'stamp');
+        showTown('loot:go');
         return;
       }
       audio.play(recap.report.won ? 'win' : 'stamp');

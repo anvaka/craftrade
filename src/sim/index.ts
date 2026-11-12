@@ -104,7 +104,7 @@ export {
 } from './outing.ts';
 export type { MaterialDef, Haul } from './outing.ts';
 export { LANE_MOUTHS, TELL_CHARGE, TELL_SPIT, TELL_SLAM, TELL_SURFACE, TELL_SUMMON } from './enemies.ts';
-export { ES, HZ_RING, HZ_SHARD, PK_SCRIP, PK_TIMBER, PK_ORE, PK_HIDE, NODE_TREE, NODE_SEAM, NODE_CARCASS, NODE_PLANT, NODE_CHEST } from './types.ts';
+export { ES, HZ_RING, HZ_SHARD, PK_SCRIP, PK_TIMBER, PK_ORE, PK_HIDE, NODE_TREE, NODE_SEAM, NODE_CARCASS, NODE_PLANT, NODE_CHEST, PK_RARE, RARE_COUNT } from './types.ts';
 export type {
   Run, RunOptions, Player, Enemy, Shot, EShot, Pickup, ResNode, Hazard, WeaponState, Bench, Offer, OfferKind,
   UpgradeChoice, SimEvent, EventType, EventQueue, Phase, Outing,

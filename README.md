@@ -57,6 +57,18 @@ solo save, because they are one site to the browser.
 
 ## Gathering prototypes
 
+**Loot that is for something** (the current test, card 1 in
+`docs/design/pivot/round2/decisions.md`): open the game with `?proto=loot`
+(it stays on for this device; `?proto=off` turns it off). A Workbench appears
+on the stash page and Head out starts a loot run. Kills drop raws that fly to
+you; big kills drop rare materials (silver ore, thick hide) and elites and the
+boss sometimes a schematic, each with a short freeze and a card. A line at the
+foot of the run counts toward the craft you track, home and held together.
+At home: smelt and cure, make from schematics, pack up to two made things for
+the next three runs. A fall brings half home; schematics always come home.
+Sim: `dropLoot` in `src/sim/core.ts`; town: `src/client/town/loot.ts`;
+content: `src/client/loot/`; test: `tests/loot.test.ts`.
+
 The game is being reworked toward gathering and crafting; the plan and what
 has been learned are in `docs/design/pivot/`.
 

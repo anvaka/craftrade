@@ -10,8 +10,10 @@ import { HAZARD_MARKS, MAX_HAZARD, REPAIR, canPay, kitPointCap, packItem, repair
 import { audio } from '../audio/index.ts';
 import { SOLO_ONLY, api, isSolo } from './api.ts';
 import { charges, dock, el, empty, finder, fmt, isDocked, isPhone, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
+import { lootOn } from '../loot/store.ts';
+import { lootSection } from './loot.ts';
 import { outingSection } from './outing.ts';
-import { dropSavedRun, headOut, resumeRun, savedRun } from './run.ts';
+import { dropSavedRun, headOut, headOutLoot, resumeRun, savedRun } from './run.ts';
 import { openTab, soundControls, switchWorld } from './shell.ts';
 import { act, app, getPrefs, hazardNow, redraw, savePrefs, say, setProfile } from './state.ts';
 import { GLOSS } from '../ui/glossary.ts';
@@ -24,12 +26,12 @@ export function renderHome(root: HTMLElement): void {
   if (word) root.append(word);
   // On a phone the account is reference, not part of the next run: it is kept at the foot of the almanac.
   const phone = isPhone();
-  root.append(el('div', 'home', nextRun(), outingSection(), who(), stash(), phone && app.profile.runs > 0 ? null : account()));
+  root.append(el('div', 'home', lootOn() ? lootSection() : null, nextRun(), lootOn() ? null : outingSection(), who(), stash(), phone && app.profile.runs > 0 ? null : account()));
   if (isDocked()) root.append(dock(el('span', '', el('strong', '', characterName(app.character)), ' \u00b7 ', ...kitNames(), app.profile.runs > 0 ? ` \u00b7 hazard ${hazardNow()}` : ''), headOutStamp()));
 }
 
 function headOutStamp(): HTMLButtonElement {
-  return stamp(app.busy.has('run') ? 'Heading out' : 'Head out', { key: 'headout', sound: 'waveStart', onClick: () => void headOut('run') });
+  return stamp(app.busy.has('run') ? 'Heading out' : 'Head out', { key: 'headout', sound: 'waveStart', onClick: () => void (lootOn() ? headOutLoot() : headOut('run')) });
 }
 
 // ---- word from the world ---------------------------------------------------

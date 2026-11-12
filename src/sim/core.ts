@@ -13,7 +13,7 @@ import {
 import { BLUNT_KNOCK, SET_BONUS, SHOT_PIERCE, SRC_BURN, SRC_BURST, SRC_RECOIL, SRC_THORNS, WEAPONS, type WeaponClass } from './data/weapons.ts';
 import { rnd, Stream } from './rng.ts';
 import {
-  ES, NODE_CARCASS, PK_HIDE, PK_ORE, PK_SCRIP, PK_TIMBER,
+  ES, NODE_CARCASS, PK_HIDE, PK_ORE, PK_RARE, PK_SCRIP, PK_TIMBER, RARE_COUNT,
   type Enemy, type EventType, type Pickup, type ResNode, type Run,
 } from './types.ts';
 
@@ -253,6 +253,35 @@ export function spawnNode(run: Run, x: number, y: number, type: number, rich: bo
   return true;
 }
 
+/** Loot prototype: what a kill drops besides scrip. [chance of a raw, which raw (0 any), raws, chance of a rare, schematic chance]. */
+const LOOT_TABLE: Record<string, readonly [number, number, number, number, number]> = {
+  mite: [0.012, 0, 1, 0, 0], gnat: [0.006, 0, 1, 0, 0], boar: [0.1, PK_HIDE, 1, 0.003, 0], spitter: [0.07, 0, 1, 0.003, 0],
+  magpie: [0.3, 0, 1, 0.01, 0], burrower: [0.1, PK_ORE, 1, 0.004, 0], brute: [0.5, 0, 2, 0.05, 0.01],
+  stag: [1, PK_HIDE, 4, 1, 0.35], rotwood: [1, PK_TIMBER, 4, 1, 0.35], tusk: [1, 0, 6, 1, 0.7],
+};
+
+/** A kill in a loot run: raws, sometimes a rare material, and from big things a schematic. */
+function dropLoot(run: Run, x: number, y: number, id: string, rank: number): void {
+  const t = LOOT_TABLE[id];
+  if (!t) return;
+  const luck = 1 + Math.max(0, run.player.stat[ST.luck]) / 100;
+  if (rnd(run.rng, Stream.Drop) < t[0] * luck) {
+    for (let k = 0; k < t[2]; k++) spawnPickup(run, x, y, t[1] || PK_TIMBER + Math.floor(rnd(run.rng, Stream.Drop) * 3), 1, 140);
+  }
+  const rares = rank === 2 ? 2 : 1;
+  for (let k = 0; k < rares; k++) {
+    if (rnd(run.rng, Stream.Drop) >= t[3] * luck) continue;
+    const kind = PK_RARE + Math.floor(rnd(run.rng, Stream.Drop) * RARE_COUNT);
+    spawnPickup(run, x, y, kind, 1, 120);
+    emit(run, 'loot', x, y, kind, -1);
+  }
+  if (t[4] > 0 && rnd(run.rng, Stream.Drop) < t[4]) {
+    const s = Math.floor(rnd(run.rng, Stream.Drop) * run.loot);
+    run.found.push(s);
+    emit(run, 'loot', x, y, -1, s);
+  }
+}
+
 /** Carcass tier a beast leaves on an outing. Insects and birds leave nothing worth skinning. */
 export const CARCASS_TIER: Record<string, number> = { boar: 1, burrower: 1, brute: 2, stag: 2 };
 /** Work a node needs on an outing, by tier. */
@@ -364,6 +393,8 @@ export function killEnemy(run: Run, idx: number, slain: boolean): void {
   if (CHARACTER[run.character].eliteCarcass && (def.rank === 1 || def.id === 'brute')) spawnNode(run, e.x, e.y, NODE_CARCASS, false);
   if (def.rank === 1) emit(run, 'eliteDeath', e.x, e.y, e.type);
   if (def.rank === 2) { emit(run, 'bossDeath', e.x, e.y, e.type); run.bossDead = true; }
+  // After the elite's own card, so the reveal is what stays on screen.
+  if (run.loot > 0 && !e.called) dropLoot(run, e.x, e.y, def.id, def.rank);
   if (p.sp[SP.killBlast] > 0 && def.rank === 0 && rnd(run.rng, Stream.Combat) * 100 < p.sp[SP.killBlast]) {
     queueBurst(run, e.x, e.y, KILL_BLAST_BASE + e.maxHp * KILL_BLAST_HP_FRACTION);
   }

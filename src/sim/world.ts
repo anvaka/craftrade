@@ -15,7 +15,7 @@ import { damageEnemy, emit, gainScrip, killEnemy, RAW_OF_KIND, rebuild, SP, spaw
 import { LANE_MOUTHS } from './enemies.ts';
 import { rnd, Stream } from './rng.ts';
 import { skillLevel } from './outing.ts';
-import { ES, NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
+import { ES, NODE_CARCASS, NODE_CHEST, NODE_TREE, PK_RARE, PK_SCRIP, PK_TIMBER, type ResNode, type Run } from './types.ts';
 import { fireShot } from './weapons.ts';
 
 export const NODE_IDS = ['tree', 'seam', 'carcass'] as const;
@@ -307,6 +307,7 @@ export function updatePickups(run: Run): void {
 function collect(run: Run, kind: number, value: number): void {
   const p = run.player;
   if (kind === PK_SCRIP) gainScrip(run, value);
+  else if (kind >= PK_RARE) run.rare[kind - PK_RARE] += value;
   else {
     const raw = RAW_OF_KIND[kind]!;
     p.raws[raw] += value;
@@ -403,6 +404,7 @@ export function endWave(run: Run): void {
 }
 
 function grant(run: Run, kind: number, value: number): void {
+  if (kind >= PK_RARE) { run.rare[kind - PK_RARE] += value; return; }
   const raw = RAW_OF_KIND[kind]!;
   run.player.raws[raw] += value;
   run.gathered[raw] += value;

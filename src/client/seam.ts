@@ -20,6 +20,8 @@ export interface RunRecap {
   damageBy: { id: string; name: string; damage: number; tier?: number }[];
   damageTaken: number;
   rawsGathered: { timber: number; ore: number; hide: number };
+  /** Loot runs: rare materials held by kind, and schematic indexes found. */
+  loot?: { rare: number[]; found: number[] };
   /** Gathering experience at the end, when the run had lulls. */
   skillXp?: number[];
   /** Items held at the end, for the recap. */
@@ -46,6 +48,18 @@ export interface RunSave {
   wave: number;
 }
 
+/** The loot prototype, as the run needs it. */
+export interface LootProto {
+  /** Schematic names, by the index the sim rolls; and which are already known. */
+  schematics: string[];
+  known: boolean[];
+  /** Rare material names by kind (PK_RARE + i). */
+  rares: string[];
+  weapons: { id: string; tier: number }[];
+  /** The craft the strip counts toward: raws still wanted, with what is already at home. */
+  goal: { name: string; needs: { label: string; kind: number; need: number; home: number }[] } | null;
+}
+
 export interface RunHost {
   /** Element to fill. The game half owns everything inside it until destroy(). */
   root: HTMLElement;
@@ -56,7 +70,7 @@ export interface RunHost {
   /** True on the player's very first run: teach by play, no modal. */
   firstRun: boolean;
   /** The lull prototype: seconds of safe gathering after each wave, and gathering experience so far (tree, seam, carcass). */
-  proto?: { lull: number; skillXp: number[] };
+  proto?: { lull?: number; skillXp?: number[]; loot?: LootProto };
   /** Pick the run up at the bench this save was made at. mountRun throws if the save cannot be played. */
   resume?: RunSave;
   /** Called at every bench, and again as the player leaves it, with the run so far. */
