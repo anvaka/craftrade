@@ -11,7 +11,7 @@ import { LISTING_MIN_RUNS, MAX_LOT, priceCeiling } from '../../shared/rules.ts';
 import { RAWS, type RawId } from '../../shared/vocab.ts';
 import { audio } from '../audio/index.ts';
 import { api } from './api.ts';
-import { el, empty, finder, fmt, icon, itemIcon, pips, plural, serial, sprites, stamp, stepper, tier, type Kid } from './dom.ts';
+import { el, empty, finder, fmt, fold, icon, isPhone, itemIcon, pips, plural, serial, sprites, stamp, stepper, tier, type Kid } from './dom.ts';
 import { loadTab } from './shell.ts';
 import { act, app, redraw, say, setProfile } from './state.ts';
 import { RAW_NAME } from './words.ts';
@@ -32,8 +32,31 @@ const qty: Record<RawId, number> = { timber: 10, ore: 10, hide: 10 };
 const qtySet: Record<RawId, boolean> = { timber: false, ore: false, hide: false };
 let posting: { uid: string; price: string } | null = null;
 let armed: string | null = null;
+/** When the salvage stamp was armed. A second press sooner than ARM_GUARD_MS is a double tap, not a decision. */
+let armedAt = 0;
+let disarmTimer: number | undefined;
+const ARM_GUARD_MS = 450;
+const ARM_FOR_MS = 4000;
+/** The raw the Factor's card shows on a phone. */
+let factorRaw: RawId = 'timber';
 /** The raw trade form: a lot to sell or an order to buy, for one raw, at a price for each unit. */
 const lotForm: { side: 'sell' | 'want'; raw: RawId; qty: number; each: number } = { side: 'sell', raw: 'timber', qty: 20, each: 5 };
+
+function arm(uid: string): void {
+  armed = uid;
+  armedAt = performance.now();
+  window.clearTimeout(disarmTimer);
+  // Left alone, the question lapses: the stamp goes back to "Salvage".
+  disarmTimer = window.setTimeout(() => {
+    if (armed !== uid) return;
+    armed = null;
+    redraw();
+  }, ARM_FOR_MS);
+}
+function disarm(): void {
+  armed = null;
+  window.clearTimeout(disarmTimer);
+}
 
 function took(res: MarketActionRes): void {
   setProfile(res.profile);
@@ -52,7 +75,7 @@ export function renderMarket(root: HTMLElement): void {
     root.append(el('div', 'notice notice--town', el('span', 'tag', 'Market'), el('span', 'text', 'Trading is closed for now. Stashes are safe. You can still withdraw a listing or salvage an item.')));
   }
   if (posting && !app.profile.items.some((i) => i.uid === posting!.uid)) posting = null;
-  if (armed && !app.profile.items.some((i) => i.uid === armed)) armed = null;
+  if (armed && !app.profile.items.some((i) => i.uid === armed)) disarm();
   // Solo has nobody to trade with: the Factor and salvage are the whole market.
   if (isSolo()) root.append(factor(), sell());
   else root.append(factor(), rawTrade(), listings(), sell());
@@ -66,7 +89,30 @@ function factor(): HTMLElement {
   const p = app.profile;
   const sec = el('section', 'section section--first', el('h2', '', term('The Factor', 'factor')));
   sec.append(el('p', 'note', 'Buys and sells raws for marks at his own prices, which follow trade. He takes and gives only so much in a day.'));
-  const table = el('div', 'factor');
+  // A phone trades one raw at a time: three stamps choose which, and one card shows it.
+  const phone = isPhone();
+  if (phone) {
+    const seg = el('div', 'seg');
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', 'Raw');
+    for (const raw of RAWS) {
+      const on = raw === factorRaw;
+      const b = stamp([icon(S.icon.raw[raw]), RAW_NAME[raw]], {
+        cls: `stamp--small stamp--plain${on ? ' is-pressed' : ''}`,
+        key: `seg:${raw}`,
+        sound: 'lock',
+        onClick: () => {
+          factorRaw = raw;
+          redraw();
+        },
+      });
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(on));
+      seg.append(b);
+    }
+    sec.append(seg);
+  }
+  const table = el('div', `factor${phone ? ' factor--one' : ''}`);
   table.setAttribute('role', 'table');
   const head = el('div', 'factor-row factor-head', el('span', '', 'Raw'), el('span', 'num', 'You hold'), el('span', 'num', term('Factor pays', 'factorPays')), el('span', 'num', term('Factor asks', 'factorAsks')), el('span', 'f-act', 'Quantity'));
   head.setAttribute('role', 'row');
@@ -77,11 +123,11 @@ function factor(): HTMLElement {
     const n = Math.max(1, Math.min(FACTOR_MAX_QTY, qty[raw]));
     const row = el(
       'div',
-      'factor-row',
+      `factor-row${phone && raw !== factorRaw ? ' is-off' : ''}`,
       el('span', 'f-raw', icon(S.icon.raw[raw]), el('span', '', RAW_NAME[raw])),
       el('span', 'num f-fig', el('span', 'f-cap label', 'You hold'), fmt(p.raws[raw])),
-      el('span', 'num f-fig', el('span', 'f-cap label', 'Pays'), fmt(q.sell), el('span', 'f-left note', `takes ${fmt(q.sellLeft)} more today`)),
-      el('span', 'num f-fig', el('span', 'f-cap label', 'Asks'), fmt(q.buy), el('span', 'f-left note', `has ${fmt(q.buyLeft)} left today`)),
+      el('span', 'num f-fig', el('span', 'f-cap label', 'Pays'), fmt(q.sell), el('span', 'f-left note', phone ? `${fmt(q.sellLeft)} more today` : `takes ${fmt(q.sellLeft)} more today`)),
+      el('span', 'num f-fig', el('span', 'f-cap label', 'Asks'), fmt(q.buy), el('span', 'f-left note', phone ? `${fmt(q.buyLeft)} left today` : `has ${fmt(q.buyLeft)} left today`)),
       el(
         'span',
         'f-act',
@@ -148,7 +194,8 @@ function rawTrade(): HTMLElement {
   const S = sprites();
   const m = app.market!;
   const p = app.profile;
-  const sec = el('section', 'section', el('h2', '', 'Raws between players'));
+  const kids: Kid[] = [];
+  const sec = { append: (...k: Kid[]) => void kids.push(...k) };
   const locked = p.runs < LISTING_MIN_RUNS;
   sec.append(
     el(
@@ -226,7 +273,7 @@ function rawTrade(): HTMLElement {
     sec.append(empty('No lots and no orders are up. Raws that players post or ask for are listed here.'));
   }
   if (!locked) sec.append(rawForm());
-  return sec;
+  return fold('rawtrade', '', 'Raws between players', `${fmt(rows.length)} up`, ...kids);
 }
 
 function rawForm(): HTMLElement {
@@ -333,11 +380,9 @@ function listingRow(l: Listing): HTMLElement {
 
 function listings(): HTMLElement {
   const m = app.market!;
+  // Nothing up folds to one line on a phone; listings that are up stay open.
+  if (!m.listings.length) return fold('listings', '', 'Listings', 'none up', empty('No listings are up. Items that players post are listed here with their price. Yours go up from the table below.'));
   const sec = el('section', 'section', el('h2', '', 'Listings'));
-  if (!m.listings.length) {
-    sec.append(empty('No listings are up. Items that players post are listed here with their price. Yours go up from the table below.'));
-    return sec;
-  }
   const t = el('table', 'ledger listings');
   t.append(el('tr', '', el('th', '', 'Item'), el('th', '', term('Tier', 'tier')), el('th', 'wide', term('First made or found by', 'firstMade')), el('th', 'wide', 'Seller'), el('th', 'wide', term('Charges', 'charges')), el('th', 'num', 'Marks'), el('th', '', '')));
   for (const l of m.listings) t.append(listingRow(l));
@@ -466,7 +511,7 @@ function sell(): HTMLElement {
                 title: locked ? `Posting opens after ${LISTING_MIN_RUNS} runs. You have ${p.runs}.` : !open ? 'Trading is closed' : GLOSS.post,
                 onClick: () => {
                   posting = { uid: it.uid, price: relic ? '' : String(Math.min(capFor(it), Math.max(5, worth * 5))) };
-                  armed = null;
+                  disarm();
                   redraw();
                   const field = document.querySelector('[data-fk="post:price"]') as HTMLInputElement | null;
                   field?.focus();
@@ -481,14 +526,16 @@ function sell(): HTMLElement {
             title: isArmed ? `Press again to destroy ${it.item.name} for ${plural(worth, 'mark')}. It cannot be undone.` : `${GLOSS.salvage} Asks once more before it goes.`,
             onClick: () => {
               if (!isArmed) {
-                armed = it.uid;
+                arm(it.uid);
                 posting = null;
                 redraw();
                 return;
               }
+              // The armed stamp is drawn where the first press landed: a quick second tap is a bounce, not a yes.
+              if (performance.now() - armedAt < ARM_GUARD_MS) return;
+              disarm();
               void act(`salvage:${it.uid}`, 'Market', async () => {
                 took(await api.salvage(it.uid));
-                armed = null;
                 audio.play('scrip');
                 say('Market', `${it.item.name} salvaged for ${plural(worth, 'mark')}.`, 'town');
               });

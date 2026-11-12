@@ -9,10 +9,10 @@ import { SOLO_ONLY, api, isSolo, onReachable, setWorld } from './api.ts';
 import { nameWithTitle } from '../../shared/almanac.ts';
 import { renderAlmanac } from './almanac.ts';
 import { renderDaily } from './daily.ts';
-import { el, fmt, icon, sprites, type Kid } from './dom.ts';
+import { DOCK_Q, PHONE_Q, WIDE_Q, el, fmt, icon, isDocked, isPhone, sprites, type Kid } from './dom.ts';
 import { renderHome } from './home.ts';
 import { renderMarket } from './market.ts';
-import { app, onRedraw, redraw, savePrefs, sayFail, setProfile, type TabId } from './state.ts';
+import { app, getPrefs, onRedraw, redraw, savePrefs, sayFail, setProfile, type TabId } from './state.ts';
 import { renderTownhall } from './townhall.ts';
 import { FEATURE_TAB, RAW_NAME } from './words.ts';
 import { GLOSS } from '../ui/glossary.ts';
@@ -46,8 +46,13 @@ function syncSound(): void {
 }
 audio.onChange(syncSound);
 
-export function soundControls(): HTMLElement {
-  const mute = el('button', 'stamp stamp--plain stamp--small mute', 'Sound');
+/**
+ * Mute and volume. `compact` is the mute stamp alone, drawn as a speaker: a
+ * phone head has no room for a slider, and a slider at the top of a page that
+ * scrolls takes the swipes meant for scrolling. The volume is in the account.
+ */
+export function soundControls(o: { compact?: boolean } = {}): HTMLElement {
+  const mute = el('button', `stamp stamp--plain stamp--small mute${o.compact ? ' mute--icon' : ''}`, o.compact ? el('span', 'spk') : 'Sound');
   mute.type = 'button';
   mute.dataset.fk = 'mute';
   mute.setAttribute('aria-pressed', String(audio.muted));
@@ -67,6 +72,7 @@ export function soundControls(): HTMLElement {
   vol.addEventListener('input', () => audio.setVolume(Number(vol.value)));
   vol.addEventListener('change', () => audio.play('pickup'));
   muteBtns.add(mute);
+  if (o.compact) return el('div', 'sound sound--compact', mute);
   volInputs.add(vol);
   return el('div', 'sound', mute, vol);
 }
@@ -99,7 +105,7 @@ export function pageHead(label: string, title: Kid, ...meta: Kid[]): HTMLElement
 
 function townHead(): HTMLElement {
   const named = app.met && app.profile.name;
-  return pageHead(named ? (isSolo() ? 'Scrip. Solo account of' : 'Scrip. Account of') : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls());
+  return pageHead(named ? (isSolo() ? 'Scrip. Solo account of' : 'Scrip. Account of') : 'Scrip', named ? el('span', 'own', nameWithTitle(app.profile.name, app.profile.title)) : 'No account yet', app.met ? holdings() : null, soundControls({ compact: isDocked() }));
 }
 
 // ---- tabs ------------------------------------------------------------------
@@ -126,14 +132,25 @@ export function openTab(t: TabId): void {
   void loadTab(t);
 }
 
-function tabs(): HTMLElement {
+/** The daily clearing has not been run today: its tab carries a mark. */
+const dailyDue = (): boolean => {
+  const d = app.daily;
+  return !!d && !d.mine && !d.taken && getPrefs().dailyTaken !== d.date;
+};
+
+function tabs(): HTMLElement | null {
   const list = openTabs();
+  // On a phone a lone Stash tab is a bar of nothing: it appears with the second tab.
+  if (list.length < 2 && isPhone()) return null;
   const nav = el('div', 'tabs');
+  nav.style.setProperty('--n', String(list.length));
   nav.setAttribute('role', 'tablist');
   nav.setAttribute('aria-label', 'Town');
   for (const t of list) {
     const on = t === app.tab;
-    const b = el('button', 'tab', tabName(t), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null);
+    const due = t === 'daily' && dailyDue();
+    const b = el('button', `tab${due ? ' is-due' : ''}`, el('span', 'tab-name', tabName(t)), t === 'stash' && app.profile.items.length ? el('span', 'count num', String(app.profile.items.length)) : null);
+    if (due) b.setAttribute('aria-description', 'not yet run today');
     b.type = 'button';
     b.dataset.fk = `tab:${t}`;
     setTip(b, TAB_TIP[t]);
@@ -218,7 +235,7 @@ function drawTown(): void {
   const fk = active && root.contains(active) ? active.dataset.fk : undefined;
   const caret = active instanceof HTMLInputElement && active.type === 'text' ? active.selectionStart : null;
 
-  const body = el('main', 'tab-body');
+  const body = el('main', `tab-body tab-body--${app.tab}`);
   body.setAttribute('role', 'tabpanel');
   body.setAttribute('aria-label', tabName(app.tab));
   if (app.tab === 'workshop') renderWorkshop(body);
@@ -228,7 +245,9 @@ function drawTown(): void {
   else if (app.tab === 'almanac') renderAlmanac(body);
   else renderHome(body);
 
-  root.replaceChildren(townHead(), tabs(), notices(), body);
+  const nav = tabs();
+  root.classList.toggle('has-nav', !!nav);
+  root.replaceChildren(...[townHead(), nav, notices(), body].filter((n): n is HTMLElement => !!n));
 
   if (fk) {
     const again = root.querySelector(`[data-fk="${CSS.escape(fk)}"]`) as HTMLElement | null;
@@ -248,6 +267,15 @@ function drawTown(): void {
 onRedraw(() => {
   if (view === 'town') drawTown();
 });
+
+// The layout is chosen in code as well as in CSS (a dock or not, folds or not): crossing a width redraws.
+if (typeof matchMedia === 'function') {
+  for (const q of [PHONE_Q, DOCK_Q, WIDE_Q]) {
+    matchMedia(q).addEventListener('change', () => {
+      if (view === 'town') drawTown();
+    });
+  }
+}
 
 /** Show the town. `focus` names the control that should take the keyboard. */
 export function showTown(focusKey = 'headout'): void {
@@ -282,6 +310,7 @@ export function showSheet(...kids: Kid[]): HTMLElement {
   r.hidden = true;
   r.replaceChildren();
   const root = townRoot();
+  root.classList.remove('has-nav');
   root.hidden = false;
   root.replaceChildren(...kids.filter((k): k is Node | string => k !== null && k !== undefined && k !== false).map((k) => (typeof k === 'number' ? String(k) : k)));
   window.scrollTo(0, 0);

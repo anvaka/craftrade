@@ -131,12 +131,12 @@ export function thing(ic: Node, ...kids: Kid[]): HTMLElement {
  * One item as a ruled row: icon | name, tier, effect lines, extra | actions.
  * Uses the kit's .offer layout.
  */
-export function itemRow(item: ItemSpec, o: { meta?: Kid[]; actions?: Kid[]; cls?: string; me?: string } = {}): HTMLLIElement {
+export function itemRow(item: ItemSpec, o: { meta?: Kid[]; lead?: Kid[]; actions?: Kid[]; cls?: string; me?: string } = {}): HTMLLIElement {
   return el(
     'li',
     `offer ${isRelic(item) ? 'is-relic ' : ''}${o.cls ?? ''}`.trim(),
     itemIcon(item, true),
-    el('div', 'name', itemName(item), tier(itemTier(item)), serial(item), ...(o.meta ?? [])),
+    el('div', 'name', itemName(item), tier(itemTier(item)), serial(item), ...(o.lead ?? []), ...(o.meta ?? [])),
     effectList(item, o.me),
     o.actions?.length ? el('div', 'buy', ...o.actions) : null,
   );

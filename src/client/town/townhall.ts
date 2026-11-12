@@ -8,7 +8,7 @@ import type { StationId } from '../../shared/protocol.ts';
 import { TOWN_FUND_PER_DAY } from '../../shared/rules.ts';
 import { RAWS, emptyRaws, type RawBag } from '../../shared/vocab.ts';
 import { api } from './api.ts';
-import { el, empty, fmt, icon, pips, plural, sprites, stamp, stepper, thing } from './dom.ts';
+import { dock, el, empty, fmt, fold, icon, isDocked, pips, plural, sprites, stamp, stepper, thing, type Kid } from './dom.ts';
 import { act, app, say, setProfile } from './state.ts';
 import { RAW_NAME, STATION_NAME, STATION_ORDER, STATION_TOP_TIER, stationDoes } from './words.ts';
 
@@ -25,7 +25,12 @@ export function renderTownhall(root: HTMLElement): void {
   // Solo: the town is yours alone, so there is no table of who gave.
   root.append(project(), stations());
   if (!isSolo()) root.append(givers());
+  if (giveDock) root.append(giveDock);
+  giveDock = null;
 }
+
+/** On a docked screen the Give stamp goes to the dock, where it is in reach from any row. */
+let giveDock: HTMLElement | null = null;
 
 function project(): HTMLElement {
   const S = sprites();
@@ -133,8 +138,12 @@ function project(): HTMLElement {
     );
   }
   sync();
-  sec.append(rows, fundRow(station ? name : 'works'));
-  sec.append(el('div', 'bar', el('div', 'bar-text note', isSolo() ? 'This town is yours alone: only what you give raises it. What you give is counted as your ' : 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your ', term('standing', 'standing'), '.'), giveStamp));
+  // Give comes straight under the rows it gives from; paying with marks is the second way, folded on a phone.
+  const docked = isDocked();
+  sec.append(rows);
+  sec.append(el('div', 'bar bar--give', el('div', 'bar-text note', isSolo() ? 'This town is yours alone: only what you give raises it. What you give is counted as your ' : 'Half of the tax on every market sale is spent on the project at the Factor\'s prices. What you give is counted as your ', term('standing', 'standing'), '.'), docked ? null : giveStamp));
+  if (docked) giveDock = dock(el('span', 'note', 'Raws given go to the project for good.'), giveStamp);
+  sec.append(fundRow(station ? name : 'works'));
   return sec;
 }
 
@@ -163,12 +172,13 @@ function fundRow(name: string): HTMLElement {
     fund.disabled = funding < 1 || app.busy.has('fund');
   };
   sync();
-  return el(
+  const row = el(
     'div',
     'bar bar--fund',
     el('div', 'bar-text', el('span', 'label', 'With marks'), ' ', el('span', 'note', `Pay the Factor to deliver what the project needs most, at his asking price. He will carry ${TOWN_FUND_PER_DAY} units a day for one player. Marks that do not buy a whole unit stay with you.`)),
     el('span', 'stamps', stepper({ value: funding, min: 0, max, key: 'fund:marks', label: 'marks to pay', onChange: (v) => void ((funding = v), sync()) }), fund),
   );
+  return fold('fund', 'fold--sub', 'Pay the Factor instead', '', row);
 }
 
 function stations(): HTMLElement {
@@ -197,11 +207,13 @@ function stations(): HTMLElement {
 function givers(): HTMLElement {
   const t = app.town!;
   const p = app.profile;
-  const sec = el('section', 'section', el('h2', '', 'Who gave'));
+  const kids: Kid[] = [];
+  const sec = { append: (...k: Kid[]) => void kids.push(...k) };
+  const done = (): HTMLElement => fold('givers', '', 'Who gave', `${fmt(t.givers.length)}`, ...kids);
   sec.append(el('p', 'note num', `${plural(t.activePlayers, 'player')} active this week. You have given ${fmt(p.standing)}.`));
   if (!t.givers.length) {
     sec.append(empty('Nobody has given yet. The ten who have given most are listed here by name.'));
-    return sec;
+    return done();
   }
   const table = el('table', 'ledger givers');
   table.append(el('tr', '', el('th', 'num rank', 'Place'), el('th', '', 'Name'), el('th', 'num', 'Given')));
@@ -209,5 +221,5 @@ function givers(): HTMLElement {
     table.append(el('tr', '', el('td', 'num rank', String(i + 1)), el('td', '', g.name === p.name ? el('span', 'own', nameWithTitle(g.name, g.title)) : el('span', 'who', nameWithTitle(g.name, g.title))), el('td', 'num', fmt(g.given))));
   });
   sec.append(table);
-  return sec;
+  return done();
 }

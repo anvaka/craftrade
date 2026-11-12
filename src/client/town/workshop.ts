@@ -8,7 +8,7 @@ import { KIT_CHARGES, type CodexRecipe, type FuseRes, type StashItem } from '../
 import { canPay, townFuseCost } from '../../shared/rules.ts';
 import { audio } from '../audio/index.ts';
 import { api, isSolo } from './api.ts';
-import { effectList, el, empty, finder, fmt, itemIcon, pips, plural, stamp, thing, tier, type Kid } from './dom.ts';
+import { dock, effectList, el, empty, finder, fmt, fold, isDocked, isPhone, itemIcon, pips, plural, stamp, thing, tier, type Kid } from './dom.ts';
 import { costText } from './home.ts';
 import { app, clearNotice, redraw, sayFail, setProfile } from './state.ts';
 import { GLOSS } from '../ui/glossary.ts';
@@ -37,10 +37,20 @@ function known(id: string): ItemSpec | undefined {
   return app.codex?.items.find((i) => i.id === id) ?? BASE_ITEM[id] ?? app.profile.items.find((i) => i.item.id === id)?.item;
 }
 
+/** On a docked screen the outcome hands its Strike stamp and a one-line summary here, for the dock. */
+let docked: { text: Kid; strike: HTMLElement | null } | null = null;
+
 export function renderWorkshop(root: HTMLElement): void {
   if (!held(slotA)) slotA = null;
   if (!held(slotB)) slotB = null;
+  docked = null;
   root.append(anvil(), pairs(), codex(), relicRoll());
+  if (isDocked() && !result) {
+    const a = held(slotA);
+    const b = held(slotB);
+    const d = docked as { text: Kid; strike: HTMLElement | null } | null;
+    root.append(dock(d ? d.text : striking ? 'On the anvil.' : a || b ? 'Put a second item on the anvil.' : 'Put two items on the anvil.', d?.strike ?? null));
+  }
 }
 
 // ---- the anvil -------------------------------------------------------------
@@ -137,6 +147,8 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
   const cost = townFuseCost(made ? itemTier(made) : theirsOut ? itemTier(theirsOut) : tierOf(budget));
   const short = !canPay(app.profile, cost);
   const left = Math.min(a.charges, b.charges);
+  const go = stamp('Strike', { key: 'strike', sound: null, disabled: short, title: short ? `Not enough. You have ${plural(app.profile.marks, 'mark')}, ${app.profile.raws.timber} timber, ${app.profile.raws.ore} ore, ${app.profile.raws.hide} hide` : 'Fuse the two. Both are used up, and the price is paid.', onClick: () => void strike(a, b) });
+  if (isDocked()) docked = { text: el('span', 'num', el('strong', '', `${budget} points`), ` \u00b7 ${made || theirsOut ? '' : 'up to '}${costText(cost)}`), strike: go };
   box.append(
     el(
       'div',
@@ -145,8 +157,8 @@ function outcome(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
       el('div', 'budget', setTip(el('span', 'num term', `${budget} points`), GLOSS.budget), tier(tierOf(budget))),
       pairNote,
       el('span', 'num', `${made || theirsOut ? 'Costs' : 'Costs up to'} ${costText(cost)}.`),
-      el('span', '', `Both items are used up. The result has ${left} of ${KIT_CHARGES} charges: the fewer of the two.`),
-      stamp('Strike', { key: 'strike', sound: null, disabled: short, title: short ? `Not enough. You have ${plural(app.profile.marks, 'mark')}, ${app.profile.raws.timber} timber, ${app.profile.raws.ore} ore, ${app.profile.raws.hide} hide` : 'Fuse the two. Both are used up, and the price is paid.', onClick: () => void strike(a, b) }),
+      el('span', 'o-used', `Both items are used up. The result has ${left} of ${KIT_CHARGES} charges: the fewer of the two.`),
+      isDocked() ? null : go,
     ),
   );
   return box;
@@ -193,14 +205,10 @@ function anvil(): HTMLElement {
   const a = held(slotA);
   const b = held(slotB);
   const sec = el('section', 'section section--first', el('h2', '', 'Anvil'));
-  sec.append(
-    el(
-      'p',
-      'note',
-      'Two different items go on and one new item comes off, for a price in marks and raws set by its tier. A pair nobody has tried is decided once, for everyone, and carries its finder\'s name. ',
-      el('span', 'num', `${fmt(app.profile.novelLeft)} `, term(app.profile.novelLeft === 1 ? 'untried pair' : 'untried pairs', 'untried'), ' left today.'),
-    ),
-  );
+  const how = 'Two different items go on and one new item comes off, for a price in marks and raws set by its tier. A pair nobody has tried is decided once, for everyone, and carries its finder\'s name.';
+  const left = el('span', 'num', `${fmt(app.profile.novelLeft)} `, term(app.profile.novelLeft === 1 ? 'untried pair' : 'untried pairs', 'untried'), ' left today.');
+  // A phone keeps the rules in a tip on "How it works", so the slots start on the first screen.
+  sec.append(isPhone() ? el('p', 'note', left, ' ', setTip(el('span', 'term', 'How it works'), how)) : el('p', 'note', `${how} `, left));
   if (result) {
     sec.append(
       el('div', 'anvil is-done', el('div', 'anvil-made', el('span', 'label', itemName(result.a), ' + ', itemName(result.b))), outcome(undefined, undefined)),
@@ -281,13 +289,20 @@ function chooser(a: StashItem | undefined, b: StashItem | undefined): HTMLElemen
 // ---- pairs in the stash: a memory for recipe hunting ----------------------
 
 function pairs(): HTMLElement {
-  const sec = el('section', 'section', el('h2', '', 'Pairs in your stash'));
+  const body = pairsBody();
+  return fold('pairs', '', 'Pairs in your stash', body.sum, ...body.kids);
+}
+
+function pairsBody(): { sum: Kid; kids: Kid[] } {
+  const sec = { append: (...k: Kid[]) => void out.push(...k) };
+  const out: Kid[] = [];
+  let sum: Kid = '';
   const seen = new Map<string, StashItem>();
   for (const it of app.profile.items) if (itemTier(it.item) < 4 && !seen.has(it.item.id)) seen.set(it.item.id, it);
   const list = [...seen.values()];
   if (list.length < 2) {
     sec.append(empty('With two different items in the stash, every pair is listed here and marked once you have tried it.'));
-    return sec;
+    return { sum, kids: out };
   }
   const memory = tried();
   const rows = el('ul', 'recipes');
@@ -301,6 +316,7 @@ function pairs(): HTMLElement {
   }
   const total = all.length;
   const done = all.filter((p) => p.rec).length;
+  sum = `${fmt(done)} of ${fmt(total)} tried`;
   // Tried pairs first: they are the memory. Then a few to try next.
   const pick = [...all.filter((p) => p.rec), ...all.filter((p) => !p.rec).slice(0, 6)].slice(0, 14);
   const shown = pick.length;
@@ -338,7 +354,7 @@ function pairs(): HTMLElement {
   }
   sec.append(el('p', 'note num', `${done} of ${plural(total, 'pair')} tried.`), rows);
   if (total > shown) sec.append(el('p', 'note', `${fmt(total - shown)} more untried pairs are not listed. Put one item on the anvil and the table above marks each partner.`));
-  return sec;
+  return { sum, kids: out };
 }
 
 // ---- codex -----------------------------------------------------------------
@@ -400,7 +416,8 @@ function fillCodex(box: HTMLElement): void {
 
 function codex(): HTMLElement {
   const c = app.codex;
-  const sec = el('section', 'section', el('h2', '', term('Codex', 'codex')));
+  const sec = { append: (...k: Kid[]) => void kids.push(...k) };
+  const kids: Kid[] = [];
   const box = el('div', 'codex-lists');
   const search = el('input', 'field');
   search.type = 'search';
@@ -422,7 +439,7 @@ function codex(): HTMLElement {
     box,
   );
   fillCodex(box);
-  return sec;
+  return fold('codex', '', isPhone() ? 'Codex' : term('Codex', 'codex'), c ? `${fmt(c.recipes.filter((r) => r.mine).length)} recipes` : '', ...kids);
 }
 
 // ---- relics: the world's roll -----------------------------------------------
@@ -432,13 +449,18 @@ function codex(): HTMLElement {
  * A kind nobody has found is a blank line: it is there, and nobody has it.
  */
 function relicRoll(): HTMLElement {
-  const sec = el('section', 'section relic-roll', el('h2', '', term('Relics', 'relic')));
   const r = app.relics;
+  const kids: Kid[] = [];
+  const sec = { append: (...k: Kid[]) => void kids.push(...k) };
+  const title = isPhone() ? 'Relics' : term('Relics', 'relic');
   if (!r) {
     sec.append(empty(app.online ? 'Asking after the roll.' : 'The roll of relics is kept in town, which is out of reach.'));
-    return sec;
+    return fold('relics', 'relic-roll', title, '', ...kids);
   }
   const unfound = r.kinds.filter((k) => !k.id).length;
+  const done = (): HTMLElement => fold('relics', 'relic-roll', title, `${fmt(r.kinds.length - unfound)} of ${fmt(r.kinds.length)} found`, ...kids);
+  // A phone lists only the kinds someone has found: a column of blank lines reads as a broken form there.
+  const phone = isPhone();
   sec.append(
     el(
       'p',
@@ -451,16 +473,20 @@ function relicRoll(): HTMLElement {
   kinds.append(el('tr', '', el('th', '', 'Relic'), el('th', '', 'What it does'), el('th', 'num', 'In the world')));
   for (const k of r.kinds) {
     const spec = k.id ? RELIC[k.id] : undefined;
+    if (!spec && phone) continue;
     kinds.append(
       spec
         ? el('tr', '', el('td', '', thing(itemIcon(spec), itemName(spec))), el('td', 'fx', spec.effects.map((e) => effectText(e)).join(', ')), el('td', 'num', fmt(k.found)))
         : el('tr', 'is-unfound', el('td', '', el('span', 'blank')), el('td', '', el('span', 'blank')), el('td', 'num', '0')),
     );
   }
-  sec.append(kinds, el('h3', '', 'The roll'));
+  if (phone && unfound === r.kinds.length) sec.append(empty(`None of the ${fmt(r.kinds.length)} kinds has been found yet.`));
+  else sec.append(kinds);
+  if (phone && unfound > 0 && unfound < r.kinds.length) sec.append(el('p', 'note num', `${plural(unfound, 'more kind')} nobody has found.`));
+  sec.append(el('h3', '', 'The roll'));
   if (!r.roll.length) {
     sec.append(empty('Nobody has brought one home yet. The first will be entered here by name.'));
-    return sec;
+    return done();
   }
   const roll = el('table', 'ledger relic-finds');
   roll.append(el('tr', '', el('th', '', 'Relic'), el('th', 'num', 'No.'), el('th', '', 'Found by'), el('th', 'num', 'Date')));
@@ -478,5 +504,5 @@ function relicRoll(): HTMLElement {
   }
   sec.append(roll);
   if (r.total > r.roll.length) sec.append(el('p', 'note num', `The newest ${fmt(r.roll.length)} of ${fmt(r.total)} are listed.`));
-  return sec;
+  return done();
 }

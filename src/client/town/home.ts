@@ -9,9 +9,9 @@ import { DAILY_WAVES, KIT_CHARGES, KIT_SLOTS, type CharacterId, type StashItem }
 import { HAZARD_MARKS, MAX_HAZARD, REPAIR, canPay, kitPointCap, packItem, repairCost, stashNextCost, type Cost } from '../../shared/rules.ts';
 import { audio } from '../audio/index.ts';
 import { SOLO_ONLY, api, isSolo } from './api.ts';
-import { charges, el, empty, finder, fmt, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
+import { charges, dock, el, empty, finder, fmt, isDocked, isPhone, itemRow, ordinal, plural, sprite, sprites, stamp, type Kid } from './dom.ts';
 import { dropSavedRun, headOut, resumeRun, savedRun } from './run.ts';
-import { switchWorld } from './shell.ts';
+import { openTab, soundControls, switchWorld } from './shell.ts';
 import { act, app, getPrefs, hazardNow, redraw, savePrefs, say, setProfile } from './state.ts';
 import { GLOSS } from '../ui/glossary.ts';
 import { setTip, term } from '../ui/tip.ts';
@@ -21,7 +21,14 @@ export function renderHome(root: HTMLElement): void {
   // The word from the world sits above the grid, across the whole page.
   const word = worldNotice();
   if (word) root.append(word);
-  root.append(el('div', 'home', nextRun(), who(), stash(), account()));
+  // On a phone the account is reference, not part of the next run: it is kept at the foot of the almanac.
+  const phone = isPhone();
+  root.append(el('div', 'home', nextRun(), who(), stash(), phone && app.profile.runs > 0 ? null : account()));
+  if (isDocked()) root.append(dock(el('span', '', el('strong', '', characterName(app.character)), ' \u00b7 ', ...kitNames(), app.profile.runs > 0 ? ` \u00b7 hazard ${hazardNow()}` : ''), headOutStamp()));
+}
+
+function headOutStamp(): HTMLButtonElement {
+  return stamp(app.busy.has('run') ? 'Heading out' : 'Head out', { key: 'headout', sound: 'waveStart', onClick: () => void headOut('run') });
 }
 
 // ---- word from the world ---------------------------------------------------
@@ -54,7 +61,8 @@ function nextRun(): HTMLElement {
       'div',
       'bar',
       el('div', 'bar-text', el('strong', '', characterName(app.character)), ', ', ...kitNames(), '. ', el('span', 'note', '12 waves, about 13 minutes.')),
-      stamp(app.busy.has('run') ? 'Heading out' : 'Head out', { key: 'headout', sound: 'waveStart', onClick: () => void headOut('run') }),
+      // Docked screens carry Head out in the dock at the foot instead, where it never scrolls away.
+      isDocked() ? null : headOutStamp(),
     ),
   );
   const kept = savedRun();
@@ -114,6 +122,12 @@ function hazardRow(): HTMLElement {
   const terms = now === 0 ? 'The plain clearing.' : `Pays ${Math.round(HAZARD_MARKS * now * 100)}% more marks.`;
   const kit: Kid[] = now >= MAX_HAZARD ? ['A packed item comes whole.'] : ['A packed item brings up to ', setTip(el('span', 'term', `${cap} points`), 'An item\u2019s points are the sum of its effects. A packed item stronger than this is cut down to it for the run, and comes home whole.'), '.'];
   const next = book.open < MAX_HAZARD ? ` A win at hazard ${book.open} as ${characterName(app.character)} opens hazard ${book.open + 1}.` : '';
+  if (isPhone()) {
+    // One short line; the long terms are in the squares' tips and in the hazard word's.
+    const short = now >= MAX_HAZARD ? 'packed items come whole' : `packed items bring up to ${cap} points`;
+    row.append(el('div', 'bar-text', term('Hazard', 'hazard', 'label'), ' ', el('span', 'num', String(now)), ' ', el('span', 'note', now === 0 ? `Plain clearing, ${short}.` : `+${Math.round(HAZARD_MARKS * now * 100)}% marks, ${short}.`)), picks);
+    return row;
+  }
   row.append(el('div', 'bar-text', term('Hazard', 'hazard', 'label'), ' ', el('span', 'num', String(now)), '. ', terms, ' ', ...kit, el('span', 'note', next)), picks);
   return row;
 }
@@ -130,6 +144,18 @@ function dailyRow(): HTMLElement {
   if (d.mine) result = `${d.mine.waves} of ${DAILY_WAVES} waves, ${fmt(d.mine.scrip)} scrip, ${ordinal(d.mine.rank)} of ${fmt(d.players)}.`;
   else if (taken) result = 'Scored attempt taken, no result. Practice is open.';
   else result = 'Not yet run.';
+  if (isPhone()) {
+    // One line that opens the daily tab, where its two stamps are. Head out stays the only big stamp here.
+    const go = el('button', 'bar bar--daily bar--link', el('span', 'bar-text', el('span', 'label', "Today's clearing"), ' ', characterName(d.character), '. ', el('span', 'note', d.mine ? `${ordinal(d.mine.rank)} of ${fmt(d.players)}.` : taken ? 'Practice is open.' : 'Not yet run.')), el('span', 'bar-go', 'Daily \u2192'));
+    go.type = 'button';
+    go.dataset.fk = 'daily:open';
+    go.addEventListener('click', () => {
+      audio.play('stamp');
+      openTab('daily');
+      window.scrollTo(0, 0);
+    });
+    return go;
+  }
   row.append(
     el('div', 'bar-text', term("Today's clearing", 'daily', 'label'), ' ', el('span', 'num', d.date), '. ', characterName(d.character), '. ', result),
     el(
@@ -146,8 +172,10 @@ function dailyRow(): HTMLElement {
 
 function who(): HTMLElement {
   const S = sprites();
+  const strip = isPhone();
   const sec = el('section', 'section who-out', el('h2', '', 'Who heads out'));
-  const list = el('div', 'chars');
+  // On a phone the six are a strip of portraits, and the one going is named on a line under it.
+  const list = el('div', `chars${strip ? ' chars--strip' : ''}`);
   list.setAttribute('role', 'radiogroup');
   list.setAttribute('aria-label', 'Who heads out');
   const open = app.profile.characters;
@@ -167,6 +195,7 @@ function who(): HTMLElement {
       );
       b.type = 'button';
       b.dataset.fk = `char:${id}`;
+      if (strip) b.setAttribute('aria-label', characterName(id));
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', String(on));
       b.addEventListener('click', () => {
@@ -184,17 +213,24 @@ function who(): HTMLElement {
       list.append(b);
     } else {
       const left = Math.max(1, CHARACTER_AT[id] - app.profile.runs);
-      list.append(
-        el(
-          'div',
-          'char is-shut',
-          sprite(S.player[id].walk[0].ink),
-          el('span', 'char-text', el('span', 'char-name', characterName(id)), el('span', 'char-twist', `Heads out after ${left} more ${left === 1 ? 'run' : 'runs'}, won or lost.`)),
-        ),
+      const when = `Heads out after ${left} more ${left === 1 ? 'run' : 'runs'}, won or lost.`;
+      const chip = el(
+        'div',
+        'char is-shut',
+        sprite(S.player[id].walk[0].ink),
+        el('span', 'char-text', el('span', 'char-name', characterName(id)), el('span', 'char-twist', when)),
+        strip ? el('span', 'char-left num', String(left)) : null,
       );
+      if (strip) {
+        setTip(chip, `${characterName(id)}. ${when}`);
+        chip.setAttribute('role', 'img');
+        chip.setAttribute('aria-label', `${characterName(id)}, ${when.toLowerCase()}`);
+      }
+      list.append(chip);
     }
   }
   sec.append(list);
+  if (strip) sec.append(el('p', 'char-caption', el('strong', '', characterName(app.character)), ' ', el('span', 'note', characterTwist(app.character))));
   return sec;
 }
 
@@ -204,12 +240,13 @@ function stash(): HTMLElement {
   const items = app.profile.items;
   const p = app.profile;
   const sec = el('section', 'section stash', el('h2', '', 'Stash'));
-  if (app.met && (items.length || p.stashBought > 0)) sec.append(shelfRow());
+  const phone = isPhone();
+  if (app.met && (items.length || p.stashBought > 0)) sec.append(shelfRow(phone && items.length > 0));
   if (!items.length) {
     sec.append(empty(app.met ? 'Nothing in the stash. One item from your build can come home for every four waves you clear, and it will be listed here.' : 'Your stash is kept in town and will be listed here when the town answers.'));
     return sec;
   }
-  sec.append(
+  if (!phone) sec.append(
     el(
       'p',
       'note',
@@ -245,9 +282,11 @@ function stash(): HTMLElement {
           ? []
           : [
               el('span', 'made', it.item.by ? term('first made by', 'firstMade') : '', it.item.by ? ' ' : '', finder(it.item.by, app.profile.name)),
-              down !== it.item ? setTip(el('span', 'made packs term', `packs down to ${itemPoints(down.effects)} of ${itemPoints(it.item.effects)} points at hazard ${hazard}`), 'Packed for a run at this hazard, the item is cut down to the cap. It comes home whole.') : null,
+              down !== it.item ? setTip(el('span', 'made packs term', phone ? `packs to ${itemPoints(down.effects)} of ${itemPoints(it.item.effects)} points` : `packs down to ${itemPoints(down.effects)} of ${itemPoints(it.item.effects)} points at hazard ${hazard}`), 'Packed for a run at this hazard, the item is cut down to the cap. It comes home whole.') : null,
             ],
-        actions: [charges(it.item, it.charges), mendStamp(it), packed || !(full || (relicPacked && isRelic(it.item))) ? toggle : null],
+        // On a phone the charge pips sit by the name and the right-hand column holds only stamps.
+        actions: [phone ? null : charges(it.item, it.charges), mendStamp(it), packed || !(full || (relicPacked && isRelic(it.item))) ? toggle : null],
+        lead: phone ? [charges(it.item, it.charges, null)] : undefined,
       }),
     );
   }
@@ -255,21 +294,24 @@ function stash(): HTMLElement {
   return sec;
 }
 
-/** How full the stash is, and the price of another shelf. */
-function shelfRow(): HTMLElement {
+/** How full the stash is, and the price of another shelf. `short`: one line with the packed count, for a phone. */
+function shelfRow(brief = false): HTMLElement {
   const p = app.profile;
   const cost = stashNextCost(p.stashBought);
   const short = !!cost && !canPay(p, cost);
+  const why = cost ? `What does not fit when you come home is salvaged. Another shelf of 8 costs ${costText(cost)}.` : 'The stash is as large as it gets. What does not fit when you come home is salvaged.';
   return el(
     'div',
     'bar bar--shelf',
-    el(
-      'div',
-      'bar-text',
-      el('span', 'num', `${fmt(p.stashUsed)} of ${fmt(p.stashLimit)} places filled.`),
-      ' ',
-      el('span', 'note', cost ? `What does not fit when you come home is salvaged. Another shelf of 8 costs ${costText(cost)}.` : 'The stash is as large as it gets. What does not fit when you come home is salvaged.'),
-    ),
+    brief
+      ? el(
+          'div',
+          'bar-text',
+          setTip(el('span', 'num term', `${fmt(p.stashUsed)}/${fmt(p.stashLimit)} places`), `${fmt(p.stashUsed)} of ${fmt(p.stashLimit)} places filled. ${why}`),
+          ' \u00b7 ',
+          setTip(el('span', 'num term', `${app.kit.length}/${KIT_SLOTS} packed`), `Pack up to ${KIT_SLOTS} for the run. Each run you start spends one charge from every packed item, and an item with no charges left is gone. The daily clearing ignores kits.`),
+        )
+      : el('div', 'bar-text', el('span', 'num', `${fmt(p.stashUsed)} of ${fmt(p.stashLimit)} places filled.`), ' ', el('span', 'note', why)),
     cost
       ? stamp('Another shelf', {
           cls: 'stamp--small stamp--plain',
@@ -307,7 +349,7 @@ function mendStamp(it: StashItem): HTMLElement | null {
 
 // ---- the account in figures -----------------------------------------------
 
-function account(): HTMLElement {
+export function account(): HTMLElement {
   const p = app.profile;
   const sec = el('section', 'section account', el('h2', '', 'Account'));
   if (!app.met) {
@@ -347,6 +389,8 @@ function account(): HTMLElement {
       }),
     );
   }
+  // The phone head has only the mute stamp; the volume is set here, where nothing scrolls under the thumb at the top of a page.
+  if (isDocked()) row('Sound', soundControls());
   row('Title worn', p.title && TITLE[p.title] ? TITLE[p.title].name : el('span', 'note', 'none'));
   row('Runs', fmt(p.runs));
   row('Wins', fmt(p.wins));

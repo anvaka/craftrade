@@ -19,7 +19,7 @@ import type { FuseOutcome } from '../seam.ts';
 
 // Every action goes through the recorder, so the town can play the run again (src/shared/replay.ts).
 const { applyFusion, buy, pickUpgrade, reroll, scrapItem, scrapWeapon, sendMule, toggleLock } = rec;
-import { cap, cost, el, ic, rawsText, stamp, tier, type Kid } from './dom.ts';
+import { cap, cost, el, ic, icSized, rawsText, stamp, tier, type Kid } from './dom.ts';
 import { soundControls, type SoundControls } from './hud.ts';
 import { learn, learned } from './progress.ts';
 
@@ -79,6 +79,10 @@ function weaponStats(list: Slim[]): Float64Array {
 const fmtStat = (id: StatId, v: number): string => `${Math.round(v * 10) / 10}${STAT_PERCENT[id] ? '%' : ''}`;
 const signed = (id: StatId, v: number): string => `${v > 0 ? '+' : '-'}${fmtStat(id, Math.abs(v))}`;
 const low = (s: string): string => s.toLowerCase();
+/** A second press this soon after the first is a double tap or a bounce, not a decision. */
+export const CONFIRM_GAP = 450;
+/** An armed confirm lapses after this long. */
+export const DISARM_MS = 4000;
 
 export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   const { run } = deps;
@@ -109,11 +113,26 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   let anvilHint = deps.teach && !learned('anvil');
   let alive = true;
   const madeThisRun = new Map<string, ItemSpec>();
-  let statDelta: HTMLElement[] = [];
-  let statRow: HTMLElement[] = [];
+  // Per stat, every place it is shown: the side list, and on a phone the ribbon too.
+  let statDelta: HTMLElement[][] = [];
+  let statRow: HTMLElement[][] = [];
   let statZero: boolean[] = [];
   let statNone: HTMLElement | null = null;
   let hovered = '';
+  /** The card a tap selected: its stat change stays shown (touch has no hover). */
+  let pinned: { key: string; delta: () => Float64Array | null } | null = null;
+  /** When the armed Scrap was armed: a second press inside CONFIRM_GAP ms is a bounce, not a yes. */
+  let armedAt = 0;
+  let disarmTimer = 0;
+  /** Phone layout: which tab of the dock is open, and which weapon slot is picked. */
+  let openTab: 'weapons' | 'items' | 'stats' | 'anvil' | 'mule' = 'weapons';
+  let wSel = 0;
+  // The phone layout is chosen by width and chosen again when the width changes (a phone turned on its side).
+  const compactQ = typeof matchMedia === 'function' ? matchMedia('(max-width: 899px)') : null;
+  const onCompact = (): void => { if (!root.hidden && alive) render(); };
+  compactQ?.addEventListener('change', onCompact);
+  /** Keyboard hints only where there is a keyboard to press. */
+  const coarse = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
   const pairKey = (a: string, c: string): string => (a < c ? `${a}+${c}` : `${c}+${a}`);
   const itemIndex = (id: string | null, skip = -1): number => {
@@ -134,13 +153,25 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
   function preview(delta: Float64Array | null, key: string): void {
     hovered = delta ? key : '';
     for (let i = 0; i < STATS.length; i++) {
-      const d = statDelta[i];
-      if (!d) continue;
       const v = delta ? delta[i] : 0;
       const text = v ? signed(STATS[i], v) : '';
-      if (d.textContent !== text) d.textContent = text;
-      d.hidden = !v;
-      if (statRow[i] && statZero[i]) statRow[i].hidden = !v;
+      for (const d of statDelta[i] ?? []) {
+        if (d.textContent !== text) d.textContent = text;
+        d.hidden = !v;
+      }
+      if (statZero[i]) for (const r of statRow[i] ?? []) r.hidden = !v;
+    }
+  }
+  /** Back to the selected card's change, or to none. */
+  function unpreview(): void {
+    if (pinned) preview(pinned.delta(), pinned.key);
+    else preview(null, '');
+  }
+  function markSelected(): void {
+    for (const c of root.querySelectorAll<HTMLElement>('[data-card]')) {
+      const on = c.dataset.card === pinned?.key;
+      c.classList.toggle('is-selected', on);
+      c.setAttribute('aria-selected', String(on));
     }
   }
   function offerDelta(i: number): Float64Array | null {
@@ -159,13 +190,24 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     }
     return d;
   }
-  function watch(node: HTMLElement, key: string, delta: () => Float64Array | null): void {
+  function watch(node: HTMLElement, key: string, delta: () => Float64Array | null, selectable = false): void {
     const on = (): void => preview(delta(), key);
-    const off = (): void => { if (hovered === key) preview(null, ''); };
-    node.addEventListener('pointerenter', on);
-    node.addEventListener('pointerleave', off);
+    const off = (): void => { if (hovered === key) unpreview(); };
+    // A finger "enters" as it lands and "leaves" as it lifts, so on touch the preview would last as long as the tap. Touch selects instead.
+    node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') on(); });
+    node.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') off(); });
     node.addEventListener('focusin', on);
     node.addEventListener('focusout', off);
+    if (!selectable) return;
+    // A tap on the card (not on its buttons) selects it: a heavy frame, the full text, and its stat change in the ribbon.
+    node.dataset.card = key;
+    node.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button, a, .term')) return;
+      pinned = pinned?.key === key ? null : { key, delta };
+      audio.play('stamp', { gain: 0.5 });
+      markSelected();
+      unpreview();
+    });
   }
 
   // ---- actions ---------------------------------------------------------------
@@ -177,11 +219,35 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     combined = -1;
     prevArm = scrapArm;
     scrapArm = '';
+    pinned = null;
     fn();
+    if (scrapArm) armDisarm();
     deps.changed?.();
     render();
     if (fk) (root.querySelector(`[data-fk="${fk}"]`) as HTMLElement | null)?.focus();
     else if (ev) (document.activeElement as HTMLElement | null)?.blur();
+  }
+
+  /** An armed Scrap goes back to Scrap after a while, so a later tap is never taken as the yes. */
+  function armDisarm(): void {
+    window.clearTimeout(disarmTimer);
+    const k = scrapArm;
+    disarmTimer = window.setTimeout(() => {
+      if (!alive || scrapArm !== k || pending) return;
+      scrapArm = '';
+      if (reason.endsWith('Press again.')) say('');
+      render();
+    }, DISARM_MS);
+  }
+  /** The second press of a confirm. True: it counts. A press that comes too soon after the first is a double tap and arms again. */
+  function confirmed(key: string): boolean {
+    if (prevArm !== key) return false;
+    if (performance.now() - armedAt < CONFIRM_GAP) { scrapArm = key; return false; }
+    return true;
+  }
+  function arm(key: string, text: string): void {
+    if (scrapArm === key) return; // a bounce: still armed, nothing new to say
+    scrapArm = key; armedAt = performance.now(); say(text);
   }
 
   function doPick(i: number): void {
@@ -229,7 +295,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     if (!w) return;
     if (p.weapons.length <= 1) { refuse('The last weapon cannot be scrapped.'); return; }
     const key = `w${i}`;
-    if (prevArm !== key) { scrapArm = key; say(`Scrap the ${low(WEAPONS[w.def].name)}? Press again.`); return; }
+    if (!confirmed(key)) { arm(key, `Scrap the ${low(WEAPONS[w.def].name)}? Press again.`); return; }
     const v = scrapValueWeapon(run, i);
     if (scrapWeapon(run, i)) { audio.play('buy', { pitch: 0.8 }); say(`${WEAPONS[w.def].name} scrapped for ${v} scrip.`); scrapArm = ''; }
   }
@@ -250,7 +316,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     const it = p.items[i];
     if (!it) return;
     const key = `i${it.id}`;
-    if (prevArm !== key) { scrapArm = key; say(`Scrap ${low(it.name)}? Press again.`); return; }
+    if (!confirmed(key)) { arm(key, `Scrap ${low(it.name)}? Press again.`); return; }
     const v = scrapValueItem(run, i);
     if (scrapItem(run, i)) {
       audio.play('buy', { pitch: 0.8 });
@@ -406,7 +472,7 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const lockBtn = stamp(o.locked ? 'Locked' : 'Lock', `stamp--plain stamp--small${o.locked ? ' is-pressed' : ''}`);
       lockBtn.dataset.fk = `lock${i}`;
       lockBtn.setAttribute('aria-pressed', String(o.locked));
-      setTip(lockBtn, o.locked ? 'Locked: it stays through rerolls. Press to unlock.' : `${GLOSS.lock} Key: L and the offer number.`);
+      setTip(lockBtn, o.locked ? 'Locked: it stays through rerolls. Press to unlock.' : `${GLOSS.lock}${coarse() ? '' : ' Key: L and the offer number.'}`);
       lockBtn.addEventListener('click', (ev) => act(() => doLock(i), ev));
       lis.push(
         icon,
@@ -566,11 +632,9 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     }
   }
 
-  function sideColumn(): HTMLElement {
-    const side = el('aside', 'g-side');
+  /** The stat list. Starts the preview's record of where each stat is shown. */
+  function statsSection(): HTMLElement {
     const ch = CHARACTER[run.character];
-
-    // Stats.
     // A stat at nothing is not a row: thirteen zeros teach nobody. A row comes
     // up when the stat is raised, or while an offer that would raise it is under the pointer.
     const stats = el('dl', 'stats');
@@ -582,54 +646,84 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       const v = p.stat[ST[id]];
       const d = el('span', 'g-delta');
       d.hidden = true;
-      statDelta.push(d);
+      statDelta.push([d]);
       const row = el('div', '', el('dt', '', ic(S.icon.stat[id]), STAT_LABEL[id]), el('dd', 'num', d, fmtStat(id, v)));
       setTip(row, `${STAT_LABEL[id]}: ${STAT_MEANING[id]} Now: ${statTitle(id, v)}.`);
       const zero = Math.round(v * 10) === 0;
       row.hidden = zero;
       if (!zero) shownRows++;
-      statRow.push(row); statZero.push(zero);
+      statRow.push([row]); statZero.push(zero);
       stats.append(row);
     }
     statNone = el('p', 'note', 'No stats raised yet. Upgrades and items show here.');
     statNone.hidden = shownRows > 0;
-    side.append(el('section', 'section g-first', el('h2', '', `${ch.name}, level ${p.level}`), ch.id !== 'greenhorn' ? el('p', 'note', ch.twist) : null, statNone, stats));
+    return el('section', 'section g-first', el('h2', '', `${ch.name}, level ${p.level}`), ch.id !== 'greenhorn' ? el('p', 'note', ch.twist) : null, statNone, stats);
+  }
 
-    // Weapons.
-    const wt = el('table', 'ledger');
-    p.weapons.forEach((w, i) => {
-      const def = WEAPONS[w.def];
-      const key_ = `w${i}`;
-      const v = scrapValueWeapon(run, i);
-      const sc = stamp(scrapArm === key_ ? 'Sure?' : 'Scrap', `stamp--plain stamp--small${scrapArm === key_ ? ' is-pressed' : ''}`, cost(S.icon.scrip, v));
-      sc.dataset.fk = `scrapw${i}`;
-      sc.setAttribute('aria-label', `Scrap ${def.name} for ${v} scrip`);
-      setTip(sc, p.weapons.length <= 1 ? 'Your last weapon cannot be scrapped.' : scrapArm === key_ ? `Press again to scrap ${def.name} for ${v} scrip.` : `Scrap ${def.name} for ${v} scrip. Asks once more first.`);
-      if (p.weapons.length <= 1) sc.setAttribute('aria-disabled', 'true');
-      sc.addEventListener('click', (ev) => act(() => doScrapWeapon(i), ev));
-      // Raise a tier for scrip and raws; combine two twins to free a slot.
-      let up: HTMLElement | null = null, comb: HTMLElement | null = null;
-      if (w.tier < 4) {
-        const c = tierUpCost(run, i);
-        up = stamp('Tier up', 'stamp--plain stamp--small', cost(S.icon.scrip, c));
-        up.dataset.fk = `upw${i}`;
-        up.setAttribute('aria-label', `Raise ${def.name} to tier ${w.tier + 1} for ${c} scrip`);
-        if (tierUpBlock(run, i)) up.setAttribute('aria-disabled', 'true');
-        up.addEventListener('click', (ev) => act(() => doTierUp(i), ev));
-      }
-      if (twinOf(run, i) >= 0) {
-        comb = stamp('Combine', 'stamp--plain stamp--small');
-        comb.dataset.fk = `combw${i}`;
-        comb.setAttribute('aria-label', `Combine two tier ${w.tier} ${def.name} into one tier ${w.tier + 1}`);
-        comb.addEventListener('click', (ev) => act(() => doCombine(i), ev));
-      }
-      wt.append(el('tr', i === combined ? 'g-combined' : '',
-        el('td', '', el('div', 'thing', ic(S.icon.weapon[w.id as keyof typeof S.icon.weapon]),
-          el('span', '', weaponName(def, w.tier, now(def, w.tier)), i === combined ? el('span', 'g-tag', 'Combined') : null,
-            el('span', 'g-sub', def.classes.map((c) => CLASS_LABEL[c]).join(', '))))),
-        el('td', '', tier(w.tier)),
-        el('td', 'act', up, comb, sc)));
+  /** Phones: every raised stat on one or two lines, always in view, with the selected card's change on it. Call after statsSection(). */
+  function ribbon(): HTMLElement {
+    const r = el('div', 'g-ribbon');
+    r.setAttribute('aria-label', 'Your stats');
+    STATS.forEach((id, i) => {
+      const v = p.stat[ST[id]];
+      const d = el('span', 'g-delta');
+      d.hidden = true;
+      const chip = el('span', 'g-rstat', icSized(S.icon.stat[id], 18), el('span', 'num', fmtStat(id, v)), d);
+      chip.setAttribute('aria-label', `${STAT_LABEL[id]} ${fmtStat(id, v)}`);
+      setTip(chip, `${STAT_LABEL[id]}: ${STAT_MEANING[id]} Now: ${statTitle(id, v)}.`);
+      chip.hidden = statZero[i];
+      statDelta[i].push(d);
+      statRow[i].push(chip);
+      r.append(chip);
     });
+    return r;
+  }
+
+  function sideColumn(): HTMLElement {
+    const side = el('aside', 'g-side');
+    side.append(statsSection());
+    side.append(weaponsSection());
+    side.append(itemsSection());
+    return side;
+  }
+
+  /** What a weapon's three stamps are: tier up, combine with a twin, scrap. */
+  function weaponActs(i: number): HTMLElement[] {
+    const w = p.weapons[i];
+    const def = WEAPONS[w.def];
+    const key_ = `w${i}`;
+    const v = scrapValueWeapon(run, i);
+    const sc = stamp(scrapArm === key_ ? 'Sure?' : 'Scrap', `stamp--plain stamp--small g-scrap${scrapArm === key_ ? ' is-pressed' : ''}`, cost(S.icon.scrip, v));
+    sc.dataset.fk = `scrapw${i}`;
+    sc.setAttribute('aria-label', scrapArm === key_ ? `Press again to scrap ${def.name} for ${v} scrip` : `Scrap ${def.name} for ${v} scrip`);
+    setTip(sc, p.weapons.length <= 1 ? 'Your last weapon cannot be scrapped.' : scrapArm === key_ ? `Press again to scrap ${def.name} for ${v} scrip.` : `Scrap ${def.name} for ${v} scrip. Asks once more first.`);
+    if (p.weapons.length <= 1) sc.setAttribute('aria-disabled', 'true');
+    sc.addEventListener('click', (ev) => act(() => doScrapWeapon(i), ev));
+    // Raise a tier for scrip and raws; combine two twins to free a slot.
+    const out: HTMLElement[] = [];
+    if (w.tier < 4) {
+      const c = tierUpCost(run, i);
+      const up = stamp('Tier up', 'stamp--plain stamp--small', cost(S.icon.scrip, c));
+      up.dataset.fk = `upw${i}`;
+      up.setAttribute('aria-label', `Raise ${def.name} to tier ${w.tier + 1} for ${c} scrip`);
+      const block = tierUpBlock(run, i);
+      if (block) { up.setAttribute('aria-disabled', 'true'); setTip(up, block); }
+      up.addEventListener('click', (ev) => act(() => doTierUp(i), ev));
+      out.push(up);
+    }
+    if (twinOf(run, i) >= 0) {
+      const comb = stamp('Combine', 'stamp--plain stamp--small');
+      comb.dataset.fk = `combw${i}`;
+      comb.setAttribute('aria-label', `Combine two tier ${w.tier} ${def.name} into one tier ${w.tier + 1}`);
+      comb.addEventListener('click', (ev) => act(() => doCombine(i), ev));
+      out.push(comb);
+    }
+    out.push(sc);
+    return out;
+  }
+
+  /** The class bonuses the weapons held give, one line a class. */
+  function setLines(): HTMLElement {
     const sets: Kid[] = [];
     for (let c = 0; c < CLASSES.length; c++) {
       const n = p.classCount[c];
@@ -643,10 +737,60 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       if (n < 6) parts.push(`next at ${n < 4 ? 4 : 6}`);
       sets.push(el('li', 'g-set-on', `${CLASS_LABEL[cls]} ${n}: ${parts.join(', ')}`));
     }
-    side.append(el('section', 'section', el('h2', '', `Weapons, ${p.weapons.length} of ${weaponSlots(run)}`), wt, el('ul', 'g-sets', ...sets)));
+    return el('ul', 'g-sets', ...sets);
+  }
 
+  function weaponsSection(): HTMLElement {
+    const wt = el('table', 'ledger g-weapons');
+    p.weapons.forEach((w, i) => {
+      const def = WEAPONS[w.def];
+      wt.append(el('tr', i === combined ? 'g-combined' : '',
+        el('td', '', el('div', 'thing', ic(S.icon.weapon[w.id as keyof typeof S.icon.weapon]),
+          el('span', '', weaponName(def, w.tier, now(def, w.tier)), i === combined ? el('span', 'g-tag', 'Combined') : null,
+            el('span', 'g-sub', def.classes.map((c) => CLASS_LABEL[c]).join(', '))))),
+        el('td', '', tier(w.tier)),
+        el('td', 'act', ...weaponActs(i))));
+    });
+    return el('section', 'section', el('h2', '', `Weapons, ${p.weapons.length} of ${weaponSlots(run)}`), wt, setLines());
+  }
+
+  /** Phones: the weapon slots as a grid; the one picked shows its figures and its stamps under it. */
+  function weaponsGrid(): HTMLElement {
+    const slots = weaponSlots(run);
+    if (combined >= 0) wSel = combined;
+    wSel = Math.max(0, Math.min(wSel, p.weapons.length - 1));
+    const grid = el('div', 'g-wgrid');
+    grid.setAttribute('role', 'listbox');
+    grid.setAttribute('aria-label', 'Weapon slots');
+    for (let i = 0; i < slots; i++) {
+      const w = p.weapons[i];
+      if (!w) { grid.append(el('div', 'g-wslot is-empty', el('span', 'label', 'Free'))); continue; }
+      const btn = el('button', `g-wslot${i === wSel ? ' is-on' : ''}${i === combined ? ' is-combined' : ''}`,
+        icSized(S.icon.weapon[w.id as keyof typeof S.icon.weapon], 32), tier(w.tier));
+      btn.type = 'button';
+      btn.dataset.fk = `wslot${i}`;
+      btn.setAttribute('role', 'option');
+      btn.setAttribute('aria-selected', String(i === wSel));
+      btn.setAttribute('aria-label', `${WEAPONS[w.def].name}, tier ${w.tier}`);
+      btn.addEventListener('click', () => { if (wSel === i) return; wSel = i; audio.play('stamp', { gain: 0.5 }); render(); });
+      grid.append(btn);
+    }
+    const rows = p.weapons.map((w, i) => {
+      const def = WEAPONS[w.def];
+      const n = now(def, w.tier);
+      const row = el('div', `g-wrow${i === combined ? ' g-combined' : ''}`,
+        el('div', 'g-wname', el('span', 'g-item-name', weaponName(def, w.tier, n), tier(w.tier), i === combined ? el('span', 'g-tag', 'Combined') : null),
+          el('span', 'g-sub', `${def.classes.map((c) => CLASS_LABEL[c]).join(', ')}. ${Math.round(n.damage)} damage every ${n.cooldown.toFixed(2)} s, reach ${Math.round(n.reach)}.`)),
+        el('div', 'g-wacts', ...weaponActs(i)));
+      row.hidden = i !== wSel;
+      return row;
+    });
+    return el('div', 'g-weapons-grid', grid, ...rows, setLines());
+  }
+
+  function itemsSection(): HTMLElement {
     // Items, grouped.
-    const it = el('section', 'section', el('h2', '', `Items, ${p.items.length}`));
+    const it = el('section', 'section g-items-sec', el('h2', '', `Items, ${p.items.length}`));
     if (p.items.length === 0) it.append(el('p', 'note', 'None yet. Items take no slot.'));
     else {
       const tbl = el('table', 'ledger g-items');
@@ -672,17 +816,49 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       }
       it.append(tbl);
     }
-    side.append(it);
-    return side;
+    return it;
   }
 
   function render(): void {
     if (!alive) return;
     S = deps.sprites();
-    const scroll = root.scrollTop;
     window.clearInterval(waitTimer);
     sound?.dispose();
     sound = soundControls(true);
+    const compact = !!compactQ?.matches;
+    root.classList.toggle('is-compact', compact);
+    if (compact) renderCompact();
+    else renderDesk();
+    root.classList.toggle('is-waiting', pending);
+    hovered = '';
+    if (pinned && !root.querySelector(`[data-card="${pinned.key}"]`)) pinned = null;
+    markSelected();
+    if (pinned) unpreview();
+  }
+
+  /** The two buttons at the foot, the same on every layout. */
+  function footActs(): HTMLElement {
+    const rr = rerollCost(run);
+    const keys = !coarse();
+    const rerollBtn = stamp('Reroll', 'stamp--plain', rr > 0 ? cost(S.icon.scrip, rr, p.scrip < rr, 'scrip') : el('span', 'num', 'free'), key('R'));
+    rerollBtn.dataset.fk = 'reroll';
+    if (p.scrip < rr || b.picks > 0) rerollBtn.setAttribute('aria-disabled', 'true');
+    setTip(rerollBtn, b.picks > 0 ? 'Take your upgrade first.' : p.scrip < rr ? `Costs ${rr} scrip. You hold ${p.scrip}.` : `${GLOSS.reroll} Each reroll at this bench costs more.${keys ? ' Key: R.' : ''}`);
+    rerollBtn.addEventListener('click', (ev) => act(doReroll, ev));
+    const nextBtn = stamp(`Wave ${run.wave + 1}`, '', key('Enter'));
+    nextBtn.dataset.fk = 'next';
+    nextBtn.setAttribute('aria-label', 'Next wave');
+    if (b.picks > 0) nextBtn.setAttribute('aria-disabled', 'true');
+    setTip(nextBtn, b.picks > 0 ? 'Take your upgrade first.' : `Leave the bench and start wave ${run.wave + 1}.${keys ? ' Key: Enter.' : ''}`);
+    nextBtn.addEventListener('click', (ev) => act(doNext, ev));
+    return el('div', 'g-foot-acts', rerollBtn, nextBtn);
+  }
+  const held = (): HTMLElement => el('span', 'price',
+    setTip(cost(S.icon.scrip, p.scrip, false, 'scrip'), `Scrip: ${p.scrip}. ${GLOSS.scrip}`), ...RAWS.map((r: RawId) => setTip(cost(S.icon.raw[r], p.raws[r], false, r), `${cap(r)}: ${p.raws[r]}. ${GLOSS.raws}`)));
+
+  function renderDesk(): void {
+    const scroll = root.scrollTop;
+    if (!sound) return;
     const pauseBtn = stamp('Pause', 'stamp--plain stamp--small');
     pauseBtn.addEventListener('click', () => deps.pause());
     sound.el.prepend(pauseBtn);
@@ -696,18 +872,6 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     main.append(anvilSection());
     if (b.mule) main.append(muleSection());
 
-    const rr = rerollCost(run);
-    const rerollBtn = stamp('Reroll', 'stamp--plain', rr > 0 ? cost(S.icon.scrip, rr, p.scrip < rr, 'scrip') : el('span', 'num', 'free'), key('R'));
-    rerollBtn.dataset.fk = 'reroll';
-    if (p.scrip < rr || b.picks > 0) rerollBtn.setAttribute('aria-disabled', 'true');
-    setTip(rerollBtn, b.picks > 0 ? 'Take your upgrade first.' : p.scrip < rr ? `Costs ${rr} scrip. You hold ${p.scrip}.` : `${GLOSS.reroll} Each reroll at this bench costs more. Key: R.`);
-    rerollBtn.addEventListener('click', (ev) => act(doReroll, ev));
-    const nextBtn = stamp(`Wave ${run.wave + 1}`, '', key('Enter'));
-    nextBtn.dataset.fk = 'next';
-    nextBtn.setAttribute('aria-label', 'Next wave');
-    if (b.picks > 0) nextBtn.setAttribute('aria-disabled', 'true');
-    setTip(nextBtn, b.picks > 0 ? 'Take your upgrade first.' : `Leave the bench and start wave ${run.wave + 1}. Key: Enter.`);
-    nextBtn.addEventListener('click', (ev) => act(doNext, ev));
     const waiting = !reason && b.picks > 0;
     const lineText = waiting ? `Take your upgrade first${b.picks > 1 ? `: ${b.picks} owed` : ''}. The offers and the next wave wait for it.` : reason;
     const line = el('div', `notice g-reason${reasonBad ? ' g-reason--bad' : ''}`, el('span', 'tag', reasonBad ? 'No' : waiting ? 'First' : 'Done'), el('span', 'text', lineText));
@@ -716,15 +880,186 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     const foot = el('div', 'g-foot',
       line,
       el('div', 'g-foot-row',
-        el('div', 'g-held', el('span', 'label', 'You hold'), el('span', 'price',
-          setTip(cost(S.icon.scrip, p.scrip, false, 'scrip'), `Scrip: ${p.scrip}. ${GLOSS.scrip}`), ...RAWS.map((r: RawId) => setTip(cost(S.icon.raw[r], p.raws[r], false, r), `${cap(r)}: ${p.raws[r]}. ${GLOSS.raws}`)))),
-        el('div', 'g-foot-acts', rerollBtn, nextBtn)));
+        el('div', 'g-held', el('span', 'label', 'You hold'), held()),
+        footActs()));
 
     const page = el('div', 'page g-page', head, el('div', 'g-cols', main, sideColumn()));
     root.replaceChildren(page, foot);
-    root.classList.toggle('is-waiting', pending);
     root.scrollTop = scroll;
-    hovered = '';
+  }
+
+
+  // ---- phones ------------------------------------------------------------------
+  // One screen holds the decision: a thin top bar, the stats as a ribbon, the
+  // picks or offers as cards, the rest of the bench behind tabs, and a foot
+  // with what you hold and the two ways out. Desktop keeps the ledger above.
+
+  const TABS = ['weapons', 'items', 'stats', 'anvil', 'mule'] as const;
+
+  /** A pause glyph: two inked bars, drawn in CSS. */
+  const pauseGlyph = (): HTMLElement => el('span', 'g-pz', el('i'), el('i'));
+
+  function pickCards(): HTMLElement {
+    const s = el('section', 'g-deck');
+    s.append(el('h2', '', term(`Level ${p.level - b.picks + 1}`, 'level'), ': pick one', b.picks > 1 ? el('span', 'g-owe', `${b.picks} owed`) : null));
+    const list = el('ul', 'g-cards g-picks');
+    b.choices.forEach((c, i) => {
+      const cur = p.stat[ST[c.stat]];
+      const btn = stamp('Take', 'stamp--small');
+      btn.dataset.fk = `pick${i}`;
+      btn.setAttribute('aria-label', `Take ${signed(c.stat, c.value)} ${STAT_LABEL[c.stat]}`);
+      btn.addEventListener('click', (ev) => act(() => doPick(i), ev));
+      const li = el('li', 'g-cardo g-pick',
+        el('div', 'g-c-head', icSized(S.icon.stat[c.stat], 32),
+          el('div', 'g-c-title', el('div', 'name', key(String(i + 1)), el('span', '', `${signed(c.stat, c.value)} ${STAT_LABEL[c.stat]}`)), el('div', 'g-c-kind', tier(c.tier)))),
+        el('ul', 'effects',
+          el('li', 'g-c-now', `${fmtStat(c.stat, cur)} to ${fmtStat(c.stat, cur + c.value)}`),
+          el('li', 'g-c-more', cap(low(statMeans(c.stat, cur + c.value))))),
+        el('div', 'buy', btn));
+      const d = new Float64Array(STATS.length);
+      d[ST[c.stat]] = c.value;
+      watch(li, `pick${i}`, () => d, true);
+      list.append(li);
+    });
+    s.append(list);
+    return s;
+  }
+
+  function offerCards(): HTMLElement {
+    const s = el('section', 'g-deck');
+    s.append(el('h2', '', 'Offers'));
+    if (spendHint) s.append(el('p', 'note', 'Scrip buys these, and some also cost raws. Tap a card to see what it does to your stats.'));
+    const list = el('ul', 'g-cards');
+    b.offers.forEach((o, i) => {
+      let icon: HTMLCanvasElement, name: HTMLElement, kind: string, effects: HTMLElement;
+      if (o.kind === 'weapon') {
+        const def = WEAPONS[WEAPON_INDEX[o.id]];
+        icon = icSized(S.icon.weapon[o.id as keyof typeof S.icon.weapon], 32);
+        name = weaponName(def, o.tier, now(def, o.tier));
+        kind = def.classes.map((c) => low(CLASS_LABEL[c])).join(', ');
+        effects = el('ul', 'effects',
+          el('li', '', `${Math.round(weaponDamage(p, def, o.tier))} damage every ${weaponCooldown(p, def, o.tier).toFixed(2)} s, reach ${Math.round(weaponRange(p, def))}`),
+          el('li', '', def.note));
+        const copies = p.copies[WEAPON_INDEX[o.id]];
+        const twin = o.tier < 4 && p.weapons.some((w) => w.id === o.id && w.tier === o.tier);
+        if (copies > 0 && !o.sold) effects.prepend(el('li', 'g-twin', p.weapons.length >= weaponSlots(run) && twin
+          ? `Combines with your twin into a tier ${o.tier + 1}.`
+          : `You hold ${copies}: +${Math.round(STACK_BONUS * 100)}% damage each.`));
+      } else {
+        const it = o.item!;
+        icon = icSized(S.icon.glyph[it.glyph], 32);
+        name = itemName(it);
+        kind = o.commission ? 'commission' : 'item';
+        effects = fx(it);
+      }
+      const block = o.sold ? 'Sold.' : buyBlock(run, i);
+      const buyBtn = stamp(o.sold ? 'Bought' : 'Buy', 'stamp--small');
+      buyBtn.dataset.fk = `buy${i}`;
+      if (o.sold) buyBtn.disabled = true;
+      else {
+        if (block) buyBtn.setAttribute('aria-disabled', 'true');
+        if (block) setTip(buyBtn, block);
+        buyBtn.addEventListener('click', (ev) => act(() => doBuy(i), ev));
+      }
+      let lockBtn: HTMLElement | null = null;
+      if (!o.sold && !o.commission) {
+        lockBtn = stamp(null, `stamp--plain stamp--small g-lock${o.locked ? ' is-pressed' : ''}`, ic(S.icon.lock));
+        lockBtn.dataset.fk = `lock${i}`;
+        lockBtn.setAttribute('aria-pressed', String(o.locked));
+        lockBtn.setAttribute('aria-label', o.locked ? 'Locked. Press to unlock.' : 'Lock');
+        setTip(lockBtn, o.locked ? 'Locked: it stays through rerolls. Press to unlock.' : `${GLOSS.lock}${coarse() ? '' : ' Key: L and the offer number.'}`);
+        lockBtn.addEventListener('click', (ev) => act(() => doLock(i), ev));
+      }
+      const extra = !o.sold ? offerCost(run, i) - o.price : 0;
+      // Price and kind beside the icon, the name on a line of its own, then what it does, then Lock and Buy.
+      const li = el('li', `g-cardo${o.locked ? ' is-locked' : ''}${o.sold ? ' is-sold' : ''}${o.commission ? ' is-commission' : ''}`,
+        el('div', 'g-c-head', icon,
+          el('div', 'g-c-title', o.sold ? el('span', 'label', 'Sold') : priceOf(o.price, o.raws, true, true), el('div', 'g-c-kind', tier(o.tier),
+            o.commission ? setTip(el('span', 'kind term', kind), 'One extra offer from bench 5: always tier 3 or 4, dear, and a reroll does not replace it.') : el('span', 'kind', kind)))),
+        el('div', 'name', key(String(i + 1)), name),
+        o.sold ? null : effects,
+        extra > 0 ? el('p', 'g-c-short', `Short of raws: ${extra} scrip more`) : null,
+        el('div', 'buy', lockBtn, buyBtn));
+      watch(li, `offer${i}`, () => offerDelta(i), !o.sold);
+      list.append(li);
+    });
+    s.append(list);
+    return s;
+  }
+
+  function renderCompact(): void {
+    const scroller = root.querySelector<HTMLElement>('.g-scroll');
+    const scroll = scroller?.scrollTop ?? 0;
+    const panelScroll = root.querySelector<HTMLElement>('.g-dock-body')?.scrollTop ?? 0;
+    if (!sound) return;
+    const mute = sound.el.querySelector<HTMLElement>('.mute');
+    mute?.classList.add('g-mute');
+    const pauseBtn = stamp(pauseGlyph(), 'stamp--plain stamp--small g-pausebtn');
+    pauseBtn.setAttribute('aria-label', 'Pause');
+    pauseBtn.title = 'Pause';
+    pauseBtn.addEventListener('click', () => deps.pause());
+    const top = el('header', 'g-top',
+      el('h1', '', 'Bench ', el('span', 'num g-top-of', `${b.index}/${run.totalWaves}`)),
+      el('div', 'g-top-acts', mute ?? null, pauseBtn));
+
+    // The dock: what you have, one tab at a time.
+    const groups = new Set<string>();
+    p.items.forEach((it, i) => { if (!it.relic && !p.itemKit[i]) groups.add(it.id); });
+    const label: Record<(typeof TABS)[number], Kid[]> = {
+      weapons: ['Weapons', el('span', 'count num', `${p.weapons.length}/${weaponSlots(run)}`)],
+      items: ['Items', el('span', 'count num', String(p.items.length))],
+      stats: ['Stats'],
+      anvil: ['Anvil', groups.size >= 2 && !reveal ? el('span', 'g-dot', '') : null],
+      mule: ['Mule'],
+    };
+    const tabs = TABS.filter((t) => t !== 'mule' || b.mule);
+    if (!tabs.includes(openTab)) openTab = 'weapons';
+    if (reveal || pending) openTab = 'anvil';
+    const panels: Record<string, () => HTMLElement> = {
+      weapons: weaponsGrid,
+      items: itemsSection,
+      stats: () => { const st = statsSection(); st.append(setLines()); return st; },
+      anvil: anvilSection,
+      mule: muleSection,
+    };
+    // The stat list is built first: the ribbon and the preview hang off it.
+    const statsPanel = panels.stats();
+    const strip = el('div', 'tabs g-dock-tabs');
+    strip.setAttribute('role', 'tablist');
+    const body = el('div', 'g-dock-body');
+    for (const t of tabs) {
+      const tab = el('button', 'tab', ...label[t]);
+      tab.type = 'button';
+      tab.dataset.fk = `dock-${t}`;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(t === openTab));
+      const panel = el('div', 'g-dock-panel', t === 'stats' ? statsPanel : panels[t]());
+      panel.dataset.panel = t;
+      panel.setAttribute('role', 'tabpanel');
+      panel.hidden = t !== openTab;
+      tab.addEventListener('click', () => {
+        if (openTab === t) return;
+        openTab = t;
+        audio.play('stamp', { gain: 0.5 });
+        for (const x of strip.children) x.setAttribute('aria-selected', String((x as HTMLElement).dataset.fk === `dock-${t}`));
+        for (const x of body.children) (x as HTMLElement).hidden = (x as HTMLElement).dataset.panel !== t;
+        body.scrollTop = 0;
+      });
+      strip.append(tab);
+      body.append(panel);
+    }
+    const dock = el('section', 'g-dock', strip, body);
+    const deck = b.picks > 0 ? pickCards() : offerCards();
+    const scrollEl = el('div', 'g-scroll', el('div', 'g-cpage', ribbon(), b.interestPaid > 0 && !reason ? el('p', 'note g-interest', `Interest paid: ${b.interestPaid} scrip.`) : null, deck, dock));
+
+    // The foot: one line of what just happened (only when something did), then holdings and the two ways out.
+    const line = el('div', `notice g-reason${reasonBad ? ' g-reason--bad' : ''}`, el('span', 'tag', reasonBad ? 'No' : 'Done'), el('span', 'text', reason));
+    line.setAttribute('role', 'status');
+    if (!reason) line.classList.add('is-empty');
+    const foot = el('div', 'g-foot', line, el('div', 'g-foot-row', el('div', 'g-held', held()), footActs()));
+    root.replaceChildren(top, scrollEl, foot);
+    scrollEl.scrollTop = scroll;
+    body.scrollTop = panelScroll;
   }
 
   // ---- keys ------------------------------------------------------------------
@@ -760,17 +1095,21 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
     el: root,
     active: true,
     open() {
-      reason = ''; reasonBad = false; anvil = [null, null]; reveal = null; combined = -1; scrapArm = ''; lockHeld = false;
+      reason = ''; reasonBad = false; anvil = [null, null]; reveal = null; combined = -1; scrapArm = ''; lockHeld = false; pinned = null;
       load = { timber: 0, ore: 0, hide: 0 }; muleNote = '';
       if (b.interestPaid > 0) say(`Interest paid: ${b.interestPaid} scrip.`);
       root.hidden = false;
       root.scrollTop = 0;
       render();
       root.scrollTop = 0;
+      const sc = root.querySelector<HTMLElement>('.g-scroll');
+      if (sc) sc.scrollTop = 0;
     },
     close() {
       root.hidden = true;
       window.clearInterval(waitTimer);
+      window.clearTimeout(disarmTimer);
+      pinned = null;
       root.replaceChildren();
       sound?.dispose(); sound = null;
     },
@@ -778,6 +1117,8 @@ export function createBench(parent: HTMLElement, deps: BenchDeps): BenchScreen {
       alive = false;
       stopLoop?.(); stopLoop = null;
       window.clearInterval(waitTimer);
+      window.clearTimeout(disarmTimer);
+      compactQ?.removeEventListener('change', onCompact);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       sound?.dispose();
