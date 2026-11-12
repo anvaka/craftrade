@@ -56,14 +56,16 @@ a harder zone.
 - **Town (as long as you like).** Refine, craft, hand in to town projects,
   take commissions, trade, furnish the house.
 
-### Zones as places, not reshuffled levels
+### Zones that reshuffle, and charts that hold a place still
 
-This is the one place I depart from the research's recommendation. It
-proposes procedural zones that reshuffle. I propose **fixed zones**: each is
-generated once from the world seed and stays. Iron is where it was yesterday.
-That is what makes routes, map knowledge and "I know a spot" possible, and it
-is most of the New World feeling. Nodes respawn on a timer, per player, so a
-shared world has no contention.
+Decided by the owner: zones reshuffle. A zone keeps its identity (tier, node
+kinds, creatures, look) but its layout is new on every outing. Variety comes
+free, and no route goes stale.
+
+What reshuffling loses is "I know a spot". **Charts** give it back. A chart
+is an item that names one composed place and is good for three visits; while
+you hold it, that place stays exactly as it was. Charts drop from chests and
+bosses, are sold by the Factor, and can be traded. See "Where the AI goes".
 
 | Zone | Tier | Nodes first seen | Gate to enter |
 |---|---|---|---|
@@ -73,9 +75,9 @@ shared world has no contention.
 | Burn | 4 | ironwood, deep ore, fire plants | two gates, either one |
 | Old forest | 5 | the rare tier, relic chests | two gates, either one |
 
-Each zone also holds a few nodes one tier above it, visible from the start
-with "Mining 20" on them. Each zone is about 4 x 4 phone screens, with
-landmarks, 2-3 camps, 6-10 chests and one boss.
+Each outing also holds a few nodes one tier above the zone, visible with
+"Mining 20" on them. A zone is about 4 x 4 phone screens, with landmarks,
+2-3 camps, 6-10 chests and one boss.
 
 ### Gathering and trade skills
 
@@ -136,23 +138,46 @@ landmarks, 2-3 camps, 6-10 chests and one boss.
 
 ### Where the AI goes
 
-1. **Discovery with naming rights, at stations.** The first time anyone
-   combines a set of materials at a station, the model spends that tier's
-   budget from the closed effect vocabulary and offers names; the finder
-   picks one and is credited for good. Same idea as today's fusion, but the
-   budget comes from material and station tier.
-2. **Discoveries become schematics**, which are property: learn, sell or
-   donate.
-3. **Commissions with reasons.** Townsfolk ask for "something warm for the
-   fen" from authored templates; the model grades the item you hand in on a
-   four-step fit scale; code pays. This is the demand for made goods when
-   there are few or no other players.
-4. **Rumours.** Code picks which node or zone is rich this week; the model
-   writes why.
-5. **Item history.** A short provenance line built from real events.
+The first draft used the model for names and flavour. This draft gives it
+three jobs the game cannot do without it. The rule under all of them is
+unchanged: the model composes from closed kits, code builds and counts.
 
-Offline play ships a pack of pre-generated results plus the procedural
-generator, as now. The game is complete with the model off.
+1. **It composes the places you go.** Every chart is written by the model
+   from a kit: a landmark set, a node mix, what guards it, a named boss with
+   two or three moves from the move list, and one or two twists ("flooded:
+   reed everywhere, ore scarce, boars slow"). Code prices each twist, so a
+   harder chart always pays more and none pays out of band. A chart is
+   therefore a small unique place with a name, a reason and a trade value.
+   In a shared world the week's charts are the same for everyone, so "the
+   Sunken Orchard is out this week" is something players talk about.
+2. **It decides what materials make.** Materials carry properties (iron:
+   hard, heavy; reed: light, supple; saltglass: brittle, bright). Rare nodes
+   yield invented materials whose name and properties the model picked from
+   the property list. At a station you choose materials and one of three
+   directions the model offers for that set ("a blade", "a hook", "a
+   charm"); it then spends the tier's budget on effects that follow from the
+   properties. The first maker names it and owns the schematic. Crafting
+   becomes experiment: what does saltglass do in a hatchet? Nobody knows
+   until someone tries, and then the whole world knows.
+3. **It runs the country.** Each week code picks levers that net to zero
+   (one material scarce, one creature rabid, one station paying more) and
+   the model turns them into one event with a cause, a board of requests
+   that follow from it, and the rumours that point at charts. Townsfolk
+   commissions come from the same event and are graded by the model on a
+   four-step fit scale; code pays.
+
+Smaller uses that ride on these: item histories built from real events, and
+a house visitor's remark on what you display.
+
+What keeps this safe: invented materials belong to a fixed tier and family
+and stand in for the common material in basic recipes, so the market does
+not fragment; twists, moves, properties and effects are closed lists;
+players never type text the model reads; one answer per key is stored for
+the world.
+
+Offline play ships a pack of pre-composed charts, materials and events plus
+the procedural generator. The game is complete with the model off; it is
+less surprising.
 
 ### Economy rules
 
@@ -191,7 +216,7 @@ generator, as now. The game is complete with the model off.
 Each step ends with something playable on the Pages link and a question to
 answer before going on.
 
-1. **One zone, calm then threat.** A fixed home wood, three node kinds in
+1. **One zone, calm then threat.** A reshuffling home wood, three node kinds in
    two tiers, the four gathering bars, a bag, the threat meter, camps and the
    100/60/30 rule. Town unchanged. *Question: is ten minutes of this more
    fun than a run, on the phone?* If not, stop and rethink before building
@@ -211,9 +236,10 @@ answer before going on.
 
 ## Decisions for the owner
 
-1. **Fixed zones (my recommendation) or reshuffled ones?** Fixed gives map
-   knowledge and a sense of place; reshuffled gives variety and is a little
-   less work.
+1. **Is the AI's role now strong enough?** It composes places, decides what
+   materials make, and runs the weekly event. The alternative I held back is
+   free text: you tell the smith what you want in your own words. It is the
+   most "AI" option and the hardest to keep fair and safe.
 2. **How much of the horde to keep?** As proposed it is the end of an outing
    and the bosses. The alternative is to keep the current run as a second
    mode, which doubles what has to be balanced.
