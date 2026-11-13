@@ -7,7 +7,7 @@ import {
 import * as M from '../meta';
 import type { Page, UI } from './app';
 import * as I from './icons';
-import { affordable, costSlots, ic, rangeBar, req, ring, shortfall, tile, ui as uiIcon } from './kit';
+import { affordable, costSlots, ic, onePane, pageScroll, rangeBar, req, ring, scrollPageAfter, shortfall, tile, ui as uiIcon } from './kit';
 import { GRADE, atomColor, cap, describe, describeMat, perkQuality, roman, schemSource, type Desc, type Rarity } from './things';
 
 const STATION_OF: Record<string, StationId> = { Forge: 'forge', Workshop: 'workshop', Apothecary: 'apothecary' };
@@ -33,6 +33,7 @@ interface Rec {
 }
 
 const stationOf = (ui: UI) => STATION_OF[ui.s.tab] ?? 'forge';
+let listScroll = 0; // on a phone: where the recipe list was scrolled when a recipe was opened
 function selected(ui: UI): string {
   const st = stationOf(ui);
   return ui.s.recipe[ui.s.tab] ?? { forge: 'w:blade:1', workshop: 'b:sack', apothecary: 'brew' }[st];
@@ -152,7 +153,7 @@ function list(ui: UI, st: StationId): string {
   const p = ui.p;
   const pats = heldPatterns(p, st);
   const up = M.stationNeeds(p, st);
-  let body = st === 'apothecary' ? '' : `<label class="row small" style="margin-bottom:8px;cursor:pointer"><input type="checkbox" data-a="craftable" ${ui.s.craftable ? 'checked' : ''} style="width:18px;height:18px"> Only what I can make now</label>`;
+  let body = st === 'apothecary' ? '' : `<label class="row small" style="margin-bottom:4px;cursor:pointer;min-height:44px;flex-wrap:nowrap"><input type="checkbox" data-a="craftable" ${ui.s.craftable ? 'checked' : ''} style="width:20px;height:20px;margin:0 2px;flex:none"> Only what I can make now</label>`;
   body += `<div class="cat">Station</div>${up ? row(ui, st, 'up', `Raise to tier ${roman(up.tier)}`) : '<p class="dim small">At the top tier.</p>'}`;
   if (st === 'forge') {
     body += `<div class="cat">Weapons <small>grade I · II · III</small></div>${FAMS.map((f) => gradeRow(ui, st, 'w', f, WEAPONS[f].name, I.weaponIcon(f))).join('')}`;
@@ -365,8 +366,18 @@ export function act(ui: UI, a: string, v: string, _w: string): boolean | 'leave'
   const snd = ui.hooks.sound;
   const st = stationOf(ui);
   switch (a) {
-    case 'rsel': s.recipe[s.tab] = v; s.qty = 1; s.stPane = 'recipe'; return true;
-    case 'stlist': s.stPane = 'list'; return true;
+    case 'rsel':
+      // on a phone the recipe replaces the list: it opens at its top, and the list remembers where it was
+      if (onePane() && s.stPane === 'list') {
+        listScroll = pageScroll();
+        scrollPageAfter(0);
+      }
+      s.recipe[s.tab] = v; s.qty = 1; s.stPane = 'recipe';
+      return true;
+    case 'stlist':
+      if (onePane() && s.stPane === 'recipe') scrollPageAfter(listScroll);
+      s.stPane = 'list';
+      return true;
     case 'craftable': s.craftable = !s.craftable; return true;
     case 'perk': {
       const n = M.chosenPerks(p);

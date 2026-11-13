@@ -4,7 +4,7 @@ import { FORM, KITS, MATS, PERKS, RECIPES, SCHEMATICS, PATTERNS, WEAPONS, brewNa
 import * as M from '../meta';
 import type { Page, UI } from './app';
 import * as I from './icons';
-import { esc, ic, tile, tipHtml, ui as uiIcon } from './kit';
+import { esc, ic, onePane, scrollPageAfter, tile, tipHtml, ui as uiIcon } from './kit';
 import { cap, describe, describeGear, describeMat, gearRarity, gearTier, roman, type Desc } from './things';
 
 const CATS: [string, string][] = [['all', 'All'], ['weapon', 'Weapons'], ['tool', 'Tools'], ['bag', 'Bags'], ['brew', 'Brews'], ['mat', 'Materials'], ['schem', 'Schematics'], ['recipe', 'Recipes']];
@@ -68,7 +68,7 @@ function loadout(ui: UI): string {
   const brewSlot = (key: string, label: string, k: string | undefined, form: 'flask' | 'oil' | 'charm') => {
     const need = FORM[form].station;
     if (p.stations.apothecary < need && !k) {
-      return `<div class="dslot" style="cursor:default" aria-disabled="true"><span class="lab">${label}</span><span class="tile sm empty static">${I.uiIcon('lock')}</span><span class="nm dim" style="display:block">Needs the apothecary at tier ${roman(need)} (yours is ${roman(p.stations.apothecary)})</span></div>`;
+      return `<div class="dslot" style="cursor:default" aria-disabled="true"><span class="lab">${label}</span><span class="tile sm empty static">${I.uiIcon('lock')}</span><span class="nm dim lockwhy"><span class="hide-phone">Needs the apothecary at tier ${roman(need)} (yours is ${roman(p.stations.apothecary)})</span><span class="ph">Apothecary tier ${roman(need)}</span></span></div>`;
     }
     return dslot(key, label, k ? tile(describe(`brew:${k}`, ui.ctx), { size: 'sm' }) : `<span class="tile sm empty static">${I.brewIcon(form, '#555')}</span>`, k ? cap(brewName(M.parseBrew(k))) : '<span class="dim">Empty</span>');
   };
@@ -118,9 +118,12 @@ function entries(ui: UI): Record<string, Entry[]> {
   const out: Record<string, Entry[]> = { weapon: [], tool: [], bag: [], brew: [], schem: [], recipe: [] };
   for (const [c] of MAT_CATS) out[`mat-${c}`] = [];
   const picking = s.slot;
+  // with a mouse, hovering a candidate shows it against the slot and a click equips it; without hover a tap opens it
+  // first, against the slot being filled, and its Equip button does the rest
+  const hover = matchMedia('(hover: hover)').matches;
   for (const g of p.gear) {
     const ref = `gear:${g.uid}`;
-    const a = picking && ((picking === 'w0' || picking === 'w1') === (g.kind === 'weapon')) && (g.kind === 'weapon' || picking === g.kind) ? 'equip' : 'sel';
+    const a = hover && picking && ((picking === 'w0' || picking === 'w1') === (g.kind === 'weapon')) && (g.kind === 'weapon' || picking === g.kind) ? 'equip' : 'sel';
     const w = picking === 'w0' ? '0' : picking === 'w1' ? '1' : '';
     const score = g.kind === 'weapon' ? g.gs : g.kind === 'tool' ? g.tier * 100 : g.comfort;
     out[g.kind].push({
@@ -176,7 +179,9 @@ function grid(ui: UI): string {
       ${shown.length ? `<div class="grid">${shown.map((e) => e.html).join('')}</div>` : `<p class="dim small">${list.length ? '' : empty}</p>`}
       ${hidden ? `<p class="dim small">${hidden} hidden by the search.</p>` : ''}`;
   };
-  const slotHead = s.slot ? `<div class="note" role="status">Choose what goes into <b>${slotName(s.slot)}</b>: click one below. <button class="sm ghost" data-a="slot" data-v="${s.slot}" data-key="Escape">Done</button>${
+  const gearSlot = !!s.slot && ['w0', 'w1', 'tool', 'bag'].includes(s.slot);
+  const how = matchMedia('(hover: hover)').matches ? 'click one below' : gearSlot ? 'tap one below to see it against what is there now' : 'tap one below';
+  const slotHead = s.slot ? `<div class="note" role="status">Choose what goes into <b>${slotName(s.slot)}</b>: ${how}. <button class="sm ghost" data-a="slot" data-v="${s.slot}" data-key="Escape">Done</button>${
     ['flask', 'charm', 'oil'].includes(slotKind(s.slot)) ? ` <button class="sm ghost" data-a="clearslot" data-v="${s.slot}">Empty this slot</button>` : ''}</div>` : '';
   const filters = `<div class="filters">
       <input type="search" data-in="search" value="${esc(s.search)}" placeholder="Search name, perk or gear score" aria-label="Search the inventory">
@@ -206,10 +211,11 @@ function actionsFor(ui: UI, ref: string): string {
     if (!g) return '';
     const inUse = slotOf(p, g);
     if (g.kind === 'weapon') {
+      const want = ui.s.slot === 'w1' ? 1 : 0; // opened from a weapon slot (a phone's slot picker): that slot is the bright button
       for (const i of [0, 1]) {
         const cur = M.gearBy(p, l.weapons[i]) as GearWeapon | undefined;
         const swap = l.weapons[1 - i] === g.uid;
-        rows.push(btn(`${swap ? 'Move to' : 'Equip in'} slot ${i + 1}${cur && cur.uid !== g.uid ? ` <span class="dim small">${swap ? 'swaps places with' : 'replaces'} ${cur.name} ${cur.gs}</span>` : ''}`, 'equip', g.uid, { w: String(i), why: l.weapons[i] === g.uid ? `Already in slot ${i + 1}.` : null, cls: inUse ? '' : i === 0 ? 'pri' : '' }));
+        rows.push(btn(`${swap ? 'Move to' : 'Equip in'} slot ${i + 1}${cur && cur.uid !== g.uid ? ` <span class="dim small">${swap ? 'swaps places with' : 'replaces'} ${cur.name} ${cur.gs}</span>` : ''}`, 'equip', g.uid, { w: String(i), why: l.weapons[i] === g.uid ? `Already in slot ${i + 1}.` : null, cls: inUse ? '' : i === want ? 'pri' : '' }));
       }
       rows.push(btn(`Forge another ${WEAPONS[g.fam].name.toLowerCase()}`, 'forgelike', g.uid, { cls: 'ghost' }));
     } else rows.push(btn('Equip', 'equip', g.uid, { why: inUse ? 'Already in your loadout.' : null, cls: inUse ? '' : 'pri' }));
@@ -302,6 +308,12 @@ export function view(ui: UI): Page {
   };
 }
 
+/** On a phone the inventory shows one pane at a time; a pane that replaces the other starts at its top. */
+function showPane(ui: UI, pane: UI['s']['pane']): void {
+  if (onePane() && ui.s.pane !== pane) scrollPageAfter(0);
+  ui.s.pane = pane;
+}
+
 export function act(ui: UI, a: string, v: string, w: string): boolean | 'leave' | void {
   const p = ui.p;
   const l = p.loadout;
@@ -315,8 +327,8 @@ export function act(ui: UI, a: string, v: string, w: string): boolean | 'leave' 
       if (g) g.isNew = false;
       return true;
     }
-    case 'slot': s.slot = s.slot === v ? null : v; s.sel = null; s.pane = s.slot ? 'grid' : 'doll'; return true;
-    case 'pane': s.pane = v as typeof s.pane; return true;
+    case 'slot': s.slot = s.slot === v ? null : v; s.sel = null; showPane(ui, s.slot ? 'grid' : 'doll'); return true;
+    case 'pane': showPane(ui, v as typeof s.pane); return true;
     case 'cat': s.cat = v; return true;
     case 'sort': s.sort = v as typeof s.sort; return true;
     case 'equip': {
@@ -324,7 +336,8 @@ export function act(ui: UI, a: string, v: string, w: string): boolean | 'leave' 
       if (!g) return true;
       if (g.kind === 'weapon') {
         if (w === '') {
-          ui.open({ kind: 'equip', uid: g.uid });
+          // asked from a batch window: choosing (or closing) goes back to it, so the rest of the batch can be dealt with
+          ui.open({ kind: 'equip', uid: g.uid, back: s.modal?.kind === 'result' ? s.modal : undefined });
           return true;
         }
         equipWeapon(p, g.uid, Number(w));
@@ -406,7 +419,7 @@ export function act(ui: UI, a: string, v: string, w: string): boolean | 'leave' 
         if (list) list[Math.min(i, list.length)] = v;
         else l.oil = v;
         s.slot = null;
-        s.pane = 'doll';
+        showPane(ui, 'doll');
         snd.ui('click');
         return true;
       }
@@ -432,7 +445,7 @@ export function act(ui: UI, a: string, v: string, w: string): boolean | 'leave' 
       if (slotKind(v) === 'oil') l.oil = null;
       else (slotKind(v) === 'charm' ? l.charms : l.flasks).splice(slotIndex(v), 1);
       s.slot = null;
-      s.pane = 'doll';
+      showPane(ui, 'doll');
       return true;
     case 'lrec':
       if (l.recipes.includes(v)) l.recipes = l.recipes.filter((r) => r !== v);

@@ -127,7 +127,7 @@ export function view(ui: UI, m: Modal): string {
     case 'result': return result(ui, m);
     case 'brewed': return brewed(ui, m);
     case 'equip': return equipChoice(ui, m.uid);
-    case 'confirm': return box('Are you sure?', `<p>${m.text}</p><div class="row end" style="margin-top:14px"><button data-a="close" data-key="Escape">Cancel <span class="kc">Esc</span></button><button class="danger" data-a="yes">${m.yes}</button></div><p class="dim small" style="margin-top:8px;text-align:right">Confirm with a click. Esc cancels.</p>`, { closable: false });
+    case 'confirm': return box('Are you sure?', `<p>${m.text}</p><div class="row end" style="margin-top:14px"><button data-a="close" data-key="Escape">Cancel <span class="kc">Esc</span></button><button class="danger" data-a="yes">${m.yes}</button></div><p class="dim small keyhint" style="margin-top:8px;text-align:right">Confirm with a click. Esc cancels.</p>`, { closable: false });
     case 'help': return help(ui);
     case 'info': return box(m.title, m.html, { wide: true });
     default: return '';

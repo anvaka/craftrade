@@ -168,9 +168,17 @@ function wildBlock(ui: UI, run: R.RunState, g: R.Gate): string {
     return `<button type="button" class="card3 wild" data-a="wild" data-v="${id}" data-key="${i + 1}"><span class="med">${describe(`wild:${id}`, ui.ctx).icon}</span>
       <span class="txt"><span class="nm">${x.name}</span><span>${x.text}</span><span class="now">${extra}${changeLines(run, after)}</span></span><span class="kc">${i + 1}</span></button>`;
   }).join('');
-  return `<p class="dim small">One rule to bend for the rest of the expedition. Each gives and takes; it cannot be undone.</p>
+  return `<p class="dim small">One rule to bend for the rest of the expedition. Each gives and takes; it cannot be undone. Push on needs an answer, one or none; extracting does not.</p>
     ${cards ? `<div class="cards3 three">${cards}</div>` : '<p class="dim">Nothing left to offer.</p>'}
     <button class="big ghost" style="margin-top:6px" data-a="wild" data-v="" data-key="0">Take none <span class="kc">0</span></button>`;
+}
+/**
+ * The wild pick as its own panel: first on a phone, at the head of the push-on side on a wider screen. Inside the
+ * push-on column it sat below the fold on a phone, while the disabled Push on button only said to answer it first.
+ */
+function wildPanel(ui: UI, run: R.RunState, g: R.Gate): string {
+  return `<div class="panel way wild${g.wildDone ? '' : ' need'}"><h2>${icon('star')} Wild pick <span class="have">${g.wildDone ? 'done' : 'before you push on'}</span></h2>
+    ${wildBlock(ui, run, g)}</div>`;
 }
 
 /** What the session pays for the waves cleared so far: the same sums `finishRun` uses. */
@@ -231,7 +239,6 @@ function pushCol(ui: UI, run: R.RunState, g: R.Gate): string {
     ${lose}
     ${healthBar(run, m)}<ul class="heals">${healWays(run, m, true).map((x) => `<li>${x}</li>`).join('')}</ul>
     <p class="dim small">You keep your ${run.scrap} scrap for the next shop. ${more}</p>
-    <h4>Wild pick <span class="hint">· ${g.wildDone ? 'done' : 'take one or none before you push on'}</span></h4>${wildBlock(ui, run, g)}
     <h4>Evolution <span class="hint">· optional</span></h4>${evolution(ui, run, g)}
     ${key ? `<p class="small keyline">${icon('key')} ${key}</p>` : ''}</div>`;
 }
@@ -260,7 +267,7 @@ export function gateView(ui: UI): Page {
     foot = `${menu}<span class="footnote">${chestDone ? (run.race ? 'The race is run.' : `${cap(bagWords(run))} will be banked.`) : 'Open the chest first.'}</span>
       <button class="pri" data-a="extract" data-key="Enter" ${chestDone ? '' : 'disabled'}>${chestDone ? `Return to town <span class="kc">Enter</span>` : 'Open the chest first'}</button>`;
   } else {
-    body = `${chestPanel(ui, run, g)}<div class="ways">${extractCol(ui, run, chestDone)}${pushCol(ui, run, g)}</div>`;
+    body = `${chestPanel(ui, run, g)}<div class="ways">${wildPanel(ui, run, g)}${extractCol(ui, run, chestDone)}${pushCol(ui, run, g)}</div>`;
     const risk = run.race || !run.feat.loss ? 'Nothing in the bag is at risk.' : hasBag ? `Fall, and ${100 - keep}% of the bag is lost.` : 'The bag is empty: nothing to lose yet.';
     const pushWhy = !chestDone ? 'Open the chest first.' : 'Take or decline the wild pick first.';
     foot = `${menu}<button class="choice out" data-a="extract" ${chestDone ? '' : 'disabled'}><b>${run.race ? 'Stop here' : 'Extract now'}</b><small>${chestDone ? (run.race ? 'End the race. Nothing is banked or lost.' : `Bank ${bagWords(run)}. The expedition ends; ${run.scrap} scrap is left behind.`) : 'Open the chest first.'}</small></button>

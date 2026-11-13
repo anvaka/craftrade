@@ -42,6 +42,7 @@ export class Hud {
   private touch = false;
   private s = 1; // HUD scale for this window
   private pauseBox = { x: 0, y: 0 }; // right and bottom edge of the pause button and its key cap
+  private topBelow = 0; // bottom of the top plate and what hangs under it (boss bar, objective chip), as last drawn
   private banners: Banner[] = [];
   private queue: Banner[] = [];
   private gains: Gain[] = [];
@@ -670,11 +671,12 @@ export class Hud {
     this.drawThreats(g);
     this.drawMarkers(g);
     const below = this.drawTop(g);
+    this.topBelow = below;
     this.drawBuild(g, input);
     if (input.touchMode) this.drawTouch(input, g);
     this.drawPause(input);
     this.drawBanners(g, below);
-    this.drawStep(g);
+    this.drawStep(g, input);
     this.drawNote();
     this.drawRotate(input);
     if (this.over === 'fell') this.drawFell(g);
@@ -749,10 +751,11 @@ export class Hud {
     // the beat, at the edge of sight: no frame in the lull, gold in the swell, red in the peak
     if (g.phase === 'wave' && g.beat !== 'lull') {
       const lw = Math.round(3 * this.s) + this.beatFlash * 14 * this.s;
+      const sa = this.safe; // inside the notch and the home indicator, where it can be seen
       c.globalAlpha = 0.85;
       c.strokeStyle = BEAT[g.beat];
       c.lineWidth = lw;
-      c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+      c.strokeRect(sa.left + lw / 2, sa.top + lw / 2, w - sa.left - sa.right - lw, h - sa.top - sa.bottom - lw);
       c.globalAlpha = 1;
     }
   }
@@ -775,8 +778,11 @@ export class Hud {
     let y = Math.max(pad + sa.top, Math.min(h - pad - sa.bottom, sy));
     // on touch, off the cluster of buttons under the right thumb
     if (this.touch && x > w - sa.right - 250) y = Math.min(y, h - sa.bottom - 228);
+    // and off the move stick's resting place, where the left thumb sits
+    if (this.touch && x < sa.left + 170) y = Math.min(y, h - sa.bottom - 170);
     const pl = this.plate(g);
-    if (x > pl.x - pad && x < pl.x + pl.w + pad) y = Math.max(y, pl.y + pl.h + pad + Math.round(34 * this.s));
+    // below the plate and whatever hangs under it (the boss bar is taller than the 34 allowed for a one-line chip)
+    if (x > pl.x - pad && x < pl.x + pl.w + pad) y = Math.max(y, Math.max(pl.y + pl.h + Math.round(34 * this.s), this.topBelow) + pad);
     if (!this.touch && x > w - Math.round(330 * this.s)) y = Math.min(y, h - Math.round(80 * this.s) - pad);
     // and off the pause button in the top left
     const pb = this.pauseBox;
@@ -1098,7 +1104,7 @@ export class Hud {
     const R = (n: number) => Math.round(n * s);
     const def = b.boss!;
     const pad = R(10);
-    const h = R(48);
+    const h = R(54); // room under the bar for the armour marks
     this.panel(x, y, w, h, 0.9, b.shield ? C.armor : C.border);
     c.font = this.font(14, 800);
     c.textAlign = 'left';
@@ -1138,13 +1144,14 @@ export class Hud {
       c.fillRect(mx - 2, by - 1, 4, bh + 2);
       c.fillStyle = todo ? C.armor : '#5d6772';
       c.fillRect(mx - 1, by - R(3), 2, bh + R(6));
-      // a small shield above the mark
+      // a small shield under the mark (above it, it was drawn over the name and the ARMOURED line)
+      const sy = by + bh + R(3);
       c.beginPath();
-      c.moveTo(mx - R(5), by - R(9));
-      c.lineTo(mx + R(5), by - R(9));
-      c.lineTo(mx + R(5), by - R(5));
-      c.lineTo(mx, by - R(1));
-      c.lineTo(mx - R(5), by - R(5));
+      c.moveTo(mx - R(5), sy);
+      c.lineTo(mx + R(5), sy);
+      c.lineTo(mx + R(5), sy + R(4));
+      c.lineTo(mx, sy + R(8));
+      c.lineTo(mx - R(5), sy + R(4));
       c.closePath();
       c.fill();
     });
@@ -1428,33 +1435,42 @@ export class Hud {
   }
 
   /** One control at a time, on a plate low on the screen, gone as soon as the player has done it. */
-  private drawStep(g: Game): void {
+  private drawStep(g: Game, input: InputMgr): void {
     if (!this.step || !this.teach || g.phase !== 'wave') return;
     const c = this.r.ctx;
     const s = this.s;
     const parts = this.stepParts(g, this.step);
-    const fs = Math.max(13, Math.round(16 * s));
-    const capH = Math.round(fs * 1.5);
     const gap = Math.round(7 * s);
-    c.font = `600 ${fs}px ${FONT}`;
-    let tw = 0;
-    for (const p of parts) {
-      if ('k' in p) {
-        c.font = `700 ${Math.max(10, Math.round(capH * 0.62))}px ${FONT}`;
-        tw += Math.max(capH, Math.round(c.measureText(p.k).width + capH * 0.7)) + gap;
-      } else {
-        c.font = `600 ${fs}px ${FONT}`;
-        tw += c.measureText(p.t).width + gap;
-      }
-    }
-    tw -= gap;
     const padX = Math.round(14 * s);
+    const width = (fs: number): number => {
+      const capH = Math.round(fs * 1.5);
+      let tw = -gap;
+      for (const p of parts) {
+        if ('k' in p) {
+          c.font = `700 ${Math.max(10, Math.round(capH * 0.62))}px ${FONT}`;
+          tw += Math.max(capH, Math.round(c.measureText(p.k).width + capH * 0.7)) + gap;
+        } else {
+          c.font = `600 ${fs}px ${FONT}`;
+          tw += c.measureText(p.t).width + gap;
+        }
+      }
+      return tw + padX * 2;
+    };
+    // landscape phone: the plate sits at the bottom, left of DODGE (centred on the screen, a long step covered half of
+    // DODGE on a 640 px phone). It may pass over the stick's resting ring, which is only a hint; a step that is still too
+    // long takes smaller type.
+    const land = this.touch && this.r.h <= this.r.w;
+    const b = input.buttons();
+    const lo = land ? this.safe.left + 12 : 8;
+    const hi = land ? b.dodge.x - b.dodge.r - 8 : this.r.w - 8;
+    let fs = Math.max(13, Math.round(16 * s));
+    while (land && fs > 11 && width(fs) > hi - lo) fs--;
+    const capH = Math.round(fs * 1.5);
     const h = Math.round(capH + 14 * s);
-    const w = Math.min(this.r.w - 16, tw + padX * 2);
-    const x = Math.round((this.r.w - w) / 2);
-    // desktop: low on the screen; portrait phone: just above the buttons (the camera keeps the character above it);
-    // landscape phone: at the bottom, between the move stick and the buttons
-    const y = Math.round(!this.touch ? this.r.h * 0.78 : this.r.h > this.r.w ? this.r.h - this.safe.bottom - 228 - h : this.r.h - this.safe.bottom - h - 40);
+    const w = Math.min(this.r.w - 16, width(fs));
+    const x = Math.round(land ? Math.max(lo, Math.min(hi - w, (lo + hi - w) / 2)) : (this.r.w - w) / 2);
+    // desktop: low on the screen; portrait phone: just above the buttons (the camera keeps the character above it)
+    const y = Math.round(!this.touch ? this.r.h * 0.78 : !land ? this.r.h - this.safe.bottom - 228 - h : this.r.h - this.safe.bottom - h - 40);
     const a = Math.min(1, this.shownFor[this.step] * 4);
     c.globalAlpha = a;
     this.panel(x, y, w, h, 0.92 * a);
