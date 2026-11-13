@@ -14,6 +14,7 @@ on:
   pull_request:
     types: [opened, reopened]
   delete:
+  workflow_dispatch: # Actions -> Pages -> Run workflow: rebuild a branch without a new commit
 
 permissions:
   contents: write
@@ -26,7 +27,7 @@ concurrency:
 
 jobs:
   check:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +41,7 @@ jobs:
       - run: npm run bot
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,6 +84,8 @@ jobs:
           if [ "$DIR" = "." ]; then
             # The default branch owns the root. Previews under b/ are kept.
             find . -mindepth 1 -maxdepth 1 ! -name .git ! -name b ! -name .nojekyll -exec rm -rf {} +
+            # the default branch needs no preview of its own (one is made if it is pushed before it becomes the default)
+            rm -rf "b/$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')"
             cp -R ../dist/. .
           else
             rm -rf "$DIR"
