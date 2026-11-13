@@ -362,7 +362,9 @@ function routeStrip(run: R.RunState, boss: boolean, chosen: boolean): string {
   if (!run.feat.routes || run.routeOptions.length < 2) return '';
   return `<div class="rstrip${chosen ? '' : ' need'}" role="group" aria-label="Next ground">${run.routeOptions.map((r, i) => {
     const on = chosen && run.routePick === i;
-    const words = boss ? MATS[NODE_MAT[GROUNDS[r.ground].node][R.segmentOf(run.wave)]].name : cap(routeWords(run, r, boss));
+    // a button is a third of a phone wide: "Elite: Old Thornback" fits its two lines where "Named elite: …" did not
+    const words = boss ? MATS[NODE_MAT[GROUNDS[r.ground].node][R.segmentOf(run.wave)]].name
+      : !r.shrine && r.objective === 'elite' ? `Elite: ${ELITES.find((e) => e.id === r.elite)?.name ?? ''}` : cap(routeWords(run, r, boss));
     return `<button type="button" class="rpick${on ? ' on' : ''}${r.shrine ? ' shrine' : ''}" data-a="route" data-v="${i}" data-key="${i + 5}" aria-pressed="${on}">${ic(I.groundIcon(r.ground))}<span><b>${GROUNDS[r.ground].name}</b><small>${words}</small></span><span class="kc">${i + 5}</span></button>`;
   }).join('')}</div>`;
 }

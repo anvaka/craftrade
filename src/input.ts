@@ -61,8 +61,7 @@ export interface Insets {
   bottom: number;
   left: number;
 }
-const STICK_R = 48; // travel of the move stick, CSS px
-const STICK_EDGE = 60; // the stick's centre keeps this far from any screen edge, so it can be pushed every way
+const STICK_R = 48; // travel of the move stick, CSS px (the resting ring is drawn 96 px in from the corner: full travel every way)
 
 /** The notch and home-indicator insets, read from CSS env() through a hidden element. */
 function readSafeArea(): Insets {
@@ -93,6 +92,12 @@ export class InputMgr {
   dismissBox: { x: number; y: number; w: number; h: number } | null = null;
   dismissed = false;
   private aimOnDodge = false; // the thumb holding SWING is over DODGE right now
+  /**
+   * The thumb on SWING has just lifted, which is when the strike lands. For that one sample the strike keeps its aim:
+   * the drag if there was one, else whatever the wind-up aimed at. Without this the left thumb's movement took over
+   * the aim on that frame, so a player who walked while winding up struck the way they walked.
+   */
+  private struck: { ax: number; ay: number } | 'kept' | null = null;
   private live = false;
   private keys = new Set<string>();
   private mouseDown = false;
@@ -117,6 +122,11 @@ export class InputMgr {
     addEventListener('keyup', (e) => this.keys.delete(e.code));
     addEventListener('blur', () => this.reset());
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Safari's own pinch event: two thumbs moving apart (stick and SWING) must never zoom the page during a wave.
+    // The canvas's touch-action should already prevent it; this is the belt to those braces. Menus keep pinch zoom.
+    document.addEventListener('gesturestart', (e) => {
+      if (this.live) e.preventDefault();
+    });
     const measure = () => {
       this.safe = readSafeArea();
     };
@@ -160,8 +170,9 @@ export class InputMgr {
           if (!this.aim) this.aim = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
           this.aimOnDodge = false;
         } else if (e.clientX < innerWidth / 2 && !this.joy) {
+          // the centre is where the thumb lands: putting a thumb down never moves the character, even close to an edge
+          // (a centre pulled back from the edge made a thumb resting near the corner walk the character into it)
           this.joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
-          this.anchorStick(this.joy);
         }
         // anywhere else on the right half does nothing: a resting thumb must not hold a wind-up
         return;
@@ -193,7 +204,6 @@ export class InputMgr {
             s.ox = s.x - (dx / l) * STICK_R;
             s.oy = s.y - (dy / l) * STICK_R;
           }
-          this.anchorStick(s);
         }
         if (this.aim && this.aim.id === e.pointerId) {
           this.aim.x = e.clientX;
@@ -212,7 +222,13 @@ export class InputMgr {
     const up = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
         if (this.joy?.id === e.pointerId) this.joy = null;
-        if (this.aim?.id === e.pointerId) this.aim = null;
+        if (this.aim?.id === e.pointerId) {
+          const dx = this.aim.x - this.aim.ox;
+          const dy = this.aim.y - this.aim.oy;
+          const l = Math.hypot(dx, dy);
+          this.struck = l > 16 ? { ax: dx / l, ay: dy / l } : 'kept';
+          this.aim = null;
+        }
         return;
       }
       if (e.button === 0) this.mouseDown = false;
@@ -247,13 +263,6 @@ export class InputMgr {
     this.consume();
   }
 
-  /** Keeps a stick's centre far enough from every edge that the thumb has room to push toward that edge. */
-  private anchorStick(s: Stick): void {
-    const lo = STICK_EDGE;
-    s.ox = Math.max(this.safe.left + lo, Math.min(innerWidth - this.safe.right - lo, s.ox));
-    s.oy = Math.max(this.safe.top + lo, Math.min(innerHeight - this.safe.bottom - lo, s.oy));
-  }
-
   /**
    * How much of each screen edge the HUD and the controls cover, in CSS px. The camera keeps the character
    * out of these bands when it stops at an arena edge (the renderer divides by its scale).
@@ -263,7 +272,7 @@ export class InputMgr {
     const half = innerHeight / 2;
     // the top plate, the chip or boss bar under it, and room for the heat arc over the character;
     // never more than the half screen above the character, or the two bands would meet
-    const top = Math.min(half - 40, this.safe.top + Math.round(135 * s) + 34);
+    const top = Math.min(half - 40, this.safe.top + Math.round(141 * s) + 34); // 141: the boss bar grew 6 for its armour marks
     if (!this.touchMode) return { top, right: 0, bottom: 0, left: 0 };
     // Portrait: the stick and the buttons fill the bottom, so the band is below (buttons, a line for the step prompt, then
     // room for the bars under the character). Landscape: the character stands level with the buttons, so the bands are at the sides.
@@ -346,6 +355,14 @@ export class InputMgr {
           out.ax = dx / l;
           out.ay = dy / l;
         }
+      } else if (this.struck) {
+        // the release frame: no step is taken in it, so the game keeps the wind-up's aim (one frame, not felt)
+        out.mx = out.my = 0;
+        if (this.struck !== 'kept') {
+          out.hasAim = true;
+          out.ax = this.struck.ax;
+          out.ay = this.struck.ay;
+        }
       }
       return out;
     }
@@ -376,5 +393,6 @@ export class InputMgr {
     this.abilityQ = false;
     this.abilityAuto = false;
     this.swapQ = false;
+    this.struck = null;
   }
 }

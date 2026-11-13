@@ -28,7 +28,7 @@ export type Tab = (typeof TABS)[number];
 export type Modal =
   | { kind: 'result'; uids: number[]; chosen: string[]; before: { lvl: number; xp: number }; skill: string; again: string; spent?: boolean } // spent: made from a pattern that is now used up
   | { kind: 'brewed'; ok: boolean; title: string; lines: string[]; found: string[]; key: string | null; count: number }
-  | { kind: 'equip'; uid: number }
+  | { kind: 'equip'; uid: number; back?: Modal } // back: the batch window the choice was opened from
   | { kind: 'confirm'; text: string; yes: string; a: string; v: string; w: string; back?: Modal } // back: the craft window the question was asked from
   | { kind: 'cards' }
   | { kind: 'help' }
@@ -126,10 +126,16 @@ export class UI {
     });
     root.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;
-      if (el.dataset.in === 'search') {
-        this.s.search = el.value;
-        this.render();
-      }
+      if (el.dataset.in !== 'search') return;
+      this.s.search = el.value;
+      // a phone keyboard that is still composing a word (predictions, autocorrect) loses it if the field changes under it
+      if (!(e as InputEvent).isComposing) this.refreshAround(el);
+    });
+    root.addEventListener('compositionend', (e) => {
+      const el = e.target as HTMLInputElement;
+      if (el.dataset.in !== 'search') return;
+      this.s.search = el.value;
+      this.refreshAround(el);
     });
     addEventListener('keydown', (e) => this.onKey(e));
     // how focus last moved: Tab means the player is steering by keyboard, a pointer press means they are not
@@ -213,11 +219,19 @@ export class UI {
       this.dispatch(b.dataset.a!, b.dataset.v ?? '', b.dataset.w ?? '');
     });
     document.body.appendChild(el);
-    // sit just above the bottom bar, whatever its height on this screen (measured after the screen has re-rendered)
+    // sit just above the bottom bar, whatever its height on this screen (measured after the screen has re-rendered),
+    // and above a bottom sheet, so the stepper and the buttons just used stay in sight
     requestAnimationFrame(() => {
-      const bar = this.root.querySelector<HTMLElement>('.footbar');
-      const h = bar && !this.root.hidden && getComputedStyle(bar).display !== 'none' ? bar.offsetHeight : 0;
-      el.style.bottom = `${h + 14}px`;
+      const shown = (sel: string) => {
+        const e = this.root.hidden ? null : this.root.querySelector<HTMLElement>(sel);
+        return e && getComputedStyle(e).display !== 'none' ? e : null;
+      };
+      const bar = shown('.footbar');
+      const sheet = shown('.sheet');
+      const drawer = !!sheet && sheet.getBoundingClientRect().top < innerHeight / 4; // a phone on its side: the sheet is a drawer on the right
+      const h = Math.max(bar?.offsetHeight ?? 0, sheet && !drawer ? sheet.offsetHeight : 0);
+      el.style.bottom = h ? `${h + 14}px` : 'calc(14px + var(--safe-b))';
+      if (drawer) el.style.right = `${sheet.offsetWidth + 12}px`;
     });
     clearTimeout(this.toastT);
     this.toastT = window.setTimeout(() => el.remove(), bad ? 4500 : 3200);
@@ -235,11 +249,13 @@ export class UI {
   }
   close(): void {
     const m = this.s.modal;
-    this.s.modal = m?.kind === 'confirm' && m.back ? m.back : null;
+    this.s.modal = (m?.kind === 'confirm' || m?.kind === 'equip') && m.back ? m.back : null;
   }
   /** Ask first. Returns true when the player has just said yes (the action is re-sent with `confirmed` set). */
   ask(text: string, yes: string, a: string, v = '', w = ''): boolean {
     if (this.confirmed) return true;
+    // as in `open`: the toast sits above the whole menu layer, so one said a moment ago (a wild pick) covered the question
+    document.getElementById('toast')?.remove();
     const from = this.s.modal;
     this.s.modal = { kind: 'confirm', text, yes, a, v, w, back: from?.kind === 'result' ? from : undefined };
     return false;
@@ -371,6 +387,23 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- render
+  /** Typing redraws the list around the field, never the field: a phone keyboard closes or drops the word when the focused input is replaced. */
+  private refreshAround(input: HTMLElement): void {
+    const row = input.closest('.filters');
+    const box = row?.parentElement;
+    const t = document.createElement('template');
+    t.innerHTML = this.page().body;
+    const freshRow = t.content.querySelector(`[data-in="${CSS.escape(input.dataset.in!)}"]`)?.closest('.filters');
+    const freshBox = freshRow?.parentElement;
+    if (!row || !box || !freshRow || !freshBox) return this.render();
+    this.tips.hide();
+    const kids = [...freshBox.childNodes];
+    const at = kids.indexOf(freshRow);
+    while (row.previousSibling) row.previousSibling.remove();
+    while (row.nextSibling) row.nextSibling.remove();
+    row.before(...kids.slice(0, at));
+    row.after(...kids.slice(at + 1));
+  }
   private tipFor(ref: string, el: HTMLElement): string {
     if (ref.startsWith('text:')) return `<div class="tt"><div class="tb">${esc(ref.slice(5))}</div></div>`;
     const d = describe(ref, this.ctx);
@@ -448,7 +481,8 @@ export class UI {
         if (!tabOpen(p, this.s.tab)) this.s.tab = 'Expedition';
         const body = { Expedition, Inventory, Forge: Station, Workshop: Station, Apothecary: Station, Codex, Character }[this.s.tab].view(this);
         return {
-          title: body.title ?? `Town<span class="ph"> · ${this.s.tab}</span>`,
+          // on a phone the tab bar has only icons, so the title names the tab instead of the town
+          title: body.title ?? `<span class="hide-phone">Town</span><span class="ph">${this.s.tab}</span>`,
           cur: body.cur ?? `<span data-tip="text:Coin pays crafting fees. Every wave cleared pays coin; surplus materials sell in the inventory.">${uiIcon('coin')}<b class="num">${p.coin}</b></span>
             <span data-tip="text:Town standing. Earned for waves cleared and for materials given to town projects. Each level is a card to pick.">${uiIcon('standing')}<b class="num">${p.standing.lvl}</b></span>
             ${M.featFor(p).schem ? `<span data-tip="text:Your key: the highest danger level you may set for an expedition.">${uiIcon('key')}<b class="num">${p.key}</b></span>` : ''}`,

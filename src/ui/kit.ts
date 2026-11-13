@@ -118,8 +118,21 @@ export function costSlots(p: M.Profile, cost: Record<string, number>, coin = 0, 
 }
 export const rarityWord = (r: number) => RARITY_NAME[r] ?? '';
 
+// ------------------------------------------------- one pane at a time (phones)
+/** True where a station or the inventory shows one pane at a time and the page itself scrolls. */
+export const onePane = () => matchMedia('(max-width: 900px)').matches;
+/** How far the page is scrolled now. */
+export const pageScroll = () => document.querySelector<HTMLElement>('#overlay .body')?.scrollTop ?? 0;
+/** Once the screen has re-rendered (which keeps the old scroll), put the page at `y`: a newly shown pane starts at its top. */
+export function scrollPageAfter(y: number): void {
+  queueMicrotask(() => {
+    const m = document.querySelector<HTMLElement>('#overlay .body');
+    if (m) m.scrollTop = y;
+  });
+}
+
 // ---------------------------------------------------------------- tooltips
-/** Hover tooltips on desktop; on touch, a tap on a tile that has no action of its own pins the tooltip. */
+/** Hover tooltips on desktop; on touch, a tap on a tile that has no action of its own pins the tooltip, and a tap anywhere closes it. */
 export class Tips {
   private el: HTMLDivElement;
   private pinned: Element | null = null;
@@ -144,18 +157,24 @@ export class Tips {
     root.addEventListener('focusout', () => !this.pinned && this.hide());
     document.addEventListener('click', (e) => {
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
-      if (t && !t.dataset.a && !hover.matches && t !== this.pinned && root.contains(t)) {
+      // a tile inside a button belongs to the button: the tap acts, and the screen it re-renders would hide a pinned tip at once
+      if (t && !t.closest('[data-a]') && !hover.matches && t !== this.pinned && root.contains(t)) {
         this.show(t);
         this.pinned = t;
+        // a pinned tip takes the tap that closes it, so that tap cannot land on the button underneath
+        this.el.style.pointerEvents = 'auto';
       } else {
         this.pinned = null;
         if (!hover.matches || !t) this.hide();
       }
     }, true);
-    addEventListener('scroll', () => this.hide(), true);
+    // a pinned tip taller than a phone held sideways scrolls inside itself; any other scroll closes it
+    addEventListener('scroll', (e) => !this.el.contains(e.target as Node) && this.hide(), true);
+    addEventListener('resize', () => this.hide()); // a turned phone: the tip would point at where the tile was
   }
   hide(): void {
     this.el.hidden = true;
+    this.el.style.pointerEvents = '';
     this.pinned = null;
   }
   private show(t: HTMLElement): void {

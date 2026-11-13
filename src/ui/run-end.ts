@@ -153,7 +153,7 @@ const SKILL_OF: [Skill, Mat['cat'], number][] = [['mining', 'ore', 1], ['logging
 export function summaryView(ui: UI): Page {
   const s = ui.summary;
   const run = ui.doneRun;
-  const backBtn = `<button class="pri" data-a="town" data-key="Enter">Back to town <span class="kc">Enter</span></button>`;
+  const backBtn = `<button class="pri endb" data-a="town" data-key="Enter">Back to town <span class="kc">Enter</span></button>`;
   if (!s || !run) return { title: 'Expedition over', body: '<p class="dim">The expedition is over.</p>', foot: backBtn };
   const p = ui.p;
   const t = run.totals;
@@ -262,7 +262,9 @@ export function summaryView(ui: UI): Page {
     : `<span>${h.text} <span class="dim">(the ${h.tab} tab opens with the ${opensWith(h.tab)} guided expedition)</span></span>`);
   const nextDanger = Math.max(1, Math.min(p.key, p.loadout.keyLevel)); // a key that has just risen moved the loadout up with it
   const guiding = !!p.guided && p.sessions < M.GUIDE_STEPS;
-  const again = !s.race && !guiding && !M.loadoutProblem(p) ? `<button data-a="start" ${`data-tip="text:Leaves at once with the same loadout and kit${M.featFor(p).schem ? `, at danger ${nextDanger}${s.keyUp ? ' (the key has just risen, and the danger with it)' : ''}` : ''}. Packed brews are used up again."`}>Expedition again</button>` : '';
-  const foot = `<span class="footnote">${hints.length ? `New in town: ${hints.map(hintHtml).join(' · ')}` : 'Nothing new is waiting in town.'}</span>${again}${backBtn}`;
-  return { title: fell ? 'Expedition lost' : 'Expedition over', body: `${hero}<div class="sumcols"><div class="stack">${bank}${paid}</div>${stats}</div>`, foot };
+  const again = !s.race && !guiding && !M.loadoutProblem(p) ? `<button class="endb" data-a="start" ${`data-tip="text:Leaves at once with the same loadout and kit${M.featFor(p).schem ? `, at danger ${nextDanger}${s.keyUp ? ' (the key has just risen, and the danger with it)' : ''}` : ''}. Packed brews are used up again."`}>Expedition again</button>` : '';
+  const foot = `<span class="footnote${hints.length ? ' hints' : ''}">${hints.length ? `New in town: ${hints.map(hintHtml).join(' · ')}` : 'Nothing new is waiting in town.'}</span>${again}${backBtn}`;
+  // on a phone the same hints are a list under the outcome: as links wrapped in the footer they made it ~160 px tall
+  const hintPanel = hints.length ? `<div class="panel sumhints"><h2>New in town</h2>${hints.map((h) => `<div class="sumhint">${hintHtml(h)}</div>`).join('')}</div>` : '';
+  return { title: fell ? 'Expedition lost' : 'Expedition over', body: `${hero}${hintPanel}<div class="sumcols"><div class="stack">${bank}${paid}</div>${stats}</div>`, foot };
 }
