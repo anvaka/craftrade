@@ -1,0 +1,149 @@
+# Builds the game on every push and puts it on GitHub Pages, so any branch can be played without a laptop.
+#
+#   default branch  ->  https://<owner>.github.io/<repo>/
+#   any other       ->  https://<owner>.github.io/<repo>/b/<branch, slashes as dashes>/
+#
+# A pull request gets a comment with its preview link when it is opened; the preview is rebuilt on every push to
+# its branch and removed when the branch is deleted.
+# One-time setup: Settings -> Pages -> Source "Deploy from a branch", branch "gh-pages", folder "/ (root)".
+name: Pages
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+  pull_request:
+    types: [opened, reopened]
+  delete:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Deploys push to one branch: one at a time.
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'deploy' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # plays whole expeditions headless: catches crashes and gross imbalance, not fun
+      - run: npm run bot
+
+  deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Where this build goes
+        id: where
+        env:
+          BRANCH: ${{ github.ref_name }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$BRANCH" = "$DEFAULT" ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+            echo "path=" >> "$GITHUB_OUTPUT"
+          else
+            slug=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+            echo "dir=b/$slug" >> "$GITHUB_OUTPUT"
+            echo "path=b/$slug/" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to the gh-pages branch
+        env:
+          DIR: ${{ steps.where.outputs.dir }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin gh-pages; then
+            git worktree add site FETCH_HEAD
+            git -C site checkout -B gh-pages
+          else
+            git worktree add --orphan -b gh-pages site
+          fi
+          cd site
+          touch .nojekyll
+          if [ "$DIR" = "." ]; then
+            # The default branch owns the root. Previews under b/ are kept.
+            find . -mindepth 1 -maxdepth 1 ! -name .git ! -name b ! -name .nojekyll -exec rm -rf {} +
+            cp -R ../dist/. .
+          else
+            rm -rf "$DIR"
+            mkdir -p "$DIR"
+            cp -R ../dist/. "$DIR"
+          fi
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -q -m "Deploy $BRANCH at ${SHA::7}"
+            git push origin gh-pages
+          fi
+      - name: Say where it is
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          WHERE: ${{ steps.where.outputs.path }}
+        run: echo "Play it at https://$OWNER.github.io/$REPO/$WHERE" >> "$GITHUB_STEP_SUMMARY"
+
+  # A pull request from a branch of this repository: post its preview link once.
+  preview-link:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment with the preview link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          OWNER: ${{ github.repository_owner }}
+          NAME: ${{ github.event.repository.name }}
+        run: |
+          slug=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+          url="https://$OWNER.github.io/$NAME/b/$slug/"
+          marker="<!-- preview-link -->"
+          if gh api "repos/$REPO/issues/$NUMBER/comments" --jq '.[].body' | grep -qF "$marker"; then
+            echo "The link is already posted."
+            exit 0
+          fi
+          gh pr comment "$NUMBER" --repo "$REPO" --body "$marker
+          Preview: $url
+
+          It is rebuilt on every push to \`$BRANCH\` (a minute or two after the push; see the Pages workflow run) and removed when the branch is deleted."
+
+  remove-preview:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch' && github.event.ref != 'gh-pages'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - name: Remove the deleted branch's preview
+        env:
+          BRANCH: ${{ github.event.ref }}
+        run: |
+          slug=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+          [ -d "b/$slug" ] || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -rq "b/$slug"
+          git commit -q -m "Remove the preview of $BRANCH"
+          git push origin gh-pages

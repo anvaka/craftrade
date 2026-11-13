@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Gathering under fire: first playable</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f12; color: #e8ecf1;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; overscroll-behavior: none; }
+      canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none;
+        user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: crosshair; }
+      #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: rgba(10, 12, 15, 0.84); padding: 16px; box-sizing: border-box; overflow-y: auto; }
+      #overlay[hidden] { display: none; }
+      .card { max-width: 600px; width: 100%; margin: auto; }
+      h1 { margin: 0 0 4px; font-size: clamp(22px, 5vw, 32px); }
+      .sub { margin: 0 0 14px; color: #9aa5b1; }
+      ul { padding-left: 20px; margin: 0 0 14px; line-height: 1.5; font-size: 15px; }
+      b { color: #f2c230; font-weight: 600; }
+      .controls { font-size: 13px; color: #9aa5b1; line-height: 1.5; margin-bottom: 16px; }
+      .controls b { color: #c9d1db; margin-right: 6px; }
+      .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+      button { flex: 1 1 200px; padding: 14px 16px; font: 600 16px system-ui, sans-serif; color: #14161a;
+        background: #f2c230; border: 0; border-radius: 8px; cursor: pointer; }
+      button.alt { background: #c9d1db; }
+      button:hover { filter: brightness(1.08); }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 15px; }
+      th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #2a3038; }
+      tr:first-child th { color: #9aa5b1; font-weight: 600; font-size: 13px; }
+      th { font-weight: 500; color: #c9d1db; }
+      td { font-variant-numeric: tabular-nums; }
+      .dim { color: #6c7682; }
+      .small { font-size: 12px; margin: 0 0 14px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="overlay" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

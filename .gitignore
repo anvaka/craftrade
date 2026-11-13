@@ -1,0 +1,6 @@
+node_modules
+dist
+.DS_Store
+# Recorded sound candidates still under audition (dev/audio.html). The chosen files are committed once picked,
+# together with public/audio/CREDITS.md, which their licences require.
+public/audio/

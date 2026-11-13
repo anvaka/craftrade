@@ -1,0 +1,7 @@
+Author's tuning of session_sim2.py BASE, regular skill, checks passed out of 10. Recorded so reviewers can see how much tuning the "pass" took.
+first v2 set (growth 1.17, yg 1.7, shrine 22%hp/38, craft .16/14, keep .4): 4/10. Shrine always taken, craft irrelevant, gate-1 farming paid 28 per wave vs 15, no easy runs.
+A,B,C (yg 2.1-2.6, cheaper stronger crafts, dearer shrine): 8/10. Overshot: always push to gate 3, shrine almost never taken.
+D,E,F (yg 1.85-1.95, shrine 28-32%hp): 7-8/10. Shrine became a real choice (taken about half the time). Never extracting early was still as good as optimal.
+G,H,I (keep 0.15-0.25, breakout 1.65-1.8): 7-8/10. Lower keep-on-death did not make early extraction matter.
+J (bag_slow 0.40): 9/10. Heavier bag penalty made extraction a real choice, but then gate-1 farming paid more per wave (25.9 vs 20.4). K, L (other bag settings): 8/10.
+Conclusion: 'depth is a real choice' and 'deep runs pay more per wave than farming gate 1' pulled against each other in every set tried.

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Craft World soundboard</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; background: #0d0f12; color: #e8ecf1; font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+      body { padding: 12px 16px 60px; max-width: 1180px; margin: 0 auto; }
+      h1 { font-size: 19px; margin: 0 0 2px; }
+      p { margin: 0 0 8px; color: #9aa5b1; max-width: 86ch; }
+      h2 { font-size: 14px; margin: 22px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #2a3038; color: #f2c230; }
+      h2 small { color: #7d8794; font-weight: 400; margin-left: 8px; }
+      h3 { font-size: 12px; margin: 10px 0 4px; color: #9aa5b1; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+      button { background: #1b2027; color: #e8ecf1; border: 1px solid #323a45; border-radius: 4px; padding: 6px 10px; font: inherit; cursor: pointer; }
+      button:hover { background: #242b34; border-color: #4a5564; }
+      button:active { background: #2e3743; }
+      button.on { background: #2c4a78; border-color: #5b8fd6; color: #fff; }
+      button.go { background: #2f6a3c; border-color: #4f9a5f; font-weight: 600; padding: 9px 16px; }
+      button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #f2c230; outline-offset: 1px; }
+      .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+      .row > b { color: #7d8794; font-weight: 400; min-width: 86px; }
+      label.sl { display: inline-flex; gap: 8px; align-items: center; margin-right: 14px; }
+      label.sl span { min-width: 72px; color: #9aa5b1; }
+      label.sl output { min-width: 34px; font-variant-numeric: tabular-nums; }
+      input[type='range'] { width: 180px; accent-color: #f2c230; }
+      select { background: #1b2027; color: #e8ecf1; border: 1px solid #323a45; border-radius: 4px; padding: 5px 8px; font: inherit; }
+      #top { position: sticky; top: 0; z-index: 5; background: #0d0f12ee; padding: 8px 0; border-bottom: 1px solid #2a3038; }
+      #meter { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #c7ced6; white-space: pre; }
+      #meter .hot { color: #ff7a6b; }
+      .mbar { display: inline-block; width: 220px; height: 8px; background: #1b2027; border: 1px solid #323a45; vertical-align: middle; position: relative; }
+      .mbar i { position: absolute; inset: 0 auto 0 0; background: #6fbf73; }
+      .mbar u { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #f2c230; }
+      table { border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
+      th, td { border: 1px solid #2a3038; padding: 3px 8px; text-align: right; }
+      th:first-child, td:first-child { text-align: left; }
+      th { color: #9aa5b1; font-weight: 600; }
+      audio { height: 28px; vertical-align: middle; }
+      .note { color: #7d8794; font-size: 12px; }
+      #gate { padding: 18px; border: 1px solid #4f9a5f; background: #14201a; margin: 10px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Soundboard</h1>
+    <p>Every sound in the game, played by the same code the game runs. The first section lists the recordings on offer for each sound, to play, compare and choose; the numbered sections below are the synthesised sounds and the controls that drive them. Mute, the two volumes and your choices are the game's own saved settings.</p>
+    <div id="gate"><button class="go" id="start">Start audio</button> <span class="note">A browser only lets sound start from a click.</span></div>
+    <div id="top"></div>
+    <div id="root"></div>
+    <script type="module" src="./audio.ts"></script>
+  </body>
+</html>
